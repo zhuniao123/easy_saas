@@ -3,3 +3,4 @@ com/example/lowcode/service/PageService.class
 com/example/lowcode/controller/QueryController.class
 com/example/lowcode/LowcodeApplication.class
 com/example/lowcode/controller/PageController.class
+com/example/lowcode/controller/ScriptController.class

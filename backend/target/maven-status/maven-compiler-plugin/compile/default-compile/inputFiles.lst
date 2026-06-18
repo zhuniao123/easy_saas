@@ -2,4 +2,5 @@
 /root/saas-demo/backend/src/main/java/com/example/lowcode/controller/PageController.java
 /root/saas-demo/backend/src/main/java/com/example/lowcode/controller/QueryController.java
 /root/saas-demo/backend/src/main/java/com/example/lowcode/service/QueryEngineService.java
+/root/saas-demo/backend/src/main/java/com/example/lowcode/controller/ScriptController.java
 /root/saas-demo/backend/src/main/java/com/example/lowcode/service/PageService.java
