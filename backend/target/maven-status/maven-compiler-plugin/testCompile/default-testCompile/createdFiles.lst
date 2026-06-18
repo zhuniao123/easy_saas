@@ -2,3 +2,4 @@ com/example/lowcode/DatabaseSchemaTest.class
 com/example/lowcode/PageControllerTest.class
 com/example/lowcode/ScriptControllerTest.class
 com/example/lowcode/QueryControllerTest.class
+com/example/lowcode/GroovyInterceptorTest.class

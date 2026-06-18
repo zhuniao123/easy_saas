@@ -1,6 +1,8 @@
 com/example/lowcode/service/QueryEngineService.class
 com/example/lowcode/service/PageService.class
 com/example/lowcode/controller/QueryController.class
+com/example/lowcode/service/GroovyScriptService.class
 com/example/lowcode/LowcodeApplication.class
+com/example/lowcode/interceptor/IGroovyActionInterceptor.class
 com/example/lowcode/controller/PageController.class
 com/example/lowcode/controller/ScriptController.class
