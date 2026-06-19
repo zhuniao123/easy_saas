@@ -13,7 +13,7 @@ public class QueryController {
     private QueryEngineService queryEngineService;
 
     @PostMapping("/{queryCode}/execute")
-    public List<Map<String, Object>> execute(@PathVariable String queryCode, @RequestBody Map<String, Object> requestBody) {
+    public Map<String, Object> execute(@PathVariable String queryCode, @RequestBody Map<String, Object> requestBody) {
         Map<String, Object> params = (Map<String, Object>) requestBody.get("params");
         return queryEngineService.executeSql(queryCode, params);
     }

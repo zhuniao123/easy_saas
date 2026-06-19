@@ -31,6 +31,37 @@ public class QueryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"params\":{\"code\":\"users\"}}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].val").value(1));
+                .andExpect(jsonPath("$.rows[0].val").value(1));
+    }
+
+    @Test
+    public void testExecuteQueryWithDynamicSchema() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS users CASCADE");
+        jdbcTemplate.execute("CREATE TABLE users (username VARCHAR(50))");
+        jdbcTemplate.execute("INSERT INTO users(username) VALUES ('alice')");
+        
+        // 1. Insert entity model for table "users"
+        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, fields_json) " +
+                "VALUES ('users', 'users', '[{\"field\":\"username\",\"label\":\"用户名\",\"type\":\"string\"}]'::jsonb)");
+        
+        // 2. Insert query model that has a mapped column (username) and a calculated/unrecognized fallback column (alias: total_score)
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text) " +
+                "VALUES ('q_users_score', 'users', 'SELECT username, 100 AS total_score FROM users WHERE username = :code')");
+        
+        mockMvc.perform(post("/api/v1/queries/q_users_score/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{\"code\":\"alice\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows[0].username").value("alice"))
+                .andExpect(jsonPath("$.rows[0].total_score").value(100))
+                .andExpect(jsonPath("$.columns[0].field").value("username"))
+                .andExpect(jsonPath("$.columns[0].label").value("用户名"))
+                .andExpect(jsonPath("$.columns[0].type").value("string"))
+                .andExpect(jsonPath("$.columns[1].field").value("total_score"))
+                .andExpect(jsonPath("$.columns[1].label").value("total_score")) // Fallback to alias name!
+                .andExpect(jsonPath("$.columns[1].type").value("integer")); // Deduced from JDBC type
     }
 }
+

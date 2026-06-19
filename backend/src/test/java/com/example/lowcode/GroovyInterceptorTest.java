@@ -38,8 +38,9 @@ public class GroovyInterceptorTest {
         jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, groovy_script_code) VALUES ('q_test', 'users', 'SELECT 1 as val', 'test_groovy')");
 
         Map<String, Object> req = new HashMap<>();
-        List<Map<String, Object>> res = queryEngine.executeSql("q_test", req);
-        
-        assertThat(res.get(0).get("val")).isEqualTo(88);
+        Map<String, Object> res = queryEngine.executeSql("q_test", req);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) res.get("rows");
+        assertThat(rows.get(0).get("val")).isEqualTo(88);
     }
 }
