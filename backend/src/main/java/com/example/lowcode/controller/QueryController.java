@@ -33,4 +33,14 @@ public class QueryController {
         res.put("status", "success");
         return res;
     }
+
+    @PostMapping("/execute-raw")
+    public Map<String, Object> executeRaw(@RequestBody Map<String, Object> requestBody) {
+        String sql = (String) requestBody.get("sql");
+        queryEngineService.executeRawSql(sql);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        res.put("message", "Statement executed successfully.");
+        return res;
+    }
 }

@@ -244,5 +244,9 @@ public class QueryEngineService {
             params
         );
     }
+
+    public void executeRawSql(String sql) {
+        jdbcTemplate.getJdbcOperations().execute(sql);
+    }
 }
 

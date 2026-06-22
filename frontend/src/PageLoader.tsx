@@ -35,6 +35,8 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
   const [fieldsJsonStr, setFieldsJsonStr] = useState<string>('');
   const [devConsoleOpen, setDevConsoleOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [rawSql, setRawSql] = useState<string>('');
+  const [executeStatus, setExecuteStatus] = useState<string | null>(null);
 
   const executePageQuery = (qCode: string) => {
     setLoadingQuery(true);
@@ -143,6 +145,35 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
       })
       .catch((err) => {
         setSaveStatus('Error saving schema config');
+        console.error(err);
+      });
+  };
+
+  const handleExecuteRawSql = () => {
+    if (!rawSql.trim()) return;
+    setExecuteStatus('Executing statement...');
+    fetch('/api/v1/queries/execute-raw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: rawSql })
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((errData) => {
+            throw new Error(errData.message || 'Execution failed');
+          });
+        }
+        return res.json();
+      })
+      .then(() => {
+        setExecuteStatus('Statement executed successfully!');
+        if (queryCode) {
+          executePageQuery(queryCode);
+        }
+        setTimeout(() => setExecuteStatus(null), 3000);
+      })
+      .catch((err) => {
+        setExecuteStatus(`Execution error: ${err.message}`);
         console.error(err);
       });
   };
@@ -259,7 +290,7 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* SQL Editor Area */}
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -300,6 +331,33 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
                 >
                   Save & Apply Schema Config
                 </button>
+              </div>
+
+              {/* Database Execute Console (Raw SQL) */}
+              <div className="space-y-2 flex flex-col">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Database Execute Console (Raw DDL/DML)
+                </label>
+                <textarea
+                  value={rawSql}
+                  onChange={(e) => setRawSql(e.target.value)}
+                  placeholder="Enter CREATE TABLE, INSERT, or other DDL/DML statements here..."
+                  rows={8}
+                  className="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-600 resize-y"
+                />
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={handleExecuteRawSql}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer border-none"
+                  >
+                    Execute Statement
+                  </button>
+                  {executeStatus && (
+                    <span className="text-xs font-semibold text-indigo-400 animate-pulse">
+                      {executeStatus}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

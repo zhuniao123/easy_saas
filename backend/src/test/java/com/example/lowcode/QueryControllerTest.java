@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -101,6 +102,22 @@ public class QueryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"fieldsJson\":\"[{\\\"field\\\":\\\"username\\\",\\\"label\\\":\\\"用户名\\\",\\\"type\\\":\\\"string\\\"}]\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    public void testExecuteRawSql() throws Exception {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_raw CASCADE");
+
+        // Execute DDL statement via raw API
+        mockMvc.perform(post("/api/v1/queries/execute-raw")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"sql\":\"CREATE TABLE test_raw (id INT, val TEXT); INSERT INTO test_raw VALUES (1, 'RawData')\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"));
+
+        // Query database to verify table was created and data inserted
+        Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM test_raw", Integer.class);
+        assertThat(count).isEqualTo(1);
     }
 }
 

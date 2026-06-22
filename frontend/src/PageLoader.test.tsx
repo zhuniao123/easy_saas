@@ -126,5 +126,44 @@ test('renders developer configuration panel and inputs', async () => {
   });
 });
 
+test('renders database execute console textarea and button', async () => {
+  const mockPageData = {
+    pageCode: 'user_list',
+    title: 'User Dashboard',
+    queryCode: 'q_users_score',
+    entityCode: 'users',
+    config: { actions: [], columns: [], filters: [] }
+  };
+
+  global.fetch = vi.fn().mockImplementation((url) => {
+    if (url.includes('/api/v1/pages/user_list')) {
+      return Promise.resolve({ json: () => Promise.resolve(mockPageData) } as Response);
+    }
+    if (url.includes('/api/v1/queries/q_users_score/execute')) {
+      return Promise.resolve({ json: () => Promise.resolve({ columns: [], rows: [] }) } as Response);
+    }
+    if (url.includes('/api/v1/queries/q_users_score')) {
+      return Promise.resolve({ json: () => Promise.resolve({ sqlText: '' }) } as Response);
+    }
+    if (url.includes('/api/v1/pages/entities/users')) {
+      return Promise.resolve({ json: () => Promise.resolve({ fields: [] }) } as Response);
+    }
+    return Promise.reject(new Error('Unknown url: ' + url));
+  });
+
+  render(<PageLoader pageCode="user_list" />);
+  
+  await waitFor(() => {
+    expect(screen.getByText('Developer Configuration Console')).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByText('Developer Configuration Console'));
+
+  await waitFor(() => {
+    expect(screen.getByPlaceholderText('Enter CREATE TABLE, INSERT, or other DDL/DML statements here...')).toBeInTheDocument();
+  });
+});
+
+
 
 
