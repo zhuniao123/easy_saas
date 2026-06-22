@@ -4,6 +4,7 @@ interface PageConfig {
   pageCode: string;
   title: string;
   queryCode?: string;
+  entityCode?: string;
   config: {
     actions: Array<{ code: string; label: string; scriptCode: string; methodName: string }>;
     columns: Array<{ field: string; label: string }>;
@@ -27,6 +28,32 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [loadingQuery, setLoadingQuery] = useState(false);
 
+  // Developer mode playground configurations
+  const [queryCode, setQueryCode] = useState<string | null>(null);
+  const [entityCode, setEntityCode] = useState<string | null>(null);
+  const [sqlText, setSqlText] = useState<string>('');
+  const [fieldsJsonStr, setFieldsJsonStr] = useState<string>('');
+  const [devConsoleOpen, setDevConsoleOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  const executePageQuery = (qCode: string) => {
+    setLoadingQuery(true);
+    fetch(`/api/v1/queries/${qCode}/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ params: {} })
+    })
+      .then((res) => res.json())
+      .then((qData) => {
+        setQueryResult(qData);
+        setLoadingQuery(false);
+      })
+      .catch((err) => {
+        console.error("Failed to execute dynamic page query:", err);
+        setLoadingQuery(false);
+      });
+  };
+
   useEffect(() => {
     fetch(`/api/v1/pages/${pageCode}`)
       .then((res) => res.json())
@@ -46,24 +73,79 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
         });
 
         if (data.queryCode) {
-          setLoadingQuery(true);
-          fetch(`/api/v1/queries/${data.queryCode}/execute`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ params: {} })
-          })
+          setQueryCode(data.queryCode);
+          executePageQuery(data.queryCode);
+          
+          // Fetch query configuration text
+          fetch(`/api/v1/queries/${data.queryCode}`)
             .then((res) => res.json())
-            .then((qData) => {
-              setQueryResult(qData);
-              setLoadingQuery(false);
+            .then((qConfig) => {
+              setSqlText(qConfig.sqlText || '');
             })
-            .catch((err) => {
-              console.error("Failed to execute dynamic page query:", err);
-              setLoadingQuery(false);
-            });
+            .catch((err) => console.error("Error loading query configuration:", err));
+        }
+
+        if (data.entityCode) {
+          setEntityCode(data.entityCode);
+          
+          // Fetch entity fields configuration
+          fetch(`/api/v1/pages/entities/${data.entityCode}`)
+            .then((res) => res.json())
+            .then((eConfig) => {
+              setFieldsJsonStr(JSON.stringify(eConfig.fields || [], null, 2));
+            })
+            .catch((err) => console.error("Error loading entity configuration:", err));
         }
       });
   }, [pageCode]);
+
+  const handleSaveSql = () => {
+    if (!queryCode) return;
+    setSaveStatus('Saving SQL Query...');
+    fetch(`/api/v1/queries/${queryCode}/configure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sqlText })
+    })
+      .then((res) => res.json())
+      .then(() => {
+        setSaveStatus('SQL Saved successfully!');
+        executePageQuery(queryCode);
+        setTimeout(() => setSaveStatus(null), 3000);
+      })
+      .catch((err) => {
+        setSaveStatus('Error saving SQL query');
+        console.error(err);
+      });
+  };
+
+  const handleSaveSchema = () => {
+    if (!entityCode) return;
+    try {
+      JSON.parse(fieldsJsonStr);
+    } catch (e) {
+      setSaveStatus('Invalid JSON format for schema config');
+      return;
+    }
+    setSaveStatus('Saving Schema Config...');
+    fetch(`/api/v1/pages/entities/${entityCode}/configure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fieldsJson: fieldsJsonStr })
+    })
+      .then((res) => res.json())
+      .then(() => {
+        setSaveStatus('Schema Saved successfully!');
+        if (queryCode) {
+          executePageQuery(queryCode);
+        }
+        setTimeout(() => setSaveStatus(null), 3000);
+      })
+      .catch((err) => {
+        setSaveStatus('Error saving schema config');
+        console.error(err);
+      });
+  };
 
   if (!config) return <div className="p-8 text-center text-slate-500 animate-pulse">Loading Configuration...</div>;
 
@@ -154,6 +236,75 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
           </table>
         </div>
       )}
+
+      {/* Developer Configuration Console */}
+      <div className="mt-8 border border-slate-200 rounded-2xl bg-white shadow-lg overflow-hidden transition-all duration-200">
+        <button
+          onClick={() => setDevConsoleOpen(!devConsoleOpen)}
+          className="w-full flex items-center justify-between px-6 py-4 bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition duration-150 cursor-pointer border-none"
+        >
+          <div className="flex items-center gap-2">
+            <span>⚙️</span>
+            <span>Developer Configuration Console</span>
+            <span className="text-xs font-normal text-slate-400 font-mono">(Bound to Query: {queryCode || 'None'})</span>
+          </div>
+          <span className="text-xs text-indigo-400">{devConsoleOpen ? 'Collapse [-]' : 'Expand [+]'}</span>
+        </button>
+
+        {devConsoleOpen && (
+          <div className="p-6 bg-slate-950 space-y-6 text-white">
+            {saveStatus && (
+              <div className="p-3 text-xs rounded-lg font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 animate-pulse">
+                {saveStatus}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* SQL Editor Area */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  SQL Query Text
+                </label>
+                <textarea
+                  value={sqlText}
+                  onChange={(e) => setSqlText(e.target.value)}
+                  placeholder="Enter bound SQL text here..."
+                  rows={8}
+                  className="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-600 resize-y"
+                />
+                <button
+                  onClick={handleSaveSql}
+                  disabled={!queryCode}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer disabled:opacity-50 border-none"
+                >
+                  Save & Apply SQL
+                </button>
+              </div>
+
+              {/* JSON Schema Configuration Area */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Entity Schema Config (fields_json)
+                </label>
+                <textarea
+                  value={fieldsJsonStr}
+                  onChange={(e) => setFieldsJsonStr(e.target.value)}
+                  placeholder="Enter JSON schema here..."
+                  rows={8}
+                  className="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-600 resize-y"
+                />
+                <button
+                  onClick={handleSaveSchema}
+                  disabled={!entityCode}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer disabled:opacity-50 border-none"
+                >
+                  Save & Apply Schema Config
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
