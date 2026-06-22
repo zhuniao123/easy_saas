@@ -113,15 +113,10 @@ test('renders developer configuration panel and inputs', async () => {
     return Promise.reject(new Error('Unknown url: ' + url));
   });
 
-  render(<PageLoader pageCode="user_list" />);
+  render(<PageLoader pageCode="user_list" mode="config" />);
   
   await waitFor(() => {
     expect(screen.getByText('Developer Configuration Console')).toBeInTheDocument();
-  });
-
-  fireEvent.click(screen.getByText('Developer Configuration Console'));
-
-  await waitFor(() => {
     expect(screen.getByPlaceholderText('Enter bound SQL text here...')).toBeInTheDocument();
   });
 });
@@ -151,15 +146,10 @@ test('renders database execute console textarea and button', async () => {
     return Promise.reject(new Error('Unknown url: ' + url));
   });
 
-  render(<PageLoader pageCode="user_list" />);
+  render(<PageLoader pageCode="user_list" mode="config" />);
   
   await waitFor(() => {
     expect(screen.getByText('Developer Configuration Console')).toBeInTheDocument();
-  });
-
-  fireEvent.click(screen.getByText('Developer Configuration Console'));
-
-  await waitFor(() => {
     expect(screen.getByPlaceholderText('Enter CREATE TABLE, INSERT, or other DDL/DML statements here...')).toBeInTheDocument();
   });
 });

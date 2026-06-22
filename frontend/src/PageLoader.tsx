@@ -23,7 +23,7 @@ interface QueryResult {
   rows: Array<Record<string, any>>;
 }
 
-export default function PageLoader({ pageCode }: { pageCode: string }) {
+export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: string; mode?: 'config' | 'runtime' }) {
   const [config, setConfig] = useState<PageConfig | null>(null);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [loadingQuery, setLoadingQuery] = useState(false);
@@ -33,7 +33,7 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
   const [entityCode, setEntityCode] = useState<string | null>(null);
   const [sqlText, setSqlText] = useState<string>('');
   const [fieldsJsonStr, setFieldsJsonStr] = useState<string>('');
-  const [devConsoleOpen, setDevConsoleOpen] = useState(false);
+  const [devConsoleOpen, setDevConsoleOpen] = useState(mode === 'config');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [rawSql, setRawSql] = useState<string>('');
   const [executeStatus, setExecuteStatus] = useState<string | null>(null);
@@ -269,20 +269,17 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
       )}
 
       {/* Developer Configuration Console */}
-      <div className="mt-8 border border-slate-200 rounded-2xl bg-white shadow-lg overflow-hidden transition-all duration-200">
-        <button
-          onClick={() => setDevConsoleOpen(!devConsoleOpen)}
-          className="w-full flex items-center justify-between px-6 py-4 bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition duration-150 cursor-pointer border-none"
-        >
-          <div className="flex items-center gap-2">
-            <span>⚙️</span>
-            <span>Developer Configuration Console</span>
-            <span className="text-xs font-normal text-slate-400 font-mono">(Bound to Query: {queryCode || 'None'})</span>
+      {mode === 'config' && (
+        <div className="mt-8 border border-slate-800 rounded-2xl bg-slate-950 shadow-xl overflow-hidden transition-all duration-200">
+          <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>⚙️</span>
+              <span className="font-semibold text-sm">Developer Configuration Console</span>
+              <span className="text-xs font-normal text-slate-400 font-mono">(Bound to Query: {queryCode || 'None'})</span>
+            </div>
+            <span className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Config Mode</span>
           </div>
-          <span className="text-xs text-indigo-400">{devConsoleOpen ? 'Collapse [-]' : 'Expand [+]'}</span>
-        </button>
 
-        {devConsoleOpen && (
           <div className="p-6 bg-slate-950 space-y-6 text-white">
             {saveStatus && (
               <div className="p-3 text-xs rounded-lg font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 animate-pulse">
@@ -361,9 +358,8 @@ export default function PageLoader({ pageCode }: { pageCode: string }) {
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
-

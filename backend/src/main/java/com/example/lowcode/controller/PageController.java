@@ -14,6 +14,11 @@ public class PageController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @GetMapping
+    public java.util.List<Map<String, Object>> listPages() {
+        return pageService.listPages();
+    }
+
     @GetMapping("/{pageCode}")
     public Map<String, Object> getPage(@PathVariable String pageCode) throws Exception {
         Map<String, Object> config = pageService.getPageConfig(pageCode);

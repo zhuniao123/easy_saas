@@ -55,4 +55,20 @@ public class PageService {
             params
         );
     }
+
+    public java.util.List<Map<String, Object>> listPages() {
+        return jdbcTemplate.query(
+            "SELECT page_code as \"pageCode\", title, route_path as \"routePath\", query_code as \"queryCode\", entity_code as \"entityCode\" FROM lc_page_model ORDER BY page_code",
+            new HashMap<>(),
+            (rs, rowNum) -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("pageCode", rs.getString("pageCode"));
+                map.put("title", rs.getString("title"));
+                map.put("routePath", rs.getString("routePath"));
+                map.put("queryCode", rs.getString("queryCode"));
+                map.put("entityCode", rs.getString("entityCode"));
+                return map;
+            }
+        );
+    }
 }
