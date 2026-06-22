@@ -1,122 +1,87 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from 'react';
+import PageLoader from './PageLoader';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [pageCode, setPageCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Parse URL parameter on load and on popstate
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search);
+      const page = params.get('page');
+      setPageCode(page);
+    };
+
+    handleUrlChange();
+    window.addEventListener('popstate', handleUrlChange);
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, []);
+
+  const navigateToPage = (code: string | null) => {
+    const url = new URL(window.location.href);
+    if (code) {
+      url.searchParams.set('page', code);
+    } else {
+      url.searchParams.delete('page');
+    }
+    window.history.pushState({}, '', url.toString());
+    setPageCode(code);
+  };
+
+  if (pageCode) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <nav className="bg-white border-b border-slate-100 px-6 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <button 
+              onClick={() => navigateToPage(null)}
+              className="text-sm font-semibold text-indigo-600 hover:text-indigo-500 cursor-pointer flex items-center gap-1 border-0 bg-transparent"
+            >
+              ← Back to Portal
+            </button>
+            <span className="text-xs text-slate-400 font-medium font-mono">Dynamic Page: {pageCode}</span>
+          </div>
+        </nav>
+        <PageLoader pageCode={pageCode} />
+      </div>
+    );
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="min-h-screen bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-400/20 text-indigo-400 text-3xl shadow-inner animate-pulse">
+          ⚡
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+          Lowcode Portal
+        </h2>
+        <p className="text-sm text-indigo-200/80 max-w-sm mx-auto">
+          Dynamically generated, SQL-driven business page engine.
+        </p>
+      </div>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white/10 backdrop-blur-md py-8 px-6 shadow-2xl border border-white/10 rounded-3xl space-y-6">
+          <h3 className="text-lg font-semibold text-white">Available Workspaces</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <button
+              onClick={() => navigateToPage('test_page')}
+              className="group relative flex items-center gap-4 rounded-2xl border border-white/5 bg-white/5 p-4 text-left hover:bg-white/10 hover:border-indigo-500/50 transition duration-200 ease-in-out cursor-pointer hover:-translate-y-0.5"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300 text-lg group-hover:scale-110 transition duration-200">
+                📊
+              </span>
+              <div>
+                <span className="block text-sm font-semibold text-white">Test Page Dashboard</span>
+                <span className="block text-xs text-indigo-200/60 mt-0.5">Loads config from database & runs test_page SQL queries</span>
+              </div>
+            </button>
+          </div>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
