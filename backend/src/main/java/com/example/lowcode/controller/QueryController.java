@@ -17,4 +17,20 @@ public class QueryController {
         Map<String, Object> params = (Map<String, Object>) requestBody.get("params");
         return queryEngineService.executeSql(queryCode, params);
     }
+
+    @GetMapping("/{queryCode}")
+    public Map<String, Object> getQuery(@PathVariable String queryCode) {
+        return queryEngineService.getQueryConfig(queryCode);
+    }
+
+    @PostMapping("/{queryCode}/configure")
+    public Map<String, Object> configure(
+            @PathVariable String queryCode,
+            @RequestBody Map<String, Object> requestBody) {
+        String sqlText = (String) requestBody.get("sqlText");
+        queryEngineService.updateQueryConfig(queryCode, sqlText);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
 }

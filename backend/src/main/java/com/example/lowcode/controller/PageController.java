@@ -21,4 +21,23 @@ public class PageController {
         config.put("config", objectMapper.readValue(configJsonStr, Map.class));
         return config;
     }
+
+    @GetMapping("/entities/{entityCode}")
+    public Map<String, Object> getEntity(@PathVariable String entityCode) throws Exception {
+        Map<String, Object> config = pageService.getEntityConfig(entityCode);
+        String fieldsJsonStr = (String) config.get("fieldsJson");
+        config.put("fields", objectMapper.readValue(fieldsJsonStr, Object.class));
+        return config;
+    }
+
+    @PostMapping("/entities/{entityCode}/configure")
+    public Map<String, Object> configureEntity(
+            @PathVariable String entityCode,
+            @RequestBody Map<String, Object> requestBody) throws Exception {
+        String fieldsJsonStr = (String) requestBody.get("fieldsJson");
+        pageService.updateEntityConfig(entityCode, fieldsJsonStr);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
 }

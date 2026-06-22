@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
@@ -62,6 +63,44 @@ public class QueryControllerTest {
                 .andExpect(jsonPath("$.columns[1].field").value("total_score"))
                 .andExpect(jsonPath("$.columns[1].label").value("total_score")) // Fallback to alias name!
                 .andExpect(jsonPath("$.columns[1].type").value("integer")); // Deduced from JDBC type
+    }
+
+    @Test
+    public void testQueryAndEntityConfiguration() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        
+        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, fields_json) " +
+                "VALUES ('users', 'users', '[]'::jsonb)");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text) " +
+                "VALUES ('q_users_score', 'users', 'SELECT 1 as val')");
+
+        // 1. Get query config
+        mockMvc.perform(get("/api/v1/queries/q_users_score"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sqlText").value("SELECT 1 as val"));
+
+        // 2. Post new query config
+        mockMvc.perform(post("/api/v1/queries/q_users_score/configure")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"sqlText\":\"SELECT 2 as val\"}"))
+                .andExpect(status().isOk());
+
+        // Verify query updated
+        mockMvc.perform(get("/api/v1/queries/q_users_score"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sqlText").value("SELECT 2 as val"));
+
+        // 3. Get entity config
+        mockMvc.perform(get("/api/v1/pages/entities/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entityCode").value("users"));
+
+        // 4. Post entity schema config
+        mockMvc.perform(post("/api/v1/pages/entities/users/configure")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fieldsJson\":\"[{\\\"field\\\":\\\"username\\\",\\\"label\\\":\\\"用户名\\\",\\\"type\\\":\\\"string\\\"}]\"}"))
+                .andExpect(status().isOk());
     }
 }
 
