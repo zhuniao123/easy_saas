@@ -45,4 +45,23 @@ public class PageController {
         res.put("status", "success");
         return res;
     }
+
+    @PostMapping
+    public Map<String, Object> createPage(@RequestBody Map<String, Object> requestBody) {
+        String pageCode = (String) requestBody.get("pageCode");
+        String title = (String) requestBody.get("title");
+        String routePath = (String) requestBody.get("routePath");
+        pageService.createPage(pageCode, title, routePath);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
+
+    @DeleteMapping("/{pageCode}")
+    public Map<String, Object> deletePage(@PathVariable String pageCode) {
+        pageService.deletePage(pageCode);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
 }

@@ -23,19 +23,24 @@
 
 ## 2. Implementation Todo Steps
 
-- [ ] **Task 1: Backend - Expose List Pages API**
-  - [ ] **Step 1.1**: Update `PageService.java` to support `listPages()` querying `lc_page_model`.
-  - [ ] **Step 1.2**: Update `PageController.java` exposing `GET /api/v1/pages` returning the pages list.
-  - [ ] **Step 1.3**: Restart backend and run verification via curl.
+- [x] **Task 1: Backend - Expose List Pages API**
+  - [x] **Step 1.1**: Update `PageService.java` to support `listPages()` querying `lc_page_model`.
+  - [x] **Step 1.2**: Update `PageController.java` exposing `GET /api/v1/pages` returning the pages list.
+  - [x] **Step 1.3**: Restart backend and run verification via curl.
 
-- [ ] **Task 2: Frontend - Database Seeding**
-  - [ ] **Step 2.1**: Seed another page `user_page` in PostgreSQL to verify multi-page navigation.
+- [x] **Task 2: Frontend - Database Seeding**
+  - [x] **Step 2.1**: Seed another page `user_page` in PostgreSQL to verify multi-page navigation.
 
-- [ ] **Task 3: Frontend - Layout Refactoring**
-  - [ ] **Step 3.1**: Modify `PageLoader.tsx` to accept a `mode` prop (`"config"` | `"runtime"`). If `"runtime"`, hide the `Developer Configuration Console` layout panel.
-  - [ ] **Step 3.2**: Refactor `App.tsx` into a 2-column layout (Sidebar + Tabs Main Canvas).
-  - [ ] **Step 3.3**: Support active tab states (`id`, `title`, `pageCode`, `mode`, `queryCode`, `entityCode`) to allow switching without losing input parameters.
+- [x] **Task 3: Frontend - Layout Refactoring**
+  - [x] **Step 3.1**: Modify `PageLoader.tsx` to accept a `mode` prop (`"config"` | `"runtime"`). If `"runtime"`, hide the `Developer Configuration Console` layout panel.
+  - [x] **Step 3.2**: Refactor `App.tsx` into a 2-column layout (Sidebar + Tabs Main Canvas).
+  - [x] **Step 3.3**: Support active tab states (`id`, `title`, `pageCode`, `mode`, `queryCode`, `entityCode`) to allow switching without losing input parameters.
 
-- [ ] **Task 4: Verification & Testing**
-  - [ ] **Step 4.1**: Update vitest tests in `PageLoader.test.tsx` and run testing suites.
-  - [ ] **Step 4.2**: Verify live integration via browser.
+- [x] **Task 4: Verification & Testing**
+  - [x] **Step 4.1**: Update vitest tests in `PageLoader.test.tsx` and run testing suites.
+  - [x] **Step 4.2**: Verify live integration via browser.
+
+- [x] **Task 5: Frontend Page Manager & CRUD Actions Integration**
+  - [x] **Step 5.1**: Append `createPage` & `deletePage` mutations to backend service and controllers.
+  - [x] **Step 5.2**: Add `PageManagerConsole` form and deletion triggers inside frontend router.
+  - [x] **Step 5.3**: Start services and confirm public exposure.
