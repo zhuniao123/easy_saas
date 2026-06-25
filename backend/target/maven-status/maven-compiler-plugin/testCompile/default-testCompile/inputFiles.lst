@@ -1,0 +1,5 @@
+/root/saas-demo/backend/src/test/java/com/example/lowcode/ScriptControllerTest.java
+/root/saas-demo/backend/src/test/java/com/example/lowcode/GroovyInterceptorTest.java
+/root/saas-demo/backend/src/test/java/com/example/lowcode/PageControllerTest.java
+/root/saas-demo/backend/src/test/java/com/example/lowcode/QueryControllerTest.java
+/root/saas-demo/backend/src/test/java/com/example/lowcode/DatabaseSchemaTest.java
