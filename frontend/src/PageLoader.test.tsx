@@ -14,6 +14,7 @@ test('renders dynamic page title from metadata api', async () => {
 
   global.fetch = vi.fn().mockImplementation(() =>
     Promise.resolve({
+      ok: true,
       json: () => Promise.resolve(mockPageData),
     } as Response)
   );
@@ -46,21 +47,25 @@ test('renders table headers and rows based on dynamic query response', async () 
   global.fetch = vi.fn().mockImplementation((url) => {
     if (url.includes('/api/v1/pages/entities/')) {
       return Promise.resolve({
+        ok: true,
         json: () => Promise.resolve({ entityCode: 'users', fields: [] }),
       } as Response);
     }
     if (url.includes('/api/v1/queries/q_users_score/execute')) {
       return Promise.resolve({
+        ok: true,
         json: () => Promise.resolve(mockQueryData),
       } as Response);
     }
     if (url.includes('/api/v1/queries/')) {
       return Promise.resolve({
+        ok: true,
         json: () => Promise.resolve({ queryCode: 'q_users_score', sqlText: '' }),
       } as Response);
     }
     if (url.includes('/api/v1/pages/')) {
       return Promise.resolve({
+        ok: true,
         json: () => Promise.resolve(mockPageData),
       } as Response);
     }
@@ -99,16 +104,16 @@ test('renders developer configuration panel and inputs', async () => {
 
   global.fetch = vi.fn().mockImplementation((url) => {
     if (url.includes('/api/v1/pages/user_list')) {
-      return Promise.resolve({ json: () => Promise.resolve(mockPageData) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockPageData) } as Response);
     }
     if (url.includes('/api/v1/queries/q_users_score/execute')) {
-      return Promise.resolve({ json: () => Promise.resolve({ columns: [], rows: [] }) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ columns: [], rows: [] }) } as Response);
     }
     if (url.includes('/api/v1/queries/q_users_score')) {
-      return Promise.resolve({ json: () => Promise.resolve(mockQueryConfig) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockQueryConfig) } as Response);
     }
     if (url.includes('/api/v1/pages/entities/users')) {
-      return Promise.resolve({ json: () => Promise.resolve(mockEntityConfig) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockEntityConfig) } as Response);
     }
     return Promise.reject(new Error('Unknown url: ' + url));
   });
@@ -132,16 +137,16 @@ test('renders database execute console textarea and button', async () => {
 
   global.fetch = vi.fn().mockImplementation((url) => {
     if (url.includes('/api/v1/pages/user_list')) {
-      return Promise.resolve({ json: () => Promise.resolve(mockPageData) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockPageData) } as Response);
     }
     if (url.includes('/api/v1/queries/q_users_score/execute')) {
-      return Promise.resolve({ json: () => Promise.resolve({ columns: [], rows: [] }) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ columns: [], rows: [] }) } as Response);
     }
     if (url.includes('/api/v1/queries/q_users_score')) {
-      return Promise.resolve({ json: () => Promise.resolve({ sqlText: '' }) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ sqlText: '' }) } as Response);
     }
     if (url.includes('/api/v1/pages/entities/users')) {
-      return Promise.resolve({ json: () => Promise.resolve({ fields: [] }) } as Response);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ fields: [] }) } as Response);
     }
     return Promise.reject(new Error('Unknown url: ' + url));
   });

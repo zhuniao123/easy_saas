@@ -64,4 +64,35 @@ public class PageController {
         res.put("status", "success");
         return res;
     }
+
+    @PostMapping("/{pageCode}/data")
+    public Map<String, Object> insertData(
+            @PathVariable String pageCode,
+            @RequestBody Map<String, Object> rowData) {
+        pageService.insertRow(pageCode, rowData);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
+
+    @PutMapping("/{pageCode}/data/{id}")
+    public Map<String, Object> updateData(
+            @PathVariable String pageCode,
+            @PathVariable Object id,
+            @RequestBody Map<String, Object> rowData) {
+        pageService.updateRow(pageCode, id, rowData);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
+
+    @DeleteMapping("/{pageCode}/data/{id}")
+    public Map<String, Object> deleteData(
+            @PathVariable String pageCode,
+            @PathVariable Object id) {
+        pageService.deleteRow(pageCode, id);
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
 }

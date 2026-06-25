@@ -39,12 +39,75 @@ public class QueryEngineService {
             interceptor.beforeQuery(requestParams);
         }
 
+        // Extract pagination and sorting parameters
+        Integer page = null;
+        Integer pageSize = null;
+        String sortField = null;
+        String sortOrder = null;
+
+        if (requestParams != null) {
+            if (requestParams.containsKey("_page") && requestParams.get("_page") != null) {
+                try {
+                    page = Integer.parseInt(requestParams.get("_page").toString());
+                } catch (Exception e) { /* ignore */ }
+            }
+            if (requestParams.containsKey("_pageSize") && requestParams.get("_pageSize") != null) {
+                try {
+                    pageSize = Integer.parseInt(requestParams.get("_pageSize").toString());
+                } catch (Exception e) { /* ignore */ }
+            }
+            if (requestParams.containsKey("_sortField") && requestParams.get("_sortField") != null) {
+                String field = requestParams.get("_sortField").toString();
+                if (field.matches("^[a-zA-Z0-9_\\.]+$")) {
+                    sortField = field;
+                }
+            }
+            if (requestParams.containsKey("_sortOrder") && requestParams.get("_sortOrder") != null) {
+                String order = requestParams.get("_sortOrder").toString().toUpperCase();
+                if ("ASC".equals(order) || "DESC".equals(order)) {
+                    sortOrder = order;
+                }
+            }
+        }
+
+        Map<String, Object> sqlParams = new HashMap<>(requestParams != null ? requestParams : new HashMap<>());
+        sqlParams.remove("_page");
+        sqlParams.remove("_pageSize");
+        sqlParams.remove("_sortField");
+        sqlParams.remove("_sortOrder");
+
         long start = System.currentTimeMillis();
         boolean success = false;
         String errMsg = null;
         Map<String, Object> result = null;
         try {
-            result = jdbcTemplate.query(sqlText, requestParams, rs -> {
+            // 1. Get total records count first
+            String countSql = "SELECT COUNT(*) FROM (" + sqlText + ") as count_query";
+            Integer total = jdbcTemplate.queryForObject(countSql, sqlParams, Integer.class);
+
+            // 2. Build sorted/paginated final SQL
+            StringBuilder finalSql = new StringBuilder();
+            finalSql.append("SELECT * FROM (").append(sqlText).append(") as main_query");
+            if (sortField != null && !sortField.trim().isEmpty()) {
+                finalSql.append(" ORDER BY ");
+                if (sortField.contains(".")) {
+                    finalSql.append(sortField);
+                } else {
+                    finalSql.append("\"").append(sortField).append("\"");
+                }
+                if (sortOrder != null) {
+                    finalSql.append(" ").append(sortOrder);
+                }
+            }
+            if (pageSize != null && pageSize > 0) {
+                finalSql.append(" LIMIT ").append(pageSize);
+                if (page != null && page > 0) {
+                    int offset = (page - 1) * pageSize;
+                    finalSql.append(" OFFSET ").append(offset);
+                }
+            }
+
+            result = jdbcTemplate.query(finalSql.toString(), sqlParams, rs -> {
                 ResultSetMetaData metaData = rs.getMetaData();
                 int count = metaData.getColumnCount();
                 
@@ -75,6 +138,10 @@ public class QueryEngineService {
                 res.put("rows", rows);
                 return res;
             });
+
+            if (result != null) {
+                result.put("total", total);
+            }
             success = true;
         } catch (Exception e) {
             errMsg = e.getMessage();

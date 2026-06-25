@@ -139,4 +139,79 @@ public class PageService {
             jdbcTemplate.update("DELETE FROM lc_entity_model WHERE entity_code = :entityCode", eParams);
         }
     }
+
+    public void insertRow(String pageCode, Map<String, Object> rowData) {
+        Map<String, Object> page = getPageConfig(pageCode);
+        String entityCode = (String) page.get("entityCode");
+        Map<String, Object> entity = getEntityConfig(entityCode);
+        String tableName = (String) entity.get("tableName");
+
+        StringBuilder sql = new StringBuilder("INSERT INTO ");
+        sql.append("\"").append(tableName).append("\" (");
+        StringBuilder vals = new StringBuilder(" VALUES (");
+
+        Map<String, Object> params = new HashMap<>();
+        int i = 0;
+        for (Map.Entry<String, Object> entry : rowData.entrySet()) {
+            String key = entry.getKey();
+            if (!key.matches("^[a-zA-Z0-9_]+$")) continue;
+
+            if (i > 0) {
+                sql.append(", ");
+                vals.append(", ");
+            }
+            sql.append("\"").append(key).append("\"");
+            vals.append(":").append(key);
+            params.put(key, entry.getValue());
+            i++;
+        }
+        sql.append(")").append(vals).append(")");
+
+        jdbcTemplate.update(sql.toString(), params);
+    }
+
+    public void updateRow(String pageCode, Object id, Map<String, Object> rowData) {
+        Map<String, Object> page = getPageConfig(pageCode);
+        String entityCode = (String) page.get("entityCode");
+        Map<String, Object> entity = getEntityConfig(entityCode);
+        String tableName = (String) entity.get("tableName");
+        String primaryKey = "id"; // default
+
+        StringBuilder sql = new StringBuilder("UPDATE ");
+        sql.append("\"").append(tableName).append("\" SET ");
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("__id", id);
+
+        int i = 0;
+        for (Map.Entry<String, Object> entry : rowData.entrySet()) {
+            String key = entry.getKey();
+            if (key.equals(primaryKey)) continue;
+            if (!key.matches("^[a-zA-Z0-9_]+$")) continue;
+
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("\"").append(key).append("\" = :").append(key);
+            params.put(key, entry.getValue());
+            i++;
+        }
+        sql.append(" WHERE \"").append(primaryKey).append("\" = :__id");
+
+        jdbcTemplate.update(sql.toString(), params);
+    }
+
+    public void deleteRow(String pageCode, Object id) {
+        Map<String, Object> page = getPageConfig(pageCode);
+        String entityCode = (String) page.get("entityCode");
+        Map<String, Object> entity = getEntityConfig(entityCode);
+        String tableName = (String) entity.get("tableName");
+        String primaryKey = "id"; // default
+
+        String sql = "DELETE FROM \"" + tableName + "\" WHERE \"" + primaryKey + "\" = :__id";
+        Map<String, Object> params = new HashMap<>();
+        params.put("__id", id);
+
+        jdbcTemplate.update(sql, params);
+    }
 }

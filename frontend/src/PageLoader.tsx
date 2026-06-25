@@ -38,16 +38,45 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
   const [rawSql, setRawSql] = useState<string>('');
   const [executeStatus, setExecuteStatus] = useState<string | null>(null);
 
-  const executePageQuery = (qCode: string) => {
+  // Pagination & Sorting States
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC' | null>(null);
+
+  // Entity Schema metadata fields
+  const [entityFields, setEntityFields] = useState<ColumnMeta[]>([]);
+
+  // CRUD States
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentRow, setCurrentRow] = useState<any>(null);
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [crudError, setCrudError] = useState<string | null>(null);
+
+  const executePageQuery = (qCode: string, p = page, size = pageSize, field = sortField, order = sortOrder) => {
     setLoadingQuery(true);
     fetch(`/api/v1/queries/${qCode}/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params: {} })
+      body: JSON.stringify({
+        params: {
+          _page: p,
+          _pageSize: size,
+          _sortField: field,
+          _sortOrder: order
+        }
+      })
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Query execution failed');
+        return res.json();
+      })
       .then((qData) => {
         setQueryResult(qData);
+        setTotal(qData.total || 0);
         setLoadingQuery(false);
       })
       .catch((err) => {
@@ -55,6 +84,19 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
         setLoadingQuery(false);
       });
   };
+
+  const fetchData = (p = page, size = pageSize, field = sortField, order = sortOrder) => {
+    if (queryCode) {
+      executePageQuery(queryCode, p, size, field, order);
+    }
+  };
+
+  useEffect(() => {
+    // Reset states on page change
+    setPage(1);
+    setSortField(null);
+    setSortOrder(null);
+  }, [pageCode]);
 
   useEffect(() => {
     fetch(`/api/v1/pages/${pageCode}`)
@@ -76,7 +118,7 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
 
         if (data.queryCode) {
           setQueryCode(data.queryCode);
-          executePageQuery(data.queryCode);
+          executePageQuery(data.queryCode, 1, pageSize, null, null);
           
           // Fetch query configuration text
           fetch(`/api/v1/queries/${data.queryCode}`)
@@ -95,11 +137,98 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
             .then((res) => res.json())
             .then((eConfig) => {
               setFieldsJsonStr(JSON.stringify(eConfig.fields || [], null, 2));
+              setEntityFields(eConfig.fields || []);
             })
             .catch((err) => console.error("Error loading entity configuration:", err));
         }
       });
   }, [pageCode]);
+
+  const handleSort = (field: string) => {
+    let nextOrder: 'ASC' | 'DESC' | null = 'ASC';
+    if (sortField === field) {
+      if (sortOrder === 'ASC') {
+        nextOrder = 'DESC';
+      } else if (sortOrder === 'DESC') {
+        nextOrder = null;
+      }
+    }
+    const nextField = nextOrder ? field : null;
+    setSortField(nextField);
+    setSortOrder(nextOrder);
+    setPage(1);
+    fetchData(1, pageSize, nextField, nextOrder);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    fetchData(newPage, pageSize, sortField, sortOrder);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    fetchData(1, newSize, sortField, sortOrder);
+  };
+
+  const handleInsert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setCrudError(null);
+    try {
+      const res = await fetch(`/api/v1/pages/${pageCode}/data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (!res.ok) throw new Error('Failed to insert record');
+      setShowCreateModal(false);
+      setFormData({});
+      fetchData(page, pageSize, sortField, sortOrder);
+    } catch (err: any) {
+      setCrudError(err.message || 'Error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRow) return;
+    setSubmitting(true);
+    setCrudError(null);
+    const id = currentRow.id;
+    try {
+      const res = await fetch(`/api/v1/pages/${pageCode}/data/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (!res.ok) throw new Error('Failed to update record');
+      setShowEditModal(false);
+      setCurrentRow(null);
+      setFormData({});
+      fetchData(page, pageSize, sortField, sortOrder);
+    } catch (err: any) {
+      setCrudError(err.message || 'Error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (row: any) => {
+    const id = row.id;
+    if (!window.confirm(`Are you sure you want to delete this row (ID: ${id})?`)) return;
+    try {
+      const res = await fetch(`/api/v1/pages/${pageCode}/data/${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete record');
+      fetchData(page, pageSize, sortField, sortOrder);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting record');
+    }
+  };
 
   const handleSaveSql = () => {
     if (!queryCode) return;
@@ -112,7 +241,7 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
       .then((res) => res.json())
       .then(() => {
         setSaveStatus('SQL Saved successfully!');
-        executePageQuery(queryCode);
+        fetchData(page, pageSize, sortField, sortOrder);
         setTimeout(() => setSaveStatus(null), 3000);
       })
       .catch((err) => {
@@ -124,7 +253,8 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
   const handleSaveSchema = () => {
     if (!entityCode) return;
     try {
-      JSON.parse(fieldsJsonStr);
+      const parsed = JSON.parse(fieldsJsonStr);
+      setEntityFields(parsed || []);
     } catch (e) {
       setSaveStatus('Invalid JSON format for schema config');
       return;
@@ -138,9 +268,7 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
       .then((res) => res.json())
       .then(() => {
         setSaveStatus('Schema Saved successfully!');
-        if (queryCode) {
-          executePageQuery(queryCode);
-        }
+        fetchData(page, pageSize, sortField, sortOrder);
         setTimeout(() => setSaveStatus(null), 3000);
       })
       .catch((err) => {
@@ -167,9 +295,7 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
       })
       .then(() => {
         setExecuteStatus('Statement executed successfully!');
-        if (queryCode) {
-          executePageQuery(queryCode);
-        }
+        fetchData(page, pageSize, sortField, sortOrder);
         setTimeout(() => setExecuteStatus(null), 3000);
       })
       .catch((err) => {
@@ -193,6 +319,18 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
+          {entityFields.length > 0 && (
+            <button
+              onClick={() => {
+                setFormData({});
+                setCrudError(null);
+                setShowCreateModal(true);
+              }}
+              className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition cursor-pointer duration-150"
+            >
+              ➕ Add Record
+            </button>
+          )}
           {config.config?.actions?.map((act) => (
             <button
               key={act.code}
@@ -200,7 +338,7 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
               onClick={() => {
                 const globalActions = (window as any).AppActions?.[act.scriptCode];
                 if (globalActions && typeof globalActions[act.methodName] === 'function') {
-                  globalActions[act.methodName]({ id: 123 }, { refresh: () => console.log('refresh') });
+                  globalActions[act.methodName]({ id: 123 }, { refresh: () => fetchData(page, pageSize, sortField, sortOrder) });
                 } else {
                   console.error(`JS Action method ${act.methodName} not found!`);
                 }
@@ -222,49 +360,130 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
 
       {/* Dynamic Table Rendering */}
       {!loadingQuery && queryResult && (
-        <div className="relative overflow-x-auto shadow-xl shadow-slate-100/50 rounded-2xl border border-slate-100 bg-white/70 backdrop-blur-md">
-          <table className="w-full text-sm text-left text-slate-500 border-collapse">
-            <thead className="text-xs text-slate-700 uppercase bg-slate-50/70 border-b border-slate-100">
-              <tr>
-                {queryResult.columns.map((col) => (
-                  <th key={col.field} scope="col" className="px-6 py-4 font-semibold tracking-wider text-slate-600">
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {queryResult.rows.length === 0 ? (
+        <div className="overflow-hidden shadow-xl shadow-slate-100/50 rounded-2xl border border-slate-100 bg-white/70 backdrop-blur-md">
+          <div className="relative overflow-x-auto">
+            <table className="w-full text-sm text-left text-slate-500 border-collapse">
+              <thead className="text-xs text-slate-700 uppercase bg-slate-50/70 border-b border-slate-100">
                 <tr>
-                  <td colSpan={queryResult.columns.length} className="px-6 py-12 text-center text-slate-400 font-medium">
-                    No records found.
-                  </td>
+                  {queryResult.columns.map((col) => (
+                    <th
+                      key={col.field}
+                      scope="col"
+                      onClick={() => handleSort(col.field)}
+                      className="px-6 py-4 font-semibold tracking-wider text-slate-600 cursor-pointer hover:bg-slate-100/50 transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>{col.label}</span>
+                        {sortField === col.field ? (
+                          <span className="text-indigo-600 font-bold">{sortOrder === 'ASC' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-slate-300 text-[10px]">⇅</span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  {entityFields.length > 0 && (
+                    <th scope="col" className="px-6 py-4 font-semibold tracking-wider text-slate-600 text-right">
+                      Actions
+                    </th>
+                  )}
                 </tr>
-              ) : (
-                queryResult.rows.map((row, index) => (
-                  <tr key={index} className="hover:bg-slate-50/50 transition-colors duration-150 ease-in-out group">
-                    {queryResult.columns.map((col) => {
-                      const val = row[col.field];
-                      const formattedVal = val === null || val === undefined ? '-' : String(val);
-                      return (
-                        <td key={col.field} className="px-6 py-4 whitespace-nowrap text-slate-700 font-medium group-hover:text-slate-900 transition-colors">
-                          {col.type === 'boolean' ? (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${val ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                              {val ? 'True' : 'False'}
-                            </span>
-                          ) : col.type === 'integer' || col.type === 'number' ? (
-                            <span className="font-mono text-indigo-600">{formattedVal}</span>
-                          ) : (
-                            formattedVal
-                          )}
-                        </td>
-                      );
-                    })}
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {queryResult.rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={queryResult.columns.length + (entityFields.length > 0 ? 1 : 0)} className="px-6 py-12 text-center text-slate-400 font-medium">
+                      No records found.
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  queryResult.rows.map((row, index) => (
+                    <tr key={index} className="hover:bg-slate-50/50 transition-colors duration-150 ease-in-out group">
+                      {queryResult.columns.map((col) => {
+                        const val = row[col.field];
+                        const formattedVal = val === null || val === undefined ? '-' : String(val);
+                        return (
+                          <td key={col.field} className="px-6 py-4 whitespace-nowrap text-slate-700 font-medium group-hover:text-slate-900 transition-colors">
+                            {col.type === 'boolean' ? (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${val ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                {val ? 'True' : 'False'}
+                              </span>
+                            ) : col.type === 'integer' || col.type === 'number' ? (
+                              <span className="font-mono text-indigo-600">{formattedVal}</span>
+                            ) : (
+                              formattedVal
+                            )}
+                          </td>
+                        );
+                      })}
+                      {entityFields.length > 0 && (
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-semibold space-x-2">
+                          <button
+                            onClick={() => {
+                              setCurrentRow(row);
+                              setFormData({ ...row });
+                              setCrudError(null);
+                              setShowEditModal(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(row)}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination controls */}
+          <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
+            <div className="text-xs text-slate-500 font-medium">
+              Showing <span className="font-bold text-slate-700">{total === 0 ? 0 : (page - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-bold text-slate-700">{Math.min(page * pageSize, total)}</span> of{' '}
+              <span className="font-bold text-slate-700">{total}</span> records
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="px-2 py-1 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                >
+                  {[5, 10, 20, 50].map((sz) => (
+                    <option key={sz} value={sz}>
+                      {sz}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={page === 1}
+                  onClick={() => handlePageChange(page - 1)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition disabled:opacity-40 cursor-pointer"
+                >
+                  Previous
+                </button>
+                <button
+                  disabled={page * pageSize >= total}
+                  onClick={() => handlePageChange(page + 1)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition disabled:opacity-40 cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -357,6 +576,138 @@ export default function PageLoader({ pageCode, mode = 'runtime' }: { pageCode: s
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-bold text-slate-800">➕ Add New Record</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleInsert} className="space-y-4">
+              {crudError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl font-semibold">⚠️ {crudError}</div>}
+              <div className="max-h-96 overflow-y-auto space-y-4 pr-1">
+                {entityFields.map((field) => (
+                  <div key={field.field} className="space-y-1">
+                    <label className="text-xs font-bold text-slate-600 block">{field.label || field.field}</label>
+                    {field.type === 'boolean' ? (
+                      <select
+                        onChange={(e) => setFormData({ ...formData, [field.field]: e.target.value === 'true' })}
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                      >
+                        <option value="false">False</option>
+                        <option value="true">True</option>
+                      </select>
+                    ) : (
+                      <input
+                        type={field.type === 'integer' || field.type === 'number' ? 'number' : 'text'}
+                        value={formData[field.field] !== undefined ? formData[field.field] : ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({
+                            ...formData,
+                            [field.field]: field.type === 'integer' || field.type === 'number' ? (val === '' ? '' : Number(val)) : val,
+                          });
+                        }}
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-md shadow-indigo-600/10 transition cursor-pointer"
+                >
+                  {submitting ? 'Adding...' : 'Add Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-bold text-slate-800">✏️ Edit Record</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              {crudError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl font-semibold">⚠️ {crudError}</div>}
+              <div className="max-h-96 overflow-y-auto space-y-4 pr-1">
+                {entityFields.map((field) => (
+                  <div key={field.field} className="space-y-1">
+                    <label className="text-xs font-bold text-slate-600 block">{field.label || field.field}</label>
+                    {field.type === 'boolean' ? (
+                      <select
+                        value={formData[field.field] ? 'true' : 'false'}
+                        onChange={(e) => setFormData({ ...formData, [field.field]: e.target.value === 'true' })}
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                      >
+                        <option value="false">False</option>
+                        <option value="true">True</option>
+                      </select>
+                    ) : (
+                      <input
+                        type={field.type === 'integer' || field.type === 'number' ? 'number' : 'text'}
+                        value={formData[field.field] !== undefined ? formData[field.field] : ''}
+                        disabled={field.field === 'id'} // Disable primary key editing if it's 'id'
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({
+                            ...formData,
+                            [field.field]: field.type === 'integer' || field.type === 'number' ? (val === '' ? '' : Number(val)) : val,
+                          });
+                        }}
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition disabled:opacity-50"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-md shadow-indigo-600/10 transition cursor-pointer"
+                >
+                  {submitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
