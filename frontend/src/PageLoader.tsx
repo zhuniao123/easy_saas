@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { type ActionConfig, resolveActionHandler } from './actionRegistry';
+import { type ActionConfig, type FilterConfig, resolveActionHandler } from './actionRegistry';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
 
@@ -89,6 +89,12 @@ export default function PageLoader({
   const [activeStudioPanel, setActiveStudioPanel] = useState<StudioPanel>('sql');
   const [showPreviewPanel, setShowPreviewPanel] = useState(mode !== 'config');
   const [sqlValidation, setSqlValidation] = useState<SqlValidationState>({ status: 'idle' });
+
+  const [dynamicFilterOptions, setDynamicFilterOptions] = useState<Record<string, Array<{ label: string; value: string }>>>({});
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Record<string, Array<{ label: string; value: string }>>>({});
+  const [autocompleteLoading, setAutocompleteLoading] = useState<Record<string, boolean>>({});
+  const [autocompleteActiveField, setAutocompleteActiveField] = useState<string | null>(null);
+  const [autocompleteLabels, setAutocompleteLabels] = useState<Record<string, string>>({});
 
   const pageDsl = useMemo(
     () => normalizePageDsl(config?.config, config?.title || pageCode, config?.queryCode),
@@ -390,6 +396,41 @@ export default function PageLoader({
         const normalizedPage = normalizePageDsl(data.config || {}, data.title, data.queryCode);
         const resolvedQueryCode = normalizedPage.dataSource.queryCode || data.queryCode;
 
+        setFilterValues({});
+        setAutocompleteLabels({});
+        setAutocompleteSuggestions({});
+        setDynamicFilterOptions({});
+
+        // Trigger SQL option lists loading
+        const sqlFilters = normalizedPage.table.filters.filter(
+          (f) => f.type === 'select' && f.options && !Array.isArray(f.options) && 'source' in f.options && f.options.source === 'sql'
+        );
+
+        sqlFilters.forEach((filter) => {
+          const opts = filter.options as { queryCode: string; labelField: string; valueField: string };
+          if (opts.queryCode && opts.labelField && opts.valueField) {
+            fetch(`/api/v1/queries/options/provide?queryCode=${opts.queryCode}&labelField=${opts.labelField}&valueField=${opts.valueField}`)
+              .then((res) => {
+                if (!res.ok) throw new Error();
+                return res.json();
+              })
+              .then((data) => {
+                if (cancelled) return;
+                setDynamicFilterOptions((prev) => ({
+                  ...prev,
+                  [filter.field]: data,
+                }));
+              })
+              .catch(() => {
+                if (cancelled) return;
+                setDynamicFilterOptions((prev) => ({
+                  ...prev,
+                  [filter.field]: [],
+                }));
+              });
+          }
+        });
+
         if (resolvedQueryCode) {
           const initialPageSize = normalizedPage.dataSource.pageSize || 10;
           const initialSortField = normalizedPage.dataSource.defaultSort?.field || null;
@@ -460,6 +501,39 @@ export default function PageLoader({
     setPageSize(nextPageSize);
     setPage(1);
     refreshData(1, nextPageSize, sortField, sortOrder);
+  };
+
+  const handleAutocompleteChange = (field: string, val: string, filter: FilterConfig) => {
+    setAutocompleteLabels((prev) => ({ ...prev, [field]: val }));
+    if (val.trim().length === 0) {
+      setFilterValues((prev) => ({ ...prev, [field]: '' }));
+      setAutocompleteSuggestions((prev) => ({ ...prev, [field]: [] }));
+      return;
+    }
+
+    const opts = filter.options as { queryCode: string; labelField: string; valueField: string; keywordParam?: string };
+    if (!opts || !opts.queryCode) return;
+
+    setAutocompleteLoading((prev) => ({ ...prev, [field]: true }));
+    const keywordParam = opts.keywordParam || 'keyword';
+    
+    fetch(`/api/v1/queries/options/suggest?queryCode=${opts.queryCode}&labelField=${opts.labelField}&valueField=${opts.valueField}&keyword=${encodeURIComponent(val)}&keywordParam=${keywordParam}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setAutocompleteSuggestions((prev) => ({ ...prev, [field]: data }));
+      })
+      .catch(() => {
+        setAutocompleteSuggestions((prev) => ({ ...prev, [field]: [] }));
+      })
+      .finally(() => {
+        setAutocompleteLoading((prev) => ({ ...prev, [field]: false }));
+      });
+  };
+
+  const selectAutocompleteOption = (field: string, option: { label: string; value: string }) => {
+    setAutocompleteLabels((prev) => ({ ...prev, [field]: option.label }));
+    setFilterValues((prev) => ({ ...prev, [field]: option.value }));
+    setAutocompleteActiveField(null);
   };
 
   const handleFilterApply = () => {
@@ -1011,12 +1085,53 @@ export default function PageLoader({
                       className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
                     >
                       <option value="">{t('page.all')}</option>
-                      {(filter.options || []).map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {filter.options && !Array.isArray(filter.options) && 'source' in filter.options && filter.options.source === 'sql'
+                        ? (dynamicFilterOptions[filter.field] || []).map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))
+                        : (Array.isArray(filter.options) ? filter.options : (filter.options?.items || [])).map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                     </select>
+                  ) : filter.type === 'autocomplete' ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={autocompleteLabels[filter.field] || ''}
+                        onFocus={() => setAutocompleteActiveField(filter.field)}
+                        onBlur={() => {
+                          // Allow click selection to complete
+                          setTimeout(() => setAutocompleteActiveField(null), 200);
+                        }}
+                        onChange={(e) => handleAutocompleteChange(filter.field, e.target.value, filter)}
+                        placeholder={filter.placeholder || t('page.filterBy', { label: filter.label })}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
+                      />
+                      {autocompleteActiveField === filter.field && (
+                        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-lg">
+                          {autocompleteLoading[filter.field] && (
+                            <div className="px-4 py-2 text-xs text-slate-400">Loading...</div>
+                          )}
+                          {!autocompleteLoading[filter.field] && (autocompleteSuggestions[filter.field] || []).length === 0 && (
+                            <div className="px-4 py-2 text-xs text-slate-400">No suggestions</div>
+                          )}
+                          {!autocompleteLoading[filter.field] && (autocompleteSuggestions[filter.field] || []).map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => selectAutocompleteOption(filter.field, option)}
+                              className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-cyan-50"
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <input
                       type={filter.type === 'date' ? 'date' : 'text'}
@@ -1038,6 +1153,8 @@ export default function PageLoader({
                 <button
                   onClick={() => {
                     setFilterValues({});
+                    setAutocompleteLabels({});
+                    setAutocompleteSuggestions({});
                     setPage(1);
                     refreshData(1, pageSize, sortField, sortOrder, {});
                   }}

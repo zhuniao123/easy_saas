@@ -258,8 +258,17 @@ public class PageService {
         StringBuilder sql = new StringBuilder("UPDATE ");
         sql.append("\"").append(tableName).append("\" SET ");
 
+        Object targetId = id;
+        if (id instanceof String && ((String) id).matches("^\\d+$")) {
+            try {
+                targetId = Long.parseLong((String) id);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+        }
+
         Map<String, Object> params = new HashMap<>();
-        params.put("__id", id);
+        params.put("__id", targetId);
 
         int i = 0;
         for (Map.Entry<String, Object> entry : sanitizedRowData.entrySet()) {
@@ -287,9 +296,18 @@ public class PageService {
         String tableName = requireSafeIdentifier((String) entity.get("tableName"), "Table name");
         String primaryKey = requireSafeIdentifier((String) entity.get("primaryKey"), "Primary key");
 
+        Object targetId = id;
+        if (id instanceof String && ((String) id).matches("^\\d+$")) {
+            try {
+                targetId = Long.parseLong((String) id);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+        }
+
         String sql = "DELETE FROM \"" + tableName + "\" WHERE \"" + primaryKey + "\" = :__id";
         Map<String, Object> params = new HashMap<>();
-        params.put("__id", id);
+        params.put("__id", targetId);
 
         jdbcTemplate.update(sql, params);
     }

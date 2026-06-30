@@ -29,8 +29,17 @@ export interface FilterConfig {
   label: string;
   sourceField?: string;
   placeholder?: string;
-  type?: 'text' | 'select' | 'date';
-  options?: Array<{ label: string; value: string }>;
+  type?: 'text' | 'select' | 'date' | 'autocomplete';
+  options?: 
+    | Array<{ label: string; value: string }>
+    | {
+        source: 'static' | 'sql';
+        items?: Array<{ label: string; value: string }>;
+        queryCode?: string;
+        labelField?: string;
+        valueField?: string;
+        keywordParam?: string;
+      };
 }
 
 import type { Translator } from './i18n';

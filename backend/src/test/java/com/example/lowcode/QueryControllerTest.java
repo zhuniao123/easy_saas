@@ -128,7 +128,7 @@ public class QueryControllerTest {
         jdbcTemplate.execute("CREATE TABLE biz_supplier (id BIGSERIAL PRIMARY KEY, supplier_code VARCHAR(50), supplier_name VARCHAR(100), status VARCHAR(20))");
         jdbcTemplate.execute("INSERT INTO biz_supplier(supplier_code, supplier_name, status) VALUES ('S001', 'Acme', 'enabled'), ('S002', 'Bravo', 'disabled')");
         jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, primary_key, fields_json) VALUES ('supplier', 'biz_supplier', 'id', '[{\"field\":\"supplier_code\",\"label\":\"Code\",\"type\":\"string\"},{\"field\":\"supplier_name\",\"label\":\"Name\",\"type\":\"string\"},{\"field\":\"status\",\"label\":\"Status\",\"type\":\"string\"}]'::jsonb)");
-        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, params_json) VALUES ('q_supplier_filter', 'supplier', 'SELECT id, supplier_code, supplier_name, status FROM biz_supplier WHERE (:status IS NULL OR status = :status)', '[\"status\"]'::jsonb)");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, params_json) VALUES ('q_supplier_filter', 'supplier', 'SELECT id, supplier_code, supplier_name, status FROM biz_supplier WHERE (CAST(:status AS VARCHAR) IS NULL OR status = :status)', '[\"status\"]'::jsonb)");
 
         mockMvc.perform(post("/api/v1/queries/q_supplier_filter/execute")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -156,5 +156,48 @@ public class QueryControllerTest {
                 .andExpect(jsonPath("$.pageConfig.table.filters[0].field").value("customer_id"))
                 .andExpect(jsonPath("$.entityFields[2].field").value("customer_name"))
                 .andExpect(jsonPath("$.entityFields[2].label").value("Customer Name"));
+    }
+
+    @Test
+    public void testProvideOptionsEndpoint() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_options CASCADE");
+        jdbcTemplate.execute("CREATE TABLE test_options (op_code VARCHAR(20), op_name VARCHAR(50))");
+        jdbcTemplate.execute("INSERT INTO test_options VALUES ('A', 'Alpha'), ('B', 'Beta')");
+        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, fields_json) VALUES ('entity_op', 'test_options', '[]'::jsonb)");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text) VALUES ('q_get_ops', 'entity_op', 'SELECT op_code, op_name FROM test_options')");
+
+        mockMvc.perform(get("/api/v1/queries/options/provide")
+                .param("queryCode", "q_get_ops")
+                .param("labelField", "op_name")
+                .param("valueField", "op_code"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].label").value("Alpha"))
+                .andExpect(jsonPath("$[0].value").value("A"))
+                .andExpect(jsonPath("$[1].label").value("Beta"))
+                .andExpect(jsonPath("$[1].value").value("B"));
+    }
+
+    @Test
+    public void testSuggestOptionsEndpoint() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_suggest CASCADE");
+        jdbcTemplate.execute("CREATE TABLE test_suggest (code VARCHAR(20), name VARCHAR(50))");
+        jdbcTemplate.execute("INSERT INTO test_suggest VALUES ('C1', 'China'), ('US', 'USA')");
+        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, fields_json) VALUES ('entity_sug', 'test_suggest', '[]'::jsonb)");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, params_json) VALUES ('q_sug', 'entity_sug', 'SELECT code, name FROM test_suggest WHERE name ILIKE :kw', '[\"kw\"]'::jsonb)");
+
+        mockMvc.perform(get("/api/v1/queries/options/suggest")
+                .param("queryCode", "q_sug")
+                .param("labelField", "name")
+                .param("valueField", "code")
+                .param("keyword", "China")
+                .param("keywordParam", "kw"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].label").value("China"))
+                .andExpect(jsonPath("$[0].value").value("C1"));
     }
 }

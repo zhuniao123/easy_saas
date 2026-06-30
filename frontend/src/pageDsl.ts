@@ -74,21 +74,43 @@ const normalizeFilters = (filters: unknown): FilterConfig[] =>
         .filter((filter): filter is Record<string, unknown> => Boolean(filter) && typeof filter === 'object')
         .map((filter) => {
           const type = filter.type;
+          
+          let parsedOptions: FilterConfig['options'] = undefined;
+          const rawOptions = filter.options;
+          if (Array.isArray(rawOptions)) {
+            parsedOptions = rawOptions
+              .filter((option): option is Record<string, unknown> => Boolean(option) && typeof option === 'object')
+              .map((option) => ({
+                label: String(option.label || option.value || ''),
+                value: String(option.value || ''),
+              }))
+              .filter((option) => option.value.length > 0);
+          } else if (rawOptions && typeof rawOptions === 'object') {
+            const optObj = rawOptions as Record<string, unknown>;
+            parsedOptions = {
+              source: optObj.source === 'sql' ? 'sql' : 'static',
+              items: Array.isArray(optObj.items)
+                ? optObj.items
+                    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+                    .map((item) => ({
+                      label: String(item.label || item.value || ''),
+                      value: String(item.value || ''),
+                    }))
+                : undefined,
+              queryCode: optObj.queryCode ? String(optObj.queryCode) : undefined,
+              labelField: optObj.labelField ? String(optObj.labelField) : undefined,
+              valueField: optObj.valueField ? String(optObj.valueField) : undefined,
+              keywordParam: optObj.keywordParam ? String(optObj.keywordParam) : undefined,
+            };
+          }
+
           return {
             field: String(filter.field || ''),
             label: String(filter.label || filter.field || ''),
             sourceField: filter.sourceField ? String(filter.sourceField) : undefined,
             placeholder: filter.placeholder ? String(filter.placeholder) : undefined,
-            type: type === 'select' || type === 'date' || type === 'text' ? type : 'text',
-            options: Array.isArray(filter.options)
-              ? filter.options
-                  .filter((option): option is Record<string, unknown> => Boolean(option) && typeof option === 'object')
-                  .map((option) => ({
-                    label: String(option.label || option.value || ''),
-                    value: String(option.value || ''),
-                  }))
-                  .filter((option) => option.value.length > 0)
-              : undefined,
+            type: type === 'select' || type === 'date' || type === 'autocomplete' || type === 'text' ? type : 'text',
+            options: parsedOptions,
           } satisfies FilterConfig;
         })
         .filter((filter) => filter.field)

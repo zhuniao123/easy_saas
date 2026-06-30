@@ -40,6 +40,24 @@ public class QueryController {
         return queryEngineService.introspectQuery(queryCode);
     }
 
+    @GetMapping("/options/provide")
+    public List<Map<String, Object>> getOptions(
+            @RequestParam String queryCode,
+            @RequestParam String labelField,
+            @RequestParam String valueField) {
+        return queryEngineService.executeOptionsQuery(queryCode, labelField, valueField);
+    }
+
+    @GetMapping("/options/suggest")
+    public List<Map<String, Object>> suggestOptions(
+            @RequestParam String queryCode,
+            @RequestParam String labelField,
+            @RequestParam String valueField,
+            @RequestParam String keyword,
+            @RequestParam(required = false) String keywordParam) {
+        return queryEngineService.executeSuggestQuery(queryCode, labelField, valueField, keyword, keywordParam);
+    }
+
     @PostMapping("/execute-raw")
     public Map<String, Object> executeRaw(@RequestBody Map<String, Object> requestBody) {
         String sql = (String) requestBody.get("sql");

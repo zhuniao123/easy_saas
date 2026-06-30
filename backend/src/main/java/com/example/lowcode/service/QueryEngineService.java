@@ -563,6 +563,75 @@ public class QueryEngineService {
         });
     }
 
+    public List<Map<String, Object>> executeOptionsQuery(String queryCode, String labelField, String valueField) {
+        Map<String, Object> modelParams = new HashMap<>();
+        modelParams.put("queryCode", queryCode);
+        
+        Map<String, Object> queryModel = jdbcTemplate.queryForMap(
+            "SELECT sql_text FROM lc_query_model WHERE query_code = :queryCode",
+            modelParams
+        );
+        String sqlText = (String) queryModel.get("sql_text");
+        Map<String, Object> sqlParams = buildNullParams(sqlText);
+
+        List<Map<String, Object>> rawRows = jdbcTemplate.queryForList(sqlText, sqlParams);
+        List<Map<String, Object>> options = new ArrayList<>();
+        for (Map<String, Object> row : rawRows) {
+            Map<String, Object> option = new LinkedHashMap<>();
+            Object rawLabel = row.get(labelField);
+            Object rawValue = row.get(valueField);
+            
+            if (rawLabel == null) {
+                rawLabel = row.get(labelField.toLowerCase());
+            }
+            if (rawValue == null) {
+                rawValue = row.get(valueField.toLowerCase());
+            }
+            
+            option.put("label", rawLabel != null ? String.valueOf(rawLabel) : "");
+            option.put("value", rawValue != null ? String.valueOf(rawValue) : "");
+            options.add(option);
+        }
+        return options;
+    }
+
+    public List<Map<String, Object>> executeSuggestQuery(
+            String queryCode, String labelField, String valueField, 
+            String keyword, String keywordParam) {
+        Map<String, Object> modelParams = new HashMap<>();
+        modelParams.put("queryCode", queryCode);
+        
+        Map<String, Object> queryModel = jdbcTemplate.queryForMap(
+            "SELECT sql_text FROM lc_query_model WHERE query_code = :queryCode",
+            modelParams
+        );
+        String sqlText = (String) queryModel.get("sql_text");
+        Map<String, Object> sqlParams = buildNullParams(sqlText);
+        
+        String paramKey = (keywordParam != null && !keywordParam.trim().isEmpty()) ? keywordParam : "keyword";
+        sqlParams.put(paramKey, "%" + keyword + "%");
+
+        List<Map<String, Object>> rawRows = jdbcTemplate.queryForList(sqlText, sqlParams);
+        List<Map<String, Object>> options = new ArrayList<>();
+        for (Map<String, Object> row : rawRows) {
+            Map<String, Object> option = new LinkedHashMap<>();
+            Object rawLabel = row.get(labelField);
+            Object rawValue = row.get(valueField);
+            
+            if (rawLabel == null) {
+                rawLabel = row.get(labelField.toLowerCase());
+            }
+            if (rawValue == null) {
+                rawValue = row.get(valueField.toLowerCase());
+            }
+            
+            option.put("label", rawLabel != null ? String.valueOf(rawLabel) : "");
+            option.put("value", rawValue != null ? String.valueOf(rawValue) : "");
+            options.add(option);
+        }
+        return options;
+    }
+
     public void executeRawSql(String sql) {
         if (sql == null || sql.trim().isEmpty()) {
             throw new IllegalArgumentException("SQL is required");
