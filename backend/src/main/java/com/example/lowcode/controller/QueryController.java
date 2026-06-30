@@ -15,7 +15,8 @@ public class QueryController {
     @PostMapping("/{queryCode}/execute")
     public Map<String, Object> execute(@PathVariable String queryCode, @RequestBody Map<String, Object> requestBody) {
         Map<String, Object> params = (Map<String, Object>) requestBody.get("params");
-        return queryEngineService.executeSql(queryCode, params);
+        List<Map<String, Object>> filters = (List<Map<String, Object>>) requestBody.get("filters");
+        return queryEngineService.executeSql(queryCode, params, filters);
     }
 
     @GetMapping("/{queryCode}")
@@ -32,6 +33,11 @@ public class QueryController {
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;
+    }
+
+    @PostMapping("/{queryCode}/introspect")
+    public Map<String, Object> introspect(@PathVariable String queryCode) {
+        return queryEngineService.introspectQuery(queryCode);
     }
 
     @PostMapping("/execute-raw")

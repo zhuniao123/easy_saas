@@ -119,5 +119,42 @@ public class QueryControllerTest {
         Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM test_raw", Integer.class);
         assertThat(count).isEqualTo(1);
     }
-}
 
+    @Test
+    public void testExecuteQueryWithFiltersAndBlankParams() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS biz_supplier CASCADE");
+        jdbcTemplate.execute("CREATE TABLE biz_supplier (id BIGSERIAL PRIMARY KEY, supplier_code VARCHAR(50), supplier_name VARCHAR(100), status VARCHAR(20))");
+        jdbcTemplate.execute("INSERT INTO biz_supplier(supplier_code, supplier_name, status) VALUES ('S001', 'Acme', 'enabled'), ('S002', 'Bravo', 'disabled')");
+        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, primary_key, fields_json) VALUES ('supplier', 'biz_supplier', 'id', '[{\"field\":\"supplier_code\",\"label\":\"Code\",\"type\":\"string\"},{\"field\":\"supplier_name\",\"label\":\"Name\",\"type\":\"string\"},{\"field\":\"status\",\"label\":\"Status\",\"type\":\"string\"}]'::jsonb)");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, params_json) VALUES ('q_supplier_filter', 'supplier', 'SELECT id, supplier_code, supplier_name, status FROM biz_supplier WHERE (:status IS NULL OR status = :status)', '[\"status\"]'::jsonb)");
+
+        mockMvc.perform(post("/api/v1/queries/q_supplier_filter/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{\"status\":null},\"filters\":[{\"field\":\"supplier_code\",\"type\":\"text\",\"value\":\"S001\"}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows.length()").value(1))
+                .andExpect(jsonPath("$.rows[0].supplier_code").value("S001"));
+    }
+
+    @Test
+    public void testQueryIntrospectionSuggestsPageAndEntityConfig() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS biz_customer CASCADE");
+        jdbcTemplate.execute("CREATE TABLE biz_customer (customer_id BIGSERIAL PRIMARY KEY, customer_code VARCHAR(50), customer_name VARCHAR(100), active BOOLEAN)");
+        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, primary_key, fields_json) VALUES ('customer', 'biz_customer', 'customer_id', '[{\"field\":\"customer_name\",\"label\":\"Customer Name\",\"format\":\"text\"}]'::jsonb)");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text) VALUES ('q_customer', 'customer', 'SELECT customer_id, customer_code, customer_name, active FROM biz_customer')");
+
+        mockMvc.perform(post("/api/v1/queries/q_customer/introspect")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.primaryKey").value("customer_id"))
+                .andExpect(jsonPath("$.pageConfig.table.columns[0].field").value("customer_id"))
+                .andExpect(jsonPath("$.pageConfig.table.filters[0].field").value("customer_id"))
+                .andExpect(jsonPath("$.entityFields[2].field").value("customer_name"))
+                .andExpect(jsonPath("$.entityFields[2].label").value("Customer Name"));
+    }
+}

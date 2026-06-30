@@ -1,0 +1,26 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
+# Java / Maven
+target/
+*.class
+*.jar
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Local env
+.env
+.env.*
+
+# Preview / temporary archives
+*.tgz
+*.tar.gz

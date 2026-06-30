@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: lowcode
+      POSTGRES_USER: lowcode
+      POSTGRES_PASSWORD: lowcode
+    volumes:
+      - easy_saas_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lowcode -d lowcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lowcode?sslmode=disable
+      SPRING_DATASOURCE_USERNAME: lowcode
+      SPRING_DATASOURCE_PASSWORD: lowcode
+      SERVER_PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:18080:80"
+
+volumes:
+  easy_saas_pgdata:
