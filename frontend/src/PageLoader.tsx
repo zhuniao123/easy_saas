@@ -146,6 +146,7 @@ export default function PageLoader({
 
   const pageActions = pageDsl.table.actions.filter((action) => (action.scope || 'page') === 'page');
   const rowActions = pageDsl.table.actions.filter((action) => action.scope === 'row');
+  const showActionColumn = rowActions.length > 0 || (entityFields.length > 0 && (pageDsl.features.edit || pageDsl.features.delete));
   const filters = pageDsl.table.filters;
   const rowPaddingClass = pageDsl.features.density === 'compact' ? 'py-2.5' : 'py-4';
   const showConfigSidebar = mode === 'config';
@@ -1199,7 +1200,7 @@ export default function PageLoader({
                           </div>
                         </th>
                       ))}
-                      {(entityFields.length > 0 || rowActions.length > 0) && (
+                      {showActionColumn && (
                         <th className="px-5 py-4 text-right font-semibold">{t('page.tableActions')}</th>
                       )}
                     </tr>
@@ -1208,7 +1209,7 @@ export default function PageLoader({
                     {queryResult.rows.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={runtimeColumns.length + (entityFields.length > 0 || rowActions.length > 0 ? 1 : 0)}
+                          colSpan={runtimeColumns.length + (showActionColumn ? 1 : 0)}
                           className="px-6 py-14 text-center text-sm text-slate-400"
                         >
                           {pageDsl.presentation.emptyState}
@@ -1262,7 +1263,7 @@ export default function PageLoader({
                               </td>
                             );
                           })}
-                          {(entityFields.length > 0 || rowActions.length > 0) && (
+                          {showActionColumn && (
                             <td className={`space-x-2 px-5 ${rowPaddingClass} text-right`}>
                               {rowActions.filter((action) => shouldShowAction(action, row)).map((action) => (
                                 <button
