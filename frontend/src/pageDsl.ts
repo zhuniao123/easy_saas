@@ -17,6 +17,12 @@ export interface PagePresentation {
   emptyState?: string;
 }
 
+export interface PageLoadingConfig {
+  enabled?: boolean;
+  style?: 'spinner' | 'skeleton' | 'glow';
+  showDefault?: boolean;
+}
+
 export interface PageFeatures {
   pagination?: boolean;
   create?: boolean;
@@ -24,6 +30,14 @@ export interface PageFeatures {
   delete?: boolean;
   export?: boolean;
   density?: 'comfortable' | 'compact';
+  loading?: PageLoadingConfig;
+}
+
+export interface PageLoggingConfig {
+  enabled?: boolean;
+  console?: boolean;
+  reportToServer?: boolean;
+  events?: ('click' | 'query' | 'create' | 'edit' | 'delete' | 'filter')[];
 }
 
 export interface PageDslModel {
@@ -39,6 +53,7 @@ export interface PageDslModel {
     actions: ActionConfig[];
   };
   features: Required<PageFeatures>;
+  logging?: PageLoggingConfig;
 }
 
 const normalizeColumns = (columns: unknown): ColumnConfig[] =>
@@ -110,7 +125,8 @@ const normalizeFilters = (filters: unknown): FilterConfig[] =>
           } else if (rawOptions && typeof rawOptions === 'object') {
             const optObj = rawOptions as Record<string, unknown>;
             parsedOptions = {
-              source: optObj.source === 'sql' ? 'sql' : 'static',
+              source:
+                optObj.source === 'sql' ? 'sql' : optObj.source === 'dict' ? 'dict' : 'static',
               items: Array.isArray(optObj.items)
                 ? optObj.items
                     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
@@ -120,6 +136,7 @@ const normalizeFilters = (filters: unknown): FilterConfig[] =>
                     }))
                 : undefined,
               queryCode: optObj.queryCode ? String(optObj.queryCode) : undefined,
+              dictCode: optObj.dictCode ? String(optObj.dictCode) : undefined,
               labelField: optObj.labelField ? String(optObj.labelField) : undefined,
               valueField: optObj.valueField ? String(optObj.valueField) : undefined,
               keywordParam: optObj.keywordParam ? String(optObj.keywordParam) : undefined,
@@ -213,6 +230,7 @@ export const normalizePageDsl = (
       ? (config.features as Record<string, unknown>)
       : {};
   const i18n = config.i18n && typeof config.i18n === 'object' ? (config.i18n as Record<string, unknown>) : {};
+  const logging = config.logging && typeof config.logging === 'object' ? (config.logging as Record<string, unknown>) : undefined;
 
   const tableColumns = normalizeColumns(table.columns);
   const tableFilters = normalizeFilters(table.filters);
@@ -262,12 +280,30 @@ export const normalizePageDsl = (
     },
     features: {
       pagination: features.pagination !== false,
-      // Opt-in write features (Phase A): default false; require explicit true + server writable
       create: features.create === true,
       edit: features.edit === true,
       delete: features.delete === true,
       export: features.export !== false,
       density: features.density === 'compact' ? 'compact' : 'comfortable',
+      loading: features.loading && typeof features.loading === 'object'
+        ? {
+            enabled: (features.loading as Record<string, unknown>).enabled !== false,
+            style: ['spinner', 'skeleton', 'glow'].includes(String((features.loading as Record<string, unknown>).style || ''))
+              ? (String((features.loading as Record<string, unknown>).style) as 'spinner' | 'skeleton' | 'glow')
+              : 'spinner',
+            showDefault: (features.loading as Record<string, unknown>).showDefault !== false,
+          }
+        : { enabled: true, style: 'spinner', showDefault: true },
     },
+    logging: logging
+      ? {
+          enabled: logging.enabled !== false,
+          console: logging.console !== false,
+          reportToServer: logging.reportToServer === true,
+          events: Array.isArray(logging.events)
+            ? (logging.events.map((e) => String(e)).filter((e) => ['click', 'query', 'create', 'edit', 'delete', 'filter'].includes(e)) as any)
+            : undefined,
+        }
+      : undefined,
   };
 };

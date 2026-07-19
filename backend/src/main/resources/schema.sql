@@ -68,6 +68,73 @@ CREATE TABLE IF NOT EXISTS lc_action_log (
     duration_ms        INTEGER,
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_lc_action_log_action_created
     ON lc_action_log (action_code, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS lc_client_log (
+    id                 BIGSERIAL PRIMARY KEY,
+    page_code          VARCHAR(100) NOT NULL,
+    event_type         VARCHAR(50) NOT NULL,
+    element_code       VARCHAR(100),
+    message            TEXT,
+    details_json       JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lc_client_log_page_created
+    ON lc_client_log (page_code, created_at DESC);
+
+-- Dictionary (minimal)
+CREATE TABLE IF NOT EXISTS lc_dict_type (
+    dict_code          VARCHAR(100) PRIMARY KEY,
+    name               VARCHAR(200) NOT NULL,
+    description        TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lc_dict_item (
+    id                 BIGSERIAL PRIMARY KEY,
+    dict_code          VARCHAR(100) NOT NULL REFERENCES lc_dict_type(dict_code) ON DELETE CASCADE,
+    item_value         VARCHAR(100) NOT NULL,
+    item_label         VARCHAR(200) NOT NULL,
+    sort_order         INTEGER NOT NULL DEFAULT 0,
+    enabled            BOOLEAN NOT NULL DEFAULT true,
+    UNIQUE (dict_code, item_value)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lc_dict_item_code_sort
+    ON lc_dict_item (dict_code, sort_order, item_value);
+
+-- Server error log
+CREATE TABLE IF NOT EXISTS lc_error_log (
+    id                 BIGSERIAL PRIMARY KEY,
+    source             VARCHAR(50) NOT NULL DEFAULT 'api',
+    path               VARCHAR(500),
+    http_method        VARCHAR(20),
+    error_type         VARCHAR(200),
+    message            TEXT,
+    stack_trace        TEXT,
+    request_json       JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lc_error_log_created
+    ON lc_error_log (created_at DESC);
+
+-- Seed common dictionaries (idempotent)
+INSERT INTO lc_dict_type (dict_code, name, description) VALUES
+    ('common.enabled_status', '启用状态', '0停用 1启用'),
+    ('common.draft_posted', '草稿/已过账', '0草稿 1已过账'),
+    ('shop.move_type', '库存流水类型', 'IN/OUT/ADJ')
+ON CONFLICT (dict_code) DO NOTHING;
+
+INSERT INTO lc_dict_item (dict_code, item_value, item_label, sort_order) VALUES
+    ('common.enabled_status', '1', '启用', 1),
+    ('common.enabled_status', '0', '停用', 2),
+    ('common.draft_posted', '0', '草稿', 1),
+    ('common.draft_posted', '1', '已过账', 2),
+    ('shop.move_type', 'IN', '入库', 1),
+    ('shop.move_type', 'OUT', '出库', 2),
+    ('shop.move_type', 'ADJ', '调整', 3)
+ON CONFLICT (dict_code, item_value) DO NOTHING;
+

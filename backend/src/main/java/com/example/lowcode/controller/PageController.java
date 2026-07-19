@@ -53,8 +53,12 @@ public class PageController {
     public Map<String, Object> configurePage(
             @PathVariable String pageCode,
             @RequestBody Map<String, Object> requestBody) {
-        String configJsonStr = (String) requestBody.get("configJson");
-        pageService.updatePageConfig(pageCode, configJsonStr);
+        try {
+            String configJsonStr = (String) requestBody.get("configJson");
+            pageService.updatePageConfig(pageCode, configJsonStr);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;
@@ -62,10 +66,14 @@ public class PageController {
 
     @PostMapping
     public Map<String, Object> createPage(@RequestBody Map<String, Object> requestBody) {
-        String pageCode = (String) requestBody.get("pageCode");
-        String title = (String) requestBody.get("title");
-        String routePath = (String) requestBody.get("routePath");
-        pageService.createPage(pageCode, title, routePath);
+        try {
+            String pageCode = (String) requestBody.get("pageCode");
+            String title = (String) requestBody.get("title");
+            String routePath = (String) requestBody.get("routePath");
+            pageService.createPage(pageCode, title, routePath);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;
@@ -123,6 +131,22 @@ public class PageController {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("status", "success");
+        return res;
+    }
+
+    @PostMapping("/{pageCode}/logs")
+    public Map<String, Object> logClientEvent(
+            @PathVariable String pageCode,
+            @RequestBody Map<String, Object> payload) {
+        String eventType = (String) payload.get("eventType");
+        String elementCode = (String) payload.get("elementCode");
+        String message = (String) payload.get("message");
+        Object details = payload.get("details");
+
+        pageService.logClientEvent(pageCode, eventType, elementCode, message, details);
+
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;

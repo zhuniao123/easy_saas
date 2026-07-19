@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type ActionConfig, type FilterConfig, type DrillDownRequest, resolveActionHandler } from './actionRegistry';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
+import { logEvent } from './logger';
 import { editorTypeFromFieldType, htmlInputTypeForEditor } from './editors';
 import { formatDecoratedValue, resolveTone, toneClassName } from './runtime/decorators';
 import DrillDownDrawer from './runtime/DrillDownDrawer';
@@ -263,6 +264,16 @@ export default function PageLoader({
 
     setLoadingQuery(true);
     setQueryError(null);
+
+    logEvent(
+      pageCode,
+      pageDsl.logging,
+      'query',
+      queryCodeValue,
+      `Fetching data query model: "${queryCodeValue}"`,
+      { params: normalizedParams, filters: nextActiveFilters }
+    );
+
     fetch(`/api/v1/queries/${queryCodeValue}/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -284,9 +295,26 @@ export default function PageLoader({
       .then((data) => {
         setQueryResult(data);
         setTotal(data.total || 0);
+        logEvent(
+          pageCode,
+          pageDsl.logging,
+          'query',
+          queryCodeValue,
+          `Successfully fetched data query: ${data.rows?.length || 0} rows retrieved`,
+          { count: data.rows?.length || 0, total: data.total || 0 }
+        );
       })
       .catch((err: Error) => {
-        setQueryError(err.message || t('error.failedToLoadData'));
+        const errMsg = err.message || t('error.failedToLoadData');
+        setQueryError(errMsg);
+        logEvent(
+          pageCode,
+          pageDsl.logging,
+          'query',
+          queryCodeValue,
+          `Failed to fetch query: ${errMsg}`,
+          { error: errMsg }
+        );
       })
       .finally(() => setLoadingQuery(false));
   }, [filterValues, filters, page, pageSize, sortField, sortOrder, t]);
@@ -336,6 +364,20 @@ export default function PageLoader({
       notify(t('action.notRegistered', { label: action.label }));
       return;
     }
+
+    logEvent(
+      pageCode,
+      pageDsl.logging,
+      'click',
+      action.code,
+      `User clicked button: "${action.label}"`,
+      {
+        scope: action.scope,
+        actionCode: action.actionCode || action.code,
+        rowId: row ? row[primaryKeyField || 'id'] : undefined,
+      }
+    );
+
     void handler(action, {
       row,
       rows: queryResult.rows,
@@ -414,13 +456,42 @@ export default function PageLoader({
         setAutocompleteSuggestions({});
         setDynamicFilterOptions({});
 
-        // Trigger SQL option lists loading
-        const sqlFilters = normalizedPage.table.filters.filter(
-          (f) => f.type === 'select' && f.options && !Array.isArray(f.options) && 'source' in f.options && f.options.source === 'sql'
+        // Trigger SQL / dict option lists loading
+        const dynamicFilters = normalizedPage.table.filters.filter(
+          (f) =>
+            f.type === 'select' &&
+            f.options &&
+            !Array.isArray(f.options) &&
+            'source' in f.options &&
+            (f.options.source === 'sql' || f.options.source === 'dict'),
         );
 
-        sqlFilters.forEach((filter) => {
-          const opts = filter.options as { queryCode: string; labelField: string; valueField: string };
+        dynamicFilters.forEach((filter) => {
+          const opts = filter.options as {
+            source?: string;
+            queryCode?: string;
+            labelField?: string;
+            valueField?: string;
+            dictCode?: string;
+          };
+          if (opts.source === 'dict' && opts.dictCode) {
+            fetch(`/api/v1/dicts/${encodeURIComponent(opts.dictCode)}/options`)
+              .then((res) => {
+                if (!res.ok) throw new Error();
+                return res.json();
+              })
+              .then((data) => {
+                if (cancelled) return;
+                setDynamicFilterOptions((prev) => ({
+                  ...prev,
+                  [filter.field]: data,
+                }));
+              })
+              .catch(() => {
+                /* ignore dict load failure */
+              });
+            return;
+          }
           if (opts.queryCode && opts.labelField && opts.valueField) {
             fetch(`/api/v1/queries/options/provide?queryCode=${opts.queryCode}&labelField=${opts.labelField}&valueField=${opts.valueField}`)
               .then((res) => {
@@ -552,6 +623,14 @@ export default function PageLoader({
   const handleFilterApply = () => {
     setPage(1);
     refreshData(1, pageSize, sortField, sortOrder, filterValues);
+    logEvent(
+      pageCode,
+      pageDsl.logging,
+      'filter',
+      'apply_filters',
+      `User applied filters to grid`,
+      { filters: filterValues }
+    );
   };
 
   const handleInsert = async (e: React.FormEvent) => {
@@ -568,6 +647,14 @@ export default function PageLoader({
       closeEditor();
       refreshData();
       notify(t('page.recordCreated'));
+      logEvent(
+        pageCode,
+        pageDsl.logging,
+        'create',
+        'insert_row',
+        `User successfully inserted a new record`,
+        { formData }
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('error.failedToInsertRecord');
       setCrudError(message);
@@ -597,6 +684,14 @@ export default function PageLoader({
       closeEditor();
       refreshData();
       notify(t('page.recordUpdated'));
+      logEvent(
+        pageCode,
+        pageDsl.logging,
+        'edit',
+        `update_row_${id}`,
+        `User successfully updated record with ID: ${id}`,
+        { id, formData }
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('error.failedToUpdateRecord');
       setCrudError(message);
@@ -617,6 +712,14 @@ export default function PageLoader({
       if (!res.ok) throw new Error(t('error.failedToDeleteRecord'));
       refreshData();
       notify(t('page.recordDeleted'));
+      logEvent(
+        pageCode,
+        pageDsl.logging,
+        'delete',
+        `delete_row_${id}`,
+        `User successfully deleted record with ID: ${id}`,
+        { id }
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('error.failedToDeleteRecord');
       window.alert(message);
@@ -1185,13 +1288,59 @@ export default function PageLoader({
             </div>
           )}
 
-          {loadingQuery && (
-            <div className="mt-6 flex items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-sm text-slate-500">
-              {t('page.streaming')}
-            </div>
+          {/* Query Loading State */}
+          {loadingQuery && pageDsl.features.loading?.enabled !== false && pageDsl.features.loading?.showDefault !== false && (
+            <>
+              {pageDsl.features.loading?.style === 'skeleton' && (
+                <div className="mt-6 overflow-hidden rounded-[26px] border border-slate-200/60 bg-white/50 dark:bg-slate-900/50 p-6 space-y-4">
+                  <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+                    {runtimeColumns.map((c, i) => (
+                      <div key={i} className="h-4 bg-slate-200 dark:bg-slate-700/60 rounded animate-pulse" style={{ width: c.width ? `${c.width}px` : '120px' }}></div>
+                    ))}
+                  </div>
+                  {[1, 2, 3, 4, 5].map((rowIdx) => (
+                    <div key={rowIdx} className="flex gap-4 py-2 border-b border-slate-50 dark:border-slate-800/40 last:border-0">
+                      {runtimeColumns.map((c, i) => (
+                        <div key={i} className="h-6 bg-slate-100 dark:bg-slate-800/30 rounded animate-pulse" style={{ width: c.width ? `${c.width}px` : '100px' }}></div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {pageDsl.features.loading?.style === 'glow' && (
+                <div className="mt-6 relative overflow-hidden rounded-[26px] border border-cyan-500/20 bg-slate-950/80 p-8 shadow-[0_0_50px_rgba(6,182,212,0.15)] text-center py-20">
+                  <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-cyan-500/10 blur-[50px] animate-pulse"></div>
+                  <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-fuchsia-500/10 blur-[50px] animate-pulse"></div>
+                  <div className="relative space-y-4">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-400/30 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                      <svg className="h-6 w-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div className="text-sm font-bold uppercase tracking-[0.28em] text-cyan-400 animate-pulse">
+                      Streaming Data Engine
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Executing server raw SQL transaction log sequence...</p>
+                  </div>
+                </div>
+              )}
+
+              {(pageDsl.features.loading?.style === 'spinner' || !pageDsl.features.loading?.style) && (
+                <div className="mt-6 flex flex-col items-center justify-center rounded-[26px] border border-slate-200/60 bg-white/50 dark:bg-slate-900/50 py-16">
+                  <div className="relative h-12 w-12">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-20"></span>
+                    <span className="relative flex h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-500"></span>
+                  </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400 animate-pulse">
+                    {t('page.streaming')}
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
-          {!loadingQuery && queryResult && (
+          {(!loadingQuery || pageDsl.features.loading?.enabled === false || pageDsl.features.loading?.showDefault === false) && queryResult && (
             <div className="mt-6 overflow-hidden rounded-[26px] border border-slate-200">
               <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse text-left">

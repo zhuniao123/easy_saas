@@ -24,6 +24,8 @@ public class PageService {
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private ConfigValidationService configValidationService;
 
     private String requireSafeIdentifier(String value, String fieldName) {
         if (value == null || !SAFE_IDENTIFIER.matcher(value).matches()) {
@@ -84,6 +86,7 @@ public class PageService {
     }
 
     public void updatePageConfig(String pageCode, String configJsonStr) {
+        configValidationService.validatePageConfigJson(configJsonStr);
         Map<String, Object> params = new HashMap<>();
         params.put("pageCode", pageCode);
         params.put("configJson", configJsonStr);
@@ -114,9 +117,7 @@ public class PageService {
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Title is required");
         }
-        if (routePath == null || routePath.trim().isEmpty()) {
-            throw new IllegalArgumentException("Route path is required");
-        }
+        configValidationService.validateRoutePath(routePath);
 
         // Create the physical table in the database with default columns
         String createTableSql = "CREATE TABLE IF NOT EXISTS \"" + pageCode + "\" (" +
@@ -409,6 +410,27 @@ public class PageService {
         Map<String, Object> params = new HashMap<>();
         params.put("__id", targetId);
 
+        jdbcTemplate.update(sql, params);
+    }
+
+    public void logClientEvent(String pageCode, String eventType, String elementCode, String message, Object details) {
+        String sql = "INSERT INTO lc_client_log (page_code, event_type, element_code, message, details_json) " +
+                     "VALUES (:pageCode, :eventType, :elementCode, :message, cast(:detailsJson as jsonb))";
+        Map<String, Object> params = new HashMap<>();
+        params.put("pageCode", pageCode);
+        params.put("eventType", eventType != null ? eventType : "info");
+        params.put("elementCode", elementCode);
+        params.put("message", message);
+
+        String detailsJson = "{}";
+        if (details != null) {
+            try {
+                detailsJson = new ObjectMapper().writeValueAsString(details);
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+        params.put("detailsJson", detailsJson);
         jdbcTemplate.update(sql, params);
     }
 
