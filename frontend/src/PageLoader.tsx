@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type ActionConfig, type FilterConfig, resolveActionHandler } from './actionRegistry';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
+import { editorTypeFromFieldType, htmlInputTypeForEditor } from './editors';
+import { formatDecoratedValue, resolveTone, toneClassName } from './runtime/decorators';
 
 interface PageConfig {
   pageCode: string;
@@ -26,8 +28,9 @@ interface ColumnMeta {
   type: string;
   width?: number;
   align?: 'left' | 'center' | 'right';
-  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'badge';
+  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent';
   tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger';
+  toneRules?: Array<{ when?: string; tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger' }>;
 }
 
 interface QueryResult {
@@ -45,9 +48,8 @@ type SqlValidationState =
   | { status: 'invalid'; message: string };
 
 const inferInputType = (type: string) => {
-  if (type === 'integer' || type === 'number') return 'number';
-  if (type === 'datetime') return 'datetime-local';
-  return 'text';
+  const editor = editorTypeFromFieldType(type);
+  return htmlInputTypeForEditor(editor);
 };
 
 export default function PageLoader({
@@ -140,8 +142,9 @@ export default function PageLoader({
         label: column.label || matched.label,
         width: column.width,
         align: column.align,
-        format: column.format,
-        tone: column.tone,
+        format: column.format || matched.format,
+        tone: column.tone || matched.tone,
+        toneRules: column.toneRules,
       });
       return acc;
     }, []);
@@ -373,14 +376,14 @@ export default function PageLoader({
     }
   };
 
-  const formatCellValue = (column: ColumnMeta, value: unknown) => {
-    const format = column.format || column.type;
+  const formatCellValue = (column: ColumnMeta, value: unknown, row?: Record<string, unknown>) => {
     if (value === null || value === undefined || value === '') return '—';
-    if (format === 'datetime') {
-      const date = new Date(String(value));
-      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(locale);
-    }
-    return String(value);
+    return formatDecoratedValue(value, {
+      format: column.format || column.type,
+      type: column.type,
+      locale,
+      row,
+    });
   };
 
   useEffect(() => {
@@ -1224,14 +1227,15 @@ export default function PageLoader({
                           key={index}
                           className="cursor-pointer transition hover:bg-cyan-50/50"
                           onDoubleClick={() => {
-                            if (entityFields.length > 0 && pageDsl.features.edit) {
+                            if (isPageWritable && pageDsl.features.edit) {
                               openEdit(row);
                             }
                           }}
                         >
                           {runtimeColumns.map((column) => {
                             const value = row[column.field];
-                            const formattedValue = formatCellValue(column, value);
+                            const formattedValue = formatCellValue(column, value, row);
+                            const effectiveTone = resolveTone(value, column.tone, column.toneRules, row);
                             const alignClass =
                               column.align === 'right'
                                 ? 'text-right'
@@ -1245,7 +1249,9 @@ export default function PageLoader({
                                 style={column.width ? { width: `${column.width}px` } : undefined}
                               >
                                 {column.format === 'badge' ? (
-                                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                                  <span
+                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${toneClassName(effectiveTone)}`}
+                                  >
                                     {formattedValue}
                                   </span>
                                 ) : column.type === 'boolean' || column.format === 'boolean' ? (
@@ -1258,10 +1264,13 @@ export default function PageLoader({
                                   >
                                     {value ? t('page.true') : t('page.false')}
                                   </span>
-                                ) : column.type === 'integer' || column.type === 'number' || column.format === 'number' ? (
-                                  <span className={`font-mono ${toneClass(column.tone)}`}>{formattedValue}</span>
+                                ) : column.format === 'money' ||
+                                  column.type === 'integer' ||
+                                  column.type === 'number' ||
+                                  column.format === 'number' ? (
+                                  <span className={`font-mono ${toneClass(effectiveTone)}`}>{formattedValue}</span>
                                 ) : (
-                                  <span className={toneClass(column.tone)}>{formattedValue}</span>
+                                  <span className={toneClass(effectiveTone)}>{formattedValue}</span>
                                 )}
                               </td>
                             );

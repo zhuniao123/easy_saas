@@ -56,13 +56,35 @@ const normalizeColumns = (columns: unknown): ColumnConfig[] =>
             align: align === 'center' || align === 'right' || align === 'left' ? align : undefined,
             hidden: column.hidden === true,
             format:
-              format === 'number' || format === 'boolean' || format === 'datetime' || format === 'badge' || format === 'text'
+              format === 'number' ||
+              format === 'boolean' ||
+              format === 'datetime' ||
+              format === 'date' ||
+              format === 'badge' ||
+              format === 'text' ||
+              format === 'money' ||
+              format === 'percent'
                 ? format
                 : undefined,
             tone:
               tone === 'muted' || tone === 'accent' || tone === 'success' || tone === 'danger' || tone === 'default'
                 ? tone
                 : undefined,
+            toneRules: Array.isArray(column.toneRules)
+              ? column.toneRules
+                  .filter((rule): rule is Record<string, unknown> => Boolean(rule) && typeof rule === 'object')
+                  .map((rule) => ({
+                    when: rule.when ? String(rule.when) : undefined,
+                    tone:
+                      rule.tone === 'muted' ||
+                      rule.tone === 'accent' ||
+                      rule.tone === 'success' ||
+                      rule.tone === 'danger' ||
+                      rule.tone === 'default'
+                        ? rule.tone
+                        : undefined,
+                  }))
+              : undefined,
           } satisfies ColumnConfig;
         })
         .filter((column) => column.field)
@@ -229,9 +251,10 @@ export const normalizePageDsl = (
     },
     features: {
       pagination: features.pagination !== false,
-      create: features.create !== false,
-      edit: features.edit !== false,
-      delete: features.delete !== false,
+      // Opt-in write features (Phase A): default false; require explicit true + server writable
+      create: features.create === true,
+      edit: features.edit === true,
+      delete: features.delete === true,
       export: features.export !== false,
       density: features.density === 'compact' ? 'compact' : 'comfortable',
     },

@@ -20,8 +20,9 @@ export interface ColumnConfig {
   width?: number;
   align?: 'left' | 'center' | 'right';
   hidden?: boolean;
-  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'badge';
+  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent';
   tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger';
+  toneRules?: Array<{ when?: string; tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger' }>;
 }
 
 export interface FilterConfig {
