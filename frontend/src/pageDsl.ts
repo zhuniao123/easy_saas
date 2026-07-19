@@ -145,9 +145,12 @@ const normalizeActions = (actions: unknown): ActionConfig[] =>
         .map((action) => {
           const scope = action.scope;
           const variant = action.variant;
+          const type = action.type ? String(action.type) : undefined;
           return {
             code: String(action.code || action.label || ''),
             label: String(action.label || action.code || ''),
+            type,
+            actionCode: action.actionCode ? String(action.actionCode) : undefined,
             handler: action.handler ? String(action.handler) : undefined,
             dsl: action.dsl ? String(action.dsl) : undefined,
             scope: scope === 'row' ? 'row' : 'page',
@@ -156,6 +159,10 @@ const normalizeActions = (actions: unknown): ActionConfig[] =>
                 ? variant
                 : undefined,
             confirmText: action.confirmText ? String(action.confirmText) : undefined,
+            sqlTransaction:
+              action.sqlTransaction && typeof action.sqlTransaction === 'object'
+                ? (action.sqlTransaction as ActionConfig['sqlTransaction'])
+                : undefined,
             when:
               action.when && typeof action.when === 'object'
                 ? {

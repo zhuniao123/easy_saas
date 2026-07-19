@@ -18,6 +18,8 @@ psql -h 127.0.0.1 -U lowcode -d lowcode -f demos/product_ledger/install.sql
 3. 进价/售价以 **money** 展示；库存低于安全库存为 **danger** 色。
 4. `GET /api/v1/pages/product_ledger` 返回 `"writable": true`。
 5. 分类下拉来自 SQL options query。
+6. **Phase C 行按钮**：停用 / 启用 / 库存+1（SQL 在 `lc_action`，请求体**不含** SQL）。
+7. 停用商品后再点「库存+1」应失败（assert status=1）。
 
 ## 积木对照
 
@@ -27,6 +29,9 @@ psql -h 127.0.0.1 -U lowcode -d lowcode -f demos/product_ledger/install.sql
 | CRUD 按钮 | `features.create/edit/delete: true` + server `writable` |
 | 金额/色条 | `table.columns[].format` / `toneRules` |
 | 筛选下拉 | `filters[].options.source=sql\|static` |
+| SQL 事务按钮 | `lc_action` + page `type=sqlTransaction` + `actionCode` |
+
+SQL 配置规范见：`docs/wiki/sql-transaction-actions.md`
 
 ## 非目标
 

@@ -77,7 +77,80 @@ VALUES
     'rawSql'
 );
 
--- 5. Page (building-block config)
+-- 5. Action catalog (Phase C) — SQL lives here, not in browser requests
+DELETE FROM lc_action WHERE action_code IN ('disable_product', 'enable_product', 'qty_plus_one');
+
+INSERT INTO lc_action (action_code, action_type, label, config_json, enabled) VALUES
+(
+  'disable_product',
+  'sqlTransaction',
+  '停用商品',
+  '{
+    "type": "sqlTransaction",
+    "timeoutSeconds": 10,
+    "refresh": true,
+    "successMessage": "商品已停用",
+    "bind": {
+      "id": { "from": "row", "field": "id", "required": true },
+      "status": { "from": "fixed", "value": 0 }
+    },
+    "statements": [
+      {
+        "name": "disable",
+        "kind": "write",
+        "sql": "UPDATE demo_product SET status = :status, updated_at = NOW() WHERE id = :id"
+      }
+    ]
+  }'::jsonb,
+  true
+),
+(
+  'enable_product',
+  'sqlTransaction',
+  '启用商品',
+  '{
+    "type": "sqlTransaction",
+    "refresh": true,
+    "successMessage": "商品已启用",
+    "bind": {
+      "id": { "from": "row", "field": "id", "required": true },
+      "status": { "from": "fixed", "value": 1 }
+    },
+    "statements": [
+      {
+        "kind": "write",
+        "sql": "UPDATE demo_product SET status = :status, updated_at = NOW() WHERE id = :id"
+      }
+    ]
+  }'::jsonb,
+  true
+),
+(
+  'qty_plus_one',
+  'sqlTransaction',
+  '库存+1',
+  '{
+    "type": "sqlTransaction",
+    "refresh": true,
+    "successMessage": "库存已 +1（演示调整，不是进销存过账）",
+    "bind": {
+      "id": { "from": "row", "field": "id", "required": true }
+    },
+    "statements": [
+      {
+        "kind": "assert",
+        "sql": "SELECT (status = 1) AS ok FROM demo_product WHERE id = :id"
+      },
+      {
+        "kind": "write",
+        "sql": "UPDATE demo_product SET qty_on_hand = qty_on_hand + 1, updated_at = NOW() WHERE id = :id AND status = 1"
+      }
+    ]
+  }'::jsonb,
+  true
+);
+
+-- 6. Page (building-block config) — UI binds actionCode only
 INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code, config_json)
 VALUES (
     'product_ledger',
@@ -88,7 +161,7 @@ VALUES (
     '{
       "presentation": {
         "title": "商品台账",
-        "description": "Phase B demo: single-table product ledger with money/badge decorators and opt-in CRUD.",
+        "description": "Phase B+C: single-table ledger + catalog sqlTransaction actions (no client SQL).",
         "badge": "1.x Building Blocks",
         "emptyState": "No products yet. Click Add or import later (1.7)."
       },
@@ -160,7 +233,37 @@ VALUES (
           {"code": "refresh_grid", "label": "刷新", "dsl": "grid.refresh", "scope": "page", "variant": "primary"},
           {"code": "export_grid", "label": "导出 CSV", "dsl": "grid.exportCsv", "scope": "page", "variant": "secondary"},
           {"code": "create_product", "label": "新增商品", "dsl": "record.create", "scope": "page", "variant": "success"},
-          {"code": "dup_row", "label": "复制", "dsl": "record.duplicate", "scope": "row", "variant": "secondary"}
+          {"code": "dup_row", "label": "复制", "dsl": "record.duplicate", "scope": "row", "variant": "secondary"},
+          {
+            "code": "disable_product",
+            "actionCode": "disable_product",
+            "type": "sqlTransaction",
+            "label": "停用",
+            "scope": "row",
+            "variant": "danger",
+            "confirmText": "确认停用该商品？",
+            "when": { "field": "status", "notEquals": 0 }
+          },
+          {
+            "code": "enable_product",
+            "actionCode": "enable_product",
+            "type": "sqlTransaction",
+            "label": "启用",
+            "scope": "row",
+            "variant": "success",
+            "confirmText": "确认重新启用？",
+            "when": { "field": "status", "equals": 0 }
+          },
+          {
+            "code": "qty_plus_one",
+            "actionCode": "qty_plus_one",
+            "type": "sqlTransaction",
+            "label": "库存+1",
+            "scope": "row",
+            "variant": "secondary",
+            "confirmText": "演示用简易调整，不是进销存过账。继续？",
+            "when": { "field": "status", "equals": 1 }
+          }
         ]
       },
       "features": {

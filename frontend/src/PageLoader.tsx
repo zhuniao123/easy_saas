@@ -338,10 +338,13 @@ export default function PageLoader({
       row,
       rows: queryResult.rows,
       columns: runtimeColumns.map((column) => ({ field: column.field, label: column.label })),
+      pageCode,
       refresh: () => refreshData(),
       openCreate,
       notify,
       t,
+    }).catch(() => {
+      /* notify already shown for sqlTransaction failures */
     });
   };
 

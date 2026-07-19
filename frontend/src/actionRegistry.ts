@@ -1,11 +1,33 @@
+export interface SqlBindSpec {
+  from: 'row' | 'form' | 'fixed' | 'request';
+  field?: string;
+  value?: unknown;
+  required?: boolean;
+}
+
+export interface SqlTransactionConfig {
+  timeoutSeconds?: number;
+  refresh?: boolean;
+  successMessage?: string;
+  bind?: Record<string, SqlBindSpec>;
+  fixedParams?: Record<string, unknown>;
+  statements: Array<string | { sql: string; kind?: 'write' | 'assert'; name?: string }>;
+}
+
 export interface ActionConfig {
   code: string;
   label: string;
+  /** builtin | sqlTransaction | client */
+  type?: string;
+  /** Catalog key; defaults to code when type=sqlTransaction */
+  actionCode?: string;
   handler?: string;
   dsl?: string;
   scope?: 'page' | 'row';
   variant?: 'primary' | 'secondary' | 'danger' | 'success';
   confirmText?: string;
+  /** Page-embedded SQL tx (server still loads from DB; never sent as SQL body) */
+  sqlTransaction?: SqlTransactionConfig;
   when?: {
     field: string;
     equals?: string | number | boolean;
@@ -49,6 +71,7 @@ export interface ActionContext {
   row?: Record<string, unknown>;
   rows: Array<Record<string, unknown>>;
   columns: ColumnConfig[];
+  pageCode?: string;
   refresh: () => void;
   openCreate: (seed?: Record<string, unknown>) => void;
   notify: (message: string) => void;
@@ -145,7 +168,53 @@ const normalizeDslCommand = (command: string) => {
   return aliases[trimmed] || trimmed;
 };
 
+const executeSqlTransaction: ActionHandler = async (action, context) => {
+  const actionCode = action.actionCode || action.code;
+  if (!actionCode) {
+    context.notify(context.t('action.notRegistered', { label: action.label }));
+    return;
+  }
+  if (action.scope === 'row' && !context.row) {
+    context.notify(context.t('action.notRegistered', { label: action.label }));
+    return;
+  }
+
+  const res = await fetch(`/api/v1/actions/${encodeURIComponent(actionCode)}/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pageCode: context.pageCode,
+      row: context.row || {},
+      form: {},
+      params: {},
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    status?: string;
+    message?: string;
+    refresh?: boolean;
+    error?: string;
+  };
+
+  if (!res.ok) {
+    const msg = data.message || data.error || `Action failed (${res.status})`;
+    context.notify(msg);
+    throw new Error(msg);
+  }
+
+  context.notify(data.message || context.t('action.gridRefreshed'));
+  if (data.refresh !== false) {
+    context.refresh();
+  }
+};
+
 export const resolveActionHandler = (action: ActionConfig): ActionHandler | null => {
+  const type = (action.type || '').toLowerCase();
+  if (type === 'sqltransaction' || action.sqlTransaction) {
+    return executeSqlTransaction;
+  }
+
   const actionKey = action.handler || action.dsl;
   if (!actionKey) return null;
 
