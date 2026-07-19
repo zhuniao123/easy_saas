@@ -11,7 +11,7 @@
 
 | 车道 | 负责范围 | 优先文件 |
 |------|----------|----------|
-| **A+B / ledger**（本会话） | 后端 writable/query_mode、CRUD 安全、DSL/editors/decorators、商品台账 demo | `PageService.java`, `QueryEngineService.java`, `PageController.java`, `schema.sql`, `frontend/src/pageDsl.ts`, `frontend/src/PageLoader.tsx`（仅 writable/装饰器相关）, `frontend/src/dsl/**`, `frontend/src/editors/**`, `frontend/src/runtime/**`, `demos/product_ledger/**`, `docs/wiki/building-blocks.md` |
+| **A+B+C / ledger**（本会话） | writable、商品台账、**sqlTransaction 动作** | 上表 + `ActionService.java`, `ActionController.java`, `lc_action*`, `docs/wiki/sql-transaction-actions.md`, `actionRegistry.ts` |
 | **Shell / UX**（另一 agent） | 应用壳、导航、多页布局体验 | **`frontend/src/App.tsx`**, 可能的 i18n 文案、样式壳层 |
 | **共用注意** | 改公共文件前 `git pull` / 看 status；提交信息写清车道 | 不要提交 `backend/target/`、`postgres-data/`、`node_modules/` |
 

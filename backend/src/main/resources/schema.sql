@@ -46,3 +46,28 @@ CREATE TABLE IF NOT EXISTS lc_query_log (
     error_message      TEXT,
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+
+-- Phase C: reusable SQL transaction actions (execution catalog)
+CREATE TABLE IF NOT EXISTS lc_action (
+    action_code        VARCHAR(100) PRIMARY KEY,
+    action_type        VARCHAR(50)  NOT NULL DEFAULT 'sqlTransaction',
+    label              VARCHAR(200) NOT NULL,
+    config_json        JSONB        NOT NULL,
+    enabled            BOOLEAN      NOT NULL DEFAULT true,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lc_action_log (
+    id                 BIGSERIAL PRIMARY KEY,
+    action_code        VARCHAR(100) NOT NULL,
+    page_code          VARCHAR(100),
+    params_json        JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    success            BOOLEAN      NOT NULL,
+    error_message      TEXT,
+    duration_ms        INTEGER,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lc_action_log_action_created
+    ON lc_action_log (action_code, created_at DESC);
