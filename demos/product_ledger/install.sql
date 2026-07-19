@@ -32,9 +32,34 @@ INSERT INTO demo_product (sku, name, category, unit, cost_price, sale_price, qty
 ('SKU-RICE-5KG',  'Rice 5kg',             'Staple',   'bag', 18.00, 29.90, 12, 10, 1, NULL),
 ('SKU-OLD-TEA',   'Discontinued Tea',     'Beverage', 'box',  8.00, 15.00,  0,  5, 0, 'Stopped');
 
+-- 1b. Related stock moves (for openQuery drill-down — NOT master-detail)
+DROP TABLE IF EXISTS demo_stock_move CASCADE;
+CREATE TABLE demo_stock_move (
+    move_id     BIGSERIAL PRIMARY KEY,
+    sku         VARCHAR(50) NOT NULL REFERENCES demo_product(sku),
+    move_type   VARCHAR(20) NOT NULL,
+    qty         NUMERIC(12, 2) NOT NULL,
+    ref_no      VARCHAR(50),
+    remark      TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO demo_stock_move (sku, move_type, qty, ref_no, remark, created_at) VALUES
+('SKU-COLA-330',  'IN',  100, 'PO-1001', '采购入库', NOW() - INTERVAL '10 days'),
+('SKU-COLA-330',  'OUT', -30, 'SO-2001', '销售出库', NOW() - INTERVAL '8 days'),
+('SKU-COLA-330',  'OUT', -20, 'SO-2008', '销售出库', NOW() - INTERVAL '3 days'),
+('SKU-WATER-550', 'IN',   50, 'PO-1002', '采购入库', NOW() - INTERVAL '12 days'),
+('SKU-WATER-550', 'OUT', -42, 'SO-2010', '销售出库', NOW() - INTERVAL '2 days'),
+('SKU-CHIPS-大',  'IN',   60, 'PO-1003', '采购入库', NOW() - INTERVAL '7 days'),
+('SKU-CHIPS-大',  'OUT', -15, 'SO-2011', '销售出库', NOW() - INTERVAL '1 days'),
+('SKU-RICE-5KG',  'IN',   20, 'PO-1004', '采购入库', NOW() - INTERVAL '5 days'),
+('SKU-RICE-5KG',  'OUT',  -8, 'SO-2012', '销售出库', NOW() - INTERVAL '1 days'),
+('SKU-OLD-TEA',   'IN',   10, 'PO-0900', '历史入库', NOW() - INTERVAL '60 days'),
+('SKU-OLD-TEA',   'OUT', -10, 'ADJ-01',  '报废出库', NOW() - INTERVAL '30 days');
+
 -- 2. Metadata cleanup
 DELETE FROM lc_page_model WHERE page_code = 'product_ledger';
-DELETE FROM lc_query_model WHERE query_code IN ('q_product_ledger', 'q_product_category_options');
+DELETE FROM lc_query_model WHERE query_code IN ('q_product_ledger', 'q_product_category_options', 'q_stock_moves_by_sku');
 DELETE FROM lc_entity_model WHERE entity_code = 'entity_product';
 
 -- 3. Entity
@@ -74,6 +99,12 @@ VALUES
     'q_product_category_options',
     NULL,
     'SELECT DISTINCT category AS value, category AS label FROM demo_product ORDER BY category',
+    'rawSql'
+),
+(
+    'q_stock_moves_by_sku',
+    NULL,
+    'SELECT move_id, sku, move_type, qty, ref_no, remark, created_at FROM demo_stock_move WHERE sku = :sku ORDER BY created_at DESC',
     'rawSql'
 );
 
@@ -263,6 +294,22 @@ VALUES (
             "variant": "secondary",
             "confirmText": "演示用简易调整，不是进销存过账。继续？",
             "when": { "field": "status", "equals": 1 }
+          },
+          {
+            "code": "view_stock_moves",
+            "type": "openQuery",
+            "label": "流水",
+            "scope": "row",
+            "variant": "secondary",
+            "openQuery": {
+              "queryCode": "q_stock_moves_by_sku",
+              "title": "库存流水 · {{row.sku}} {{row.name}}",
+              "presentation": "drawer",
+              "pageSize": 20,
+              "bind": {
+                "sku": { "from": "row", "field": "sku", "required": true }
+              }
+            }
           }
         ]
       },

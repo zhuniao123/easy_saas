@@ -8,6 +8,7 @@
 - [积木边界：模板 vs 通用（1.x）](./building-blocks.md)
 - [并行 Agent 分工](./AGENT_COORDINATION.md)
 - [SQL 事务动作配置（Phase C）](./sql-transaction-actions.md)
+- [SQL 仓库 + 关联钻取](./sql-repo-and-drilldown.md)
 - [v1.5 模块化 DSL 方案](./v1.5-modular-dsl-plan.md)
 - [v1.x 商品台账积木化计划](../superpowers/plans/2026-07-19-v1x-product-ledger-building-blocks.md)
 - [后续开发 Wiki](./dev-wiki.md)
