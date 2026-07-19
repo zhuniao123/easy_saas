@@ -59,7 +59,15 @@ INSERT INTO demo_stock_move (sku, move_type, qty, ref_no, remark, created_at) VA
 
 -- 2. Metadata cleanup
 DELETE FROM lc_page_model WHERE page_code = 'product_ledger';
-DELETE FROM lc_query_model WHERE query_code IN ('q_product_ledger', 'q_product_category_options', 'q_stock_moves_by_sku');
+DELETE FROM lc_query_model WHERE query_code IN (
+  'q_product_ledger',
+  'q_product_category_options',
+  'q_stock_moves_by_sku',
+  'sql_disable_product',
+  'sql_enable_product',
+  'sql_assert_product_active',
+  'sql_qty_plus_one'
+);
 DELETE FROM lc_entity_model WHERE entity_code = 'entity_product';
 
 -- 3. Entity
@@ -106,9 +114,34 @@ VALUES
     NULL,
     'SELECT move_id, sku, move_type, qty, ref_no, remark, created_at FROM demo_stock_move WHERE sku = :sku ORDER BY created_at DESC',
     'rawSql'
+),
+-- Action SQL assets (shared SQL repo; referenced by lc_action via sqlAssetCode)
+(
+    'sql_disable_product',
+    NULL,
+    'UPDATE demo_product SET status = :status, updated_at = NOW() WHERE id = :id',
+    'dml'
+),
+(
+    'sql_enable_product',
+    NULL,
+    'UPDATE demo_product SET status = :status, updated_at = NOW() WHERE id = :id',
+    'dml'
+),
+(
+    'sql_assert_product_active',
+    NULL,
+    'SELECT (status = 1) AS ok FROM demo_product WHERE id = :id',
+    'rawSql'
+),
+(
+    'sql_qty_plus_one',
+    NULL,
+    'UPDATE demo_product SET qty_on_hand = qty_on_hand + 1, updated_at = NOW() WHERE id = :id AND status = 1',
+    'dml'
 );
 
--- 5. Action catalog (Phase C) — SQL lives here, not in browser requests
+-- 5. Action catalog — statements reference SQL repo (no inline SQL preferred)
 DELETE FROM lc_action WHERE action_code IN ('disable_product', 'enable_product', 'qty_plus_one');
 
 INSERT INTO lc_action (action_code, action_type, label, config_json, enabled) VALUES
@@ -129,7 +162,7 @@ INSERT INTO lc_action (action_code, action_type, label, config_json, enabled) VA
       {
         "name": "disable",
         "kind": "write",
-        "sql": "UPDATE demo_product SET status = :status, updated_at = NOW() WHERE id = :id"
+        "sqlAssetCode": "sql_disable_product"
       }
     ]
   }'::jsonb,
@@ -150,7 +183,7 @@ INSERT INTO lc_action (action_code, action_type, label, config_json, enabled) VA
     "statements": [
       {
         "kind": "write",
-        "sql": "UPDATE demo_product SET status = :status, updated_at = NOW() WHERE id = :id"
+        "sqlAssetCode": "sql_enable_product"
       }
     ]
   }'::jsonb,
@@ -170,11 +203,11 @@ INSERT INTO lc_action (action_code, action_type, label, config_json, enabled) VA
     "statements": [
       {
         "kind": "assert",
-        "sql": "SELECT (status = 1) AS ok FROM demo_product WHERE id = :id"
+        "sqlAssetCode": "sql_assert_product_active"
       },
       {
         "kind": "write",
-        "sql": "UPDATE demo_product SET qty_on_hand = qty_on_hand + 1, updated_at = NOW() WHERE id = :id AND status = 1"
+        "sqlAssetCode": "sql_qty_plus_one"
       }
     ]
   }'::jsonb,

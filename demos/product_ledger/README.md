@@ -29,9 +29,11 @@ psql -h 127.0.0.1 -U lowcode -d lowcode -f demos/product_ledger/install.sql
 | CRUD 按钮 | `features.create/edit/delete: true` + server `writable` |
 | 金额/色条 | `table.columns[].format` / `toneRules` |
 | 筛选下拉 | `filters[].options.source=sql\|static` |
-| SQL 事务按钮 | `lc_action` + page `type=sqlTransaction` + `actionCode` |
+| SQL 事务按钮 | `lc_action` + `statements[].sqlAssetCode` + page `type=sqlTransaction` |
+| 事务 SQL 正文 | SQL 仓库资产（如 `sql_disable_product`，`query_mode=dml`） |
+| 流水钻取 | `openQuery` → `q_stock_moves_by_sku` |
 
-SQL 配置规范见：`docs/wiki/sql-transaction-actions.md`
+SQL 配置规范见：`docs/wiki/sql-transaction-actions.md`、`docs/wiki/sql-repo-and-drilldown.md`
 
 ## 非目标
 

@@ -109,6 +109,41 @@ public class ActionControllerTest {
     }
 
     @Test
+    public void testSqlAssetCodeResolvedFromRepository() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_action WHERE action_code = 'act_from_asset'");
+        jdbcTemplate.execute("DELETE FROM lc_query_model WHERE query_code = 'sql_act_bump'");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS act_asset_t CASCADE");
+        jdbcTemplate.execute("CREATE TABLE act_asset_t (id BIGSERIAL PRIMARY KEY, n INT NOT NULL DEFAULT 0)");
+        jdbcTemplate.execute("INSERT INTO act_asset_t(n) VALUES (0)");
+        jdbcTemplate.execute(
+                "INSERT INTO lc_query_model(query_code, sql_text, query_mode) VALUES ("
+                        + "'sql_act_bump', 'UPDATE act_asset_t SET n = n + 1 WHERE id = :id', 'dml')");
+        jdbcTemplate.execute("""
+            INSERT INTO lc_action(action_code, action_type, label, config_json, enabled)
+            VALUES (
+              'act_from_asset',
+              'sqlTransaction',
+              'Bump',
+              '{
+                "bind":{"id":{"from":"row","field":"id","required":true}},
+                "statements":[{"kind":"write","sqlAssetCode":"sql_act_bump"}]
+              }'::jsonb,
+              true
+            )
+            """);
+
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM act_asset_t LIMIT 1", Long.class);
+        mockMvc.perform(post("/api/v1/actions/act_from_asset/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"row\":{\"id\":" + id + "}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"));
+
+        Integer n = jdbcTemplate.queryForObject("SELECT n FROM act_asset_t WHERE id = " + id, Integer.class);
+        assertThat(n).isEqualTo(1);
+    }
+
+    @Test
     public void testPageEmbeddedAction() throws Exception {
         jdbcTemplate.execute("DELETE FROM lc_page_model WHERE page_code = 'act_embed_page'");
         jdbcTemplate.execute("DROP TABLE IF EXISTS act_embed_t CASCADE");

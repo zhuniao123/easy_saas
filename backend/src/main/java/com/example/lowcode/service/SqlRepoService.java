@@ -35,11 +35,12 @@ public class SqlRepoService {
     private ObjectMapper objectMapper;
 
     public List<Map<String, Object>> listAssets() {
-        return jdbcTemplate.query(
+        List<Map<String, Object>> assets = jdbcTemplate.query(
                 """
                 SELECT query_code AS "queryCode",
                        anchor_entity AS "anchorEntity",
                        COALESCE(query_mode, 'rawSql') AS "queryMode",
+                       sql_text AS "sqlText",
                        LEFT(sql_text, 160) AS "sqlPreview",
                        LENGTH(sql_text) AS "sqlLength",
                        COALESCE(params_json::text, '[]') AS "paramsJson",
@@ -50,17 +51,35 @@ public class SqlRepoService {
                 new HashMap<>(),
                 (rs, rowNum) -> {
                     Map<String, Object> map = new LinkedHashMap<>();
-                    map.put("queryCode", rs.getString("queryCode"));
+                    String sqlText = rs.getString("sqlText");
+                    String queryMode = rs.getString("queryMode");
+                    String code = rs.getString("queryCode");
+                    map.put("queryCode", code);
                     map.put("anchorEntity", rs.getString("anchorEntity"));
-                    map.put("queryMode", rs.getString("queryMode"));
+                    map.put("queryMode", queryMode);
                     map.put("sqlPreview", rs.getString("sqlPreview"));
                     map.put("sqlLength", rs.getInt("sqlLength"));
                     map.put("paramsJson", rs.getString("paramsJson"));
                     map.put("pageRefCount", rs.getInt("pageRefCount"));
-                    map.put("kind", "select");
+                    map.put("actionRefCount", countActionRefs(code));
+                    map.put("kind", inferAssetKind(queryMode, sqlText));
+                    map.put("tryRunAllowed", isSelectLike(sqlText));
                     return map;
                 }
         );
+        return assets;
+    }
+
+    private int countActionRefs(String queryCode) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("p1", "%\"sqlAssetCode\":\"" + queryCode + "\"%");
+        params.put("p2", "%\"sql_asset_code\":\"" + queryCode + "\"%");
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM lc_action WHERE config_json::text LIKE :p1 OR config_json::text LIKE :p2",
+                params,
+                Integer.class
+        );
+        return count == null ? 0 : count;
     }
 
     public Map<String, Object> getAsset(String queryCode) {
@@ -80,14 +99,17 @@ public class SqlRepoService {
                 params,
                 (rs, rowNum) -> {
                     Map<String, Object> map = new LinkedHashMap<>();
+                    String sqlText = rs.getString("sqlText");
+                    String queryMode = rs.getString("queryMode");
                     map.put("queryCode", rs.getString("queryCode"));
                     map.put("anchorEntity", rs.getString("anchorEntity"));
-                    map.put("sqlText", rs.getString("sqlText"));
-                    map.put("queryMode", rs.getString("queryMode"));
+                    map.put("sqlText", sqlText);
+                    map.put("queryMode", queryMode);
                     map.put("paramsJson", rs.getString("paramsJson"));
                     map.put("timeoutMs", rs.getObject("timeoutMs"));
-                    map.put("kind", "select");
-                    map.put("paramNames", extractParamNames(rs.getString("sqlText")));
+                    map.put("kind", inferAssetKind(queryMode, sqlText));
+                    map.put("tryRunAllowed", isSelectLike(sqlText));
+                    map.put("paramNames", extractParamNames(sqlText));
                     return map;
                 }
         );
@@ -109,6 +131,27 @@ public class SqlRepoService {
                 }
         );
         asset.put("pageRefs", refs);
+
+        Map<String, Object> actionParams = new HashMap<>();
+        actionParams.put("p1", "%\"sqlAssetCode\":\"" + queryCode + "\"%");
+        actionParams.put("p2", "%\"sql_asset_code\":\"" + queryCode + "\"%");
+        List<Map<String, Object>> actionRefs = jdbcTemplate.query(
+                """
+                SELECT action_code AS "actionCode", label, action_type AS "actionType"
+                FROM lc_action
+                WHERE config_json::text LIKE :p1 OR config_json::text LIKE :p2
+                ORDER BY action_code
+                """,
+                actionParams,
+                (rs, rowNum) -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("actionCode", rs.getString("actionCode"));
+                    map.put("label", rs.getString("label"));
+                    map.put("actionType", rs.getString("actionType"));
+                    return map;
+                }
+        );
+        asset.put("actionRefs", actionRefs);
         return asset;
     }
 
@@ -120,9 +163,20 @@ public class SqlRepoService {
         if (sqlText == null || sqlText.isBlank()) {
             throw new IllegalArgumentException("sqlText is required");
         }
-        String queryMode = body.get("queryMode") == null ? "rawSql" : String.valueOf(body.get("queryMode"));
-        if (!Set.of("rawSql", "singleTableTemplate").contains(queryMode)) {
-            throw new IllegalArgumentException("queryMode must be rawSql or singleTableTemplate");
+        String queryMode = body.get("queryMode") == null || String.valueOf(body.get("queryMode")).isBlank()
+                ? null
+                : String.valueOf(body.get("queryMode"));
+        // dml = statement body for sqlTransaction (shared SQL repo; not used as page list query)
+        if (queryMode == null) {
+            queryMode = isSelectLike(sqlText) ? "rawSql" : "dml";
+        }
+        if (!Set.of("rawSql", "singleTableTemplate", "dml").contains(queryMode)) {
+            throw new IllegalArgumentException("queryMode must be rawSql, singleTableTemplate, or dml");
+        }
+        if ("dml".equals(queryMode) && isSelectLike(sqlText)) {
+            queryMode = "rawSql";
+        } else if (!isSelectLike(sqlText) && !"dml".equals(queryMode)) {
+            queryMode = "dml";
         }
         String anchorEntity = body.get("anchorEntity") == null || String.valueOf(body.get("anchorEntity")).isBlank()
                 ? null
@@ -251,10 +305,29 @@ public class SqlRepoService {
         if (trimmed.contains(";")) {
             throw new IllegalArgumentException("Semicolons are not allowed in try-run SQL");
         }
-        String first = trimmed.toLowerCase(Locale.ROOT).split("\\s+")[0];
-        if (!"select".equals(first) && !"with".equals(first)) {
-            throw new IllegalArgumentException("SQL repository try-run only allows SELECT (or WITH ... SELECT)");
+        if (!isSelectLike(trimmed)) {
+            throw new IllegalArgumentException(
+                    "SQL repository try-run only allows SELECT (or WITH ... SELECT). DML assets are for sqlTransaction only."
+            );
         }
+    }
+
+    private boolean isSelectLike(String sql) {
+        if (sql == null || sql.isBlank()) {
+            return false;
+        }
+        String first = sql.trim().toLowerCase(Locale.ROOT).split("\\s+")[0];
+        return "select".equals(first) || "with".equals(first);
+    }
+
+    private String inferAssetKind(String queryMode, String sqlText) {
+        if ("dml".equalsIgnoreCase(queryMode)) {
+            return "dml";
+        }
+        if ("singleTableTemplate".equalsIgnoreCase(queryMode)) {
+            return "select";
+        }
+        return isSelectLike(sqlText) ? "select" : "dml";
     }
 
     private List<String> extractParamNames(String sqlText) {

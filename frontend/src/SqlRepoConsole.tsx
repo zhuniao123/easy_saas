@@ -7,7 +7,9 @@ interface SqlAssetSummary {
   sqlPreview?: string;
   sqlLength?: number;
   pageRefCount?: number;
+  actionRefCount?: number;
   kind?: string;
+  tryRunAllowed?: boolean;
 }
 
 interface SqlAssetDetail {
@@ -17,7 +19,10 @@ interface SqlAssetDetail {
   queryMode?: string;
   paramsJson?: string;
   paramNames?: string[];
+  kind?: string;
+  tryRunAllowed?: boolean;
   pageRefs?: Array<{ pageCode: string; title: string; routePath: string }>;
+  actionRefs?: Array<{ actionCode: string; label: string; actionType: string }>;
 }
 
 interface TryResult {
@@ -197,8 +202,9 @@ export default function SqlRepoConsole() {
             <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-700">SQL Repository</div>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">SQL 与 DSL 分离的试跑仓库</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              这里只管理 <code className="rounded bg-slate-100 px-1">queryCode</code> 对应的 SQL 资产。页面 DSL 只引用
-              code，不内嵌 SQL 正文。试跑仅允许 SELECT / WITH。
+              统一管理查询与事务语句 SQL 资产（<code className="rounded bg-slate-100 px-1">queryCode</code>）。页面 DSL
+              与 <code className="rounded bg-slate-100 px-1">lc_action</code> 只引用 code；
+              事务语句用 <code className="rounded bg-slate-100 px-1">sqlAssetCode</code>。试跑仅允许 SELECT / WITH。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -251,11 +257,21 @@ export default function SqlRepoConsole() {
                     : 'hover:bg-slate-50'
                 }`}
               >
-                <div className="text-sm font-semibold text-slate-900">{asset.queryCode}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-slate-900">{asset.queryCode}</div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+                      asset.kind === 'dml' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {asset.kind || 'select'}
+                  </span>
+                </div>
                 <div className="mt-1 line-clamp-2 font-mono text-[11px] text-slate-500">{asset.sqlPreview}</div>
                 <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
                   <span>{asset.queryMode || 'rawSql'}</span>
                   <span>pages:{asset.pageRefCount ?? 0}</span>
+                  <span>actions:{asset.actionRefCount ?? 0}</span>
                 </div>
               </button>
             ))}
@@ -281,9 +297,10 @@ export default function SqlRepoConsole() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={loading}
+                      disabled={loading || detail?.tryRunAllowed === false}
+                      title={detail?.tryRunAllowed === false ? 'DML assets cannot try-run; use sqlTransaction' : 'Try SELECT'}
                       onClick={() => void handleTry()}
-                      className="rounded-full bg-cyan-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
+                      className="rounded-full bg-cyan-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white disabled:opacity-40"
                     >
                       Try run
                     </button>
@@ -306,8 +323,9 @@ export default function SqlRepoConsole() {
                       onChange={(e) => setQueryMode(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     >
-                      <option value="rawSql">rawSql (default read-only on pages)</option>
-                      <option value="singleTableTemplate">singleTableTemplate (writable when gates pass)</option>
+                      <option value="rawSql">rawSql (SELECT list / assert)</option>
+                      <option value="singleTableTemplate">singleTableTemplate (writable page query)</option>
+                      <option value="dml">dml (action statement body via sqlAssetCode)</option>
                     </select>
                   </label>
                   <label className="block space-y-1 text-sm">
@@ -350,12 +368,22 @@ export default function SqlRepoConsole() {
                   </div>
                 )}
 
-                {detail?.pageRefs && detail.pageRefs.length > 0 && (
-                  <div className="mt-4 text-xs text-slate-500">
-                    Referenced by pages:{' '}
-                    {detail.pageRefs.map((p) => p.pageCode).join(', ')}
-                  </div>
-                )}
+                <div className="mt-4 space-y-1 text-xs text-slate-500">
+                  {detail?.pageRefs && detail.pageRefs.length > 0 && (
+                    <div>Referenced by pages: {detail.pageRefs.map((p) => p.pageCode).join(', ')}</div>
+                  )}
+                  {detail?.actionRefs && detail.actionRefs.length > 0 && (
+                    <div>
+                      Referenced by actions (sqlAssetCode):{' '}
+                      {detail.actionRefs.map((a) => a.actionCode).join(', ')}
+                    </div>
+                  )}
+                  {detail?.kind === 'dml' && (
+                    <div className="text-amber-700">
+                      DML asset — edit here, execute only via lc_action sqlTransaction (not try-run).
+                    </div>
+                  )}
+                </div>
               </div>
 
               {tryResult && (

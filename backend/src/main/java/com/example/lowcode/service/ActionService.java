@@ -96,7 +96,7 @@ public class ActionService {
                 }
                 try {
                     for (Map<String, Object> statementDef : statements) {
-                        String sql = stringOrNull(statementDef.get("sql"));
+                        String sql = resolveStatementSql(statementDef);
                         String kind = statementDef.get("kind") == null ? "write" : String.valueOf(statementDef.get("kind"));
                         validateStatement(sql, kind);
                         Map<String, Object> stmtParams = filterParamsForSql(sql, boundParams);
@@ -260,6 +260,41 @@ public class ActionService {
             }
         }
         return result;
+    }
+
+    /**
+     * Prefer SQL repository asset ({@code sqlAssetCode}); fall back to inline {@code sql} for legacy configs.
+     * Client never supplies SQL — both paths load from DB-backed action/page config.
+     */
+    private String resolveStatementSql(Map<String, Object> statementDef) {
+        String assetCode = stringOrNull(statementDef.get("sqlAssetCode"));
+        if (assetCode == null || assetCode.isBlank()) {
+            assetCode = stringOrNull(statementDef.get("sql_asset_code"));
+        }
+        if (assetCode != null && !assetCode.isBlank()) {
+            Map<String, Object> params = new HashMap<>();
+            params.put("code", assetCode);
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "SELECT sql_text FROM lc_query_model WHERE query_code = :code",
+                    params
+            );
+            if (rows.isEmpty() || rows.get(0).get("sql_text") == null) {
+                throw new IllegalArgumentException("SQL asset not found in repository: " + assetCode);
+            }
+            String sql = String.valueOf(rows.get(0).get("sql_text"));
+            if (sql.isBlank()) {
+                throw new IllegalArgumentException("SQL asset is empty: " + assetCode);
+            }
+            return sql;
+        }
+
+        String inline = stringOrNull(statementDef.get("sql"));
+        if (inline != null && !inline.isBlank()) {
+            return inline;
+        }
+        throw new IllegalArgumentException(
+                "Statement requires sqlAssetCode (preferred) or inline sql; both missing"
+        );
     }
 
     @SuppressWarnings("unchecked")

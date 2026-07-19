@@ -18,8 +18,19 @@
 |----|------|
 | 资产 ID | `queryCode` |
 | 页面引用 | `dataSource.queryCode` / `openQuery.queryCode` / filter options |
-| 试跑 | 不写库；可带未保存的编辑缓冲区 `sqlText`；limit 默认 ≤100 |
-| DML | 不在 try-run；事务 DML 仍走 `lc_action` |
+| **动作引用** | `lc_action.statements[].sqlAssetCode` → 同一仓库 |
+| `query_mode` | `rawSql` / `singleTableTemplate` / **`dml`**（事务语句正文） |
+| 试跑 | 仅 SELECT/WITH；DML 资产不可 try-run，只给 sqlTransaction 执行 |
+| 反向引用 | 详情展示 `pageRefs` + `actionRefs` |
+
+### 事务 SQL 与查询 SQL 共用仓库
+
+```text
+sql_disable_product (dml)  ──sqlAssetCode──►  lc_action.disable_product
+q_stock_moves_by_sku (select) ──queryCode──►  openQuery / page
+```
+
+改 SQL 只在仓库改一处；动作/页面配置只持有 code。
 
 ## openQuery 钻取
 
