@@ -137,5 +137,13 @@
   "action.notRegistered": "动作“{label}”未注册",
   "action.gridRefreshed": "表格已刷新",
   "action.exportedCsv": "已导出 {count} 行 CSV",
-  "action.rowDuplicated": "已复制当前行到新建表单"
+  "action.rowDuplicated": "已复制当前行到新建表单",
+  "theme.switch": "主题切换",
+  "theme.ocean-dark": "海洋深邃",
+  "theme.cyberpunk": "赛博朋克",
+  "theme.solarized": "太阳暖阳",
+  "theme.emerald": "翡翠森林",
+  "locale.switch": "语言切换",
+  "locale.zh-CN": "简体中文",
+  "locale.en-US": "English"
 }

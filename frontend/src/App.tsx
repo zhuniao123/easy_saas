@@ -215,14 +215,103 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
   );
 }
 
+
+
+export type ThemeCode = 'ocean-dark' | 'cyberpunk' | 'solarized' | 'emerald';
+
+const THEMES = {
+  'ocean-dark': {
+    aside: 'bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_30%),linear-gradient(180deg,#020617,#0f172a)] border-white/10 text-slate-100',
+    main: 'bg-[linear-gradient(180deg,#e2e8f0,#f8fafc_28%,#eef2ff)] text-slate-900',
+    header: 'border-b border-slate-200/80 bg-white/80 backdrop-blur text-slate-800',
+    tabActive: 'border-slate-950 bg-slate-950 text-white',
+    tabInactive: 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:text-cyan-700',
+    btnAccent: 'bg-cyan-400 text-slate-950 hover:bg-cyan-300',
+    logoIcon: 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
+    textMuted: 'text-slate-400',
+    inputSearch: 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-cyan-400/40 focus:bg-white/10',
+    folderIcon: 'text-cyan-400/80',
+    navItemActive: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200',
+    navItemInactive: 'border-transparent hover:bg-white/5 text-slate-300 hover:text-white',
+    card: 'bg-white/5 border-white/10',
+    badge: 'bg-cyan-300/10 text-cyan-100 border-cyan-300/20',
+  },
+  'cyberpunk': {
+    aside: 'bg-[radial-gradient(circle_at_top,_rgba(236,72,153,0.15),_transparent_40%),linear-gradient(180deg,#0d001a,#03000a)] border-fuchsia-500/20 text-slate-100',
+    main: 'bg-[radial-gradient(circle_at_top,_rgba(236,72,153,0.08),_transparent_30%),linear-gradient(180deg,#080014,#020006)] text-slate-100',
+    header: 'border-b border-fuchsia-500/20 bg-[#090514]/85 backdrop-blur text-slate-200',
+    tabActive: 'border-fuchsia-500 bg-fuchsia-500/20 text-fuchsia-300 shadow-[0_0_15px_rgba(236,72,153,0.35)]',
+    tabInactive: 'border-slate-800 bg-[#03000a]/50 text-slate-400 hover:border-fuchsia-500/40 hover:text-fuchsia-400',
+    btnAccent: 'bg-fuchsia-500 text-white hover:bg-fuchsia-400 shadow-[0_0_15px_rgba(236,72,153,0.4)]',
+    logoIcon: 'border-fuchsia-300/20 bg-fuchsia-300/10 text-fuchsia-100',
+    textMuted: 'text-slate-400',
+    inputSearch: 'bg-white/5 border-fuchsia-500/20 text-white placeholder-slate-500 focus:border-fuchsia-400/40 focus:bg-white/10',
+    folderIcon: 'text-fuchsia-400/80',
+    navItemActive: 'border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300 shadow-[0_0_10px_rgba(236,72,153,0.15)]',
+    navItemInactive: 'border-transparent hover:bg-white/5 text-slate-400 hover:text-fuchsia-400',
+    card: 'bg-fuchsia-950/20 border-fuchsia-500/20',
+    badge: 'bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20',
+  },
+  'solarized': {
+    aside: 'bg-gradient-to-b from-[#eee8d5] to-[#e4dcd3] border-amber-800/10 text-amber-950',
+    main: 'bg-gradient-to-b from-[#fdf6e3] to-[#eee8d5] text-amber-900',
+    header: 'border-b border-amber-800/10 bg-[#fdf6e3]/90 backdrop-blur text-amber-950',
+    tabActive: 'border-teal-600 bg-teal-600 text-white',
+    tabInactive: 'border-amber-800/15 bg-[#eee8d5]/40 text-amber-800 hover:border-teal-500/50 hover:text-teal-600',
+    btnAccent: 'bg-teal-600 text-white hover:bg-teal-500',
+    logoIcon: 'border-teal-600/20 bg-teal-600/10 text-teal-800',
+    textMuted: 'text-amber-800/70',
+    inputSearch: 'bg-amber-950/5 border-amber-800/20 text-amber-950 placeholder-amber-800/50 focus:border-teal-600/40 focus:bg-amber-950/10',
+    folderIcon: 'text-teal-600',
+    navItemActive: 'border-teal-600/20 bg-teal-600/10 text-teal-800',
+    navItemInactive: 'border-transparent hover:bg-amber-950/5 text-amber-800/80 hover:text-teal-700',
+    card: 'bg-amber-950/5 border-amber-800/10',
+    badge: 'bg-teal-600/10 text-teal-800 border-teal-600/20',
+  },
+  'emerald': {
+    aside: 'bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.08),_transparent_35%),linear-gradient(180deg,#022c22,#064e3b)] border-emerald-500/10 text-slate-100',
+    main: 'bg-gradient-to-b from-[#f0fdf4] to-[#dcfce7] text-slate-900',
+    header: 'border-b border-emerald-500/10 bg-white/80 backdrop-blur text-slate-800',
+    tabActive: 'border-emerald-700 bg-emerald-700 text-white',
+    tabInactive: 'border-slate-200 bg-white text-slate-600 hover:border-emerald-600 hover:text-emerald-700',
+    btnAccent: 'bg-emerald-600 text-white hover:bg-emerald-500',
+    logoIcon: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+    textMuted: 'text-emerald-200/60',
+    inputSearch: 'bg-white/5 border-emerald-500/20 text-white placeholder-emerald-300/50 focus:border-emerald-400/40 focus:bg-white/10',
+    folderIcon: 'text-emerald-400/80',
+    navItemActive: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+    navItemInactive: 'border-transparent hover:bg-white/5 text-slate-300 hover:text-emerald-300',
+    card: 'bg-emerald-950/10 border-emerald-500/10',
+    badge: 'bg-emerald-300/10 text-emerald-100 border-emerald-300/20',
+  },
+};
+
 function App() {
-  const t = useMemo(() => createTranslator(getDefaultLocale()), []);
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+
+  const [locale, setLocale] = useState<LocaleCode>(() => getDefaultLocale());
+  const [theme, setTheme] = useState<ThemeCode>(() => {
+    return (localStorage.getItem('easy_saas_theme') as ThemeCode) || 'ocean-dark';
+  });
+
+  const t = useMemo(() => createTranslator(locale), [locale]);
+  const s = THEMES[theme];
+  const isThemeDark = theme === 'ocean-dark' || theme === 'cyberpunk' || theme === 'emerald';
+
+  const handleLocaleChange = (newLocale: LocaleCode) => {
+    setLocale(newLocale);
+    localStorage.setItem('easy_saas_locale', newLocale);
+  };
+
+  const handleThemeChange = (newTheme: ThemeCode) => {
+    setTheme(newTheme);
+    localStorage.setItem('easy_saas_theme', newTheme);
+  };
 
   const fetchPages = useCallback(() => {
     return fetch('/api/v1/pages')
@@ -357,14 +446,18 @@ function App() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#020617] text-slate-100">
-      <aside className={`relative hidden shrink-0 border-r border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_30%),linear-gradient(180deg,#020617,#0f172a)] xl:flex xl:flex-col h-full overflow-hidden transition-all duration-300 ease-in-out ${
+    <div className={`flex h-screen w-screen overflow-hidden ${isThemeDark ? 'bg-[#020617] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      <aside className={`relative hidden shrink-0 border-r h-full overflow-hidden transition-all duration-300 ease-in-out xl:flex xl:flex-col ${
         isCollapsed ? 'w-[80px]' : 'w-[320px]'
-      }`}>
+      } ${s.aside}`}>
         {/* Toggle Button */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-3 top-8 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-slate-400 hover:text-white hover:border-cyan-400/40 transition shadow-[0_0_10px_rgba(34,211,238,0.2)] focus:outline-none"
+          className={`absolute -right-3 top-8 z-50 flex h-6 w-6 items-center justify-center rounded-full border transition focus:outline-none ${
+            isThemeDark
+              ? 'border-white/10 bg-slate-900 text-slate-400 hover:text-white hover:border-cyan-400/40 shadow-[0_0_10px_rgba(34,211,238,0.2)]'
+              : 'border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:border-teal-500 shadow-[0_0_10px_rgba(0,0,0,0.05)]'
+          }`}
           title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         >
           {isCollapsed ? (
@@ -378,26 +471,28 @@ function App() {
           )}
         </button>
 
-        <div className={`border-b border-white/10 py-7 transition-all duration-300 ${
+        <div className={`border-b py-7 transition-all duration-300 ${
+          isThemeDark ? 'border-white/10' : 'border-slate-900/10'
+        } ${
           isCollapsed ? 'px-4 flex justify-center' : 'px-7'
         }`}>
           <div className="inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-lg font-semibold text-cyan-100">
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-lg font-semibold ${s.logoIcon}`}>
               ES
             </div>
             {!isCollapsed && (
               <div className="truncate">
-                <div className="text-2xl font-semibold tracking-[-0.04em] text-white">
+                <div className={`text-2xl font-semibold tracking-[-0.04em] ${isThemeDark ? 'text-white' : 'text-slate-900'}`}>
                   easy_saas
                 </div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-400">
+                <div className={`text-[11px] font-semibold uppercase tracking-[0.32em] ${s.textMuted}`}>
                   {t('app.sqlDrivenApplications')}
                 </div>
               </div>
             )}
           </div>
           {!isCollapsed && (
-            <p className="mt-5 text-sm leading-7 text-slate-400">
+            <p className={`mt-5 text-sm leading-7 ${s.textMuted}`}>
               {t('app.sidebarDescription')}
             </p>
           )}
@@ -409,7 +504,7 @@ function App() {
             <div className="relative flex items-center gap-2">
               <div className="relative flex-1">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                  <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`h-4 w-4 ${isThemeDark ? 'text-slate-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </span>
@@ -418,12 +513,12 @@ function App() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search pages..."
-                  className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-8 text-xs text-white placeholder-slate-500 focus:border-cyan-400/40 focus:bg-white/10 focus:outline-none transition-all"
+                  className={`w-full rounded-xl border py-2 pl-9 pr-8 text-xs focus:outline-none transition-all ${s.inputSearch}`}
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-white text-sm"
+                    className={`absolute inset-y-0 right-0 flex items-center pr-2.5 text-sm ${isThemeDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
                   >
                     ×
                   </button>
@@ -431,7 +526,11 @@ function App() {
               </div>
               <button
                 onClick={locateActiveItem}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:border-cyan-400/40 hover:bg-white/10 hover:text-white transition"
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition ${
+                  isThemeDark
+                    ? 'border-white/10 bg-white/5 text-slate-400 hover:border-cyan-400/40 hover:text-white'
+                    : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-teal-500/50 hover:text-teal-700'
+                }`}
                 title="Locate Active Tab"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -450,10 +549,14 @@ function App() {
             <div className="space-y-3 flex flex-col items-center">
               <button
                 onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
-                className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:border-cyan-300/40 hover:bg-cyan-300/10 transition"
+                className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                  isThemeDark
+                    ? 'border-white/10 bg-white/5 hover:border-cyan-300/40 hover:bg-cyan-300/10'
+                    : 'border-slate-200 bg-white hover:border-teal-500/40 hover:bg-slate-50'
+                }`}
                 title={t('app.openFactory')}
               >
-                <svg className="h-5 w-5 text-slate-400 group-hover:text-cyan-200 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`h-5 w-5 transition-colors ${isThemeDark ? 'text-slate-400 group-hover:text-cyan-200' : 'text-slate-500 group-hover:text-teal-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -465,29 +568,35 @@ function App() {
                   <div key={page.pageCode} className="group relative flex flex-col items-center">
                     <button
                       onClick={() => openTab(page.pageCode, page.title, 'runtime')}
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl border font-semibold hover:border-cyan-300/40 hover:bg-white/10 transition ${
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl border font-semibold transition ${
                         isActive
-                          ? 'border-cyan-400 bg-cyan-500/10 text-cyan-200'
-                          : 'border-white/10 bg-white/5 text-slate-300'
+                          ? isThemeDark
+                            ? 'border-cyan-400 bg-cyan-500/10 text-cyan-200'
+                            : 'border-teal-600 bg-teal-600/10 text-teal-800'
+                          : isThemeDark
+                            ? 'border-white/10 bg-white/5 text-slate-300 hover:border-cyan-300/40 hover:bg-white/10'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-teal-500/40 hover:bg-slate-100'
                       }`}
                       title={`${page.title} (Runtime)`}
                     >
                       {page.title.charAt(0).toUpperCase()}
                     </button>
-                    <div className="absolute left-[54px] top-0 z-50 hidden w-48 rounded-2xl border border-white/10 bg-slate-950 p-2 group-hover:block shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                      <div className="px-3 py-1.5 text-xs font-semibold text-white border-b border-white/10 truncate">
+                    <div className={`absolute left-[54px] top-0 z-50 hidden w-48 rounded-2xl border p-2 group-hover:block shadow-[0_10px_30px_rgba(0,0,0,0.25)] ${
+                      isThemeDark ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-900'
+                    }`}>
+                      <div className={`px-3 py-1.5 text-xs font-semibold border-b truncate ${isThemeDark ? 'border-white/10 text-white' : 'border-slate-100 text-slate-900'}`}>
                         {page.title}
                       </div>
                       <div className="p-1 space-y-1">
                         <button
                           onClick={() => openTab(page.pageCode, page.title, 'runtime')}
-                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium ${isThemeDark ? 'text-slate-300 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                         >
                           Launch Runtime
                         </button>
                         <button
                           onClick={() => openTab(page.pageCode, page.title, 'config')}
-                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium ${isThemeDark ? 'text-slate-300 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                         >
                           Configure Page
                         </button>
@@ -500,14 +609,21 @@ function App() {
           ) : (
             <div className="space-y-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">{t('app.workspaceTabs')}</div>
-                <button onClick={() => openTab('sys-page-manager', 'Factory', 'manager')} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] text-white hover:border-cyan-300/40 hover:bg-cyan-300/10 transition">
+                <div className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${s.textMuted}`}>{t('app.workspaceTabs')}</div>
+                <button
+                  onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
+                  className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
+                    isThemeDark
+                      ? 'border-white/10 bg-white/5 text-white hover:border-cyan-300/40 hover:bg-cyan-300/10'
+                      : 'border-slate-200 bg-white text-slate-800 hover:border-teal-500/40 hover:bg-slate-50'
+                  }`}
+                >
                   {t('app.openFactory')}
                 </button>
               </div>
 
               {Object.keys(groupedPages).length === 0 ? (
-                <div className="text-center text-xs text-slate-500 py-4">No pages found</div>
+                <div className={`text-center text-xs py-4 ${s.textMuted}`}>No pages found</div>
               ) : (
                 Object.entries(groupedPages).map(([category, items]) => {
                   const isExpanded = expandedFolders[category] !== false;
@@ -520,17 +636,21 @@ function App() {
                             [category]: !isExpanded,
                           }))
                         }
-                        className="flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-400 hover:bg-white/5 hover:text-white transition"
+                        className={`flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-xs font-semibold transition ${
+                          isThemeDark ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                        }`}
                       >
                         <div className="flex items-center gap-2">
-                          <svg className="h-4 w-4 text-cyan-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className={`h-4 w-4 ${s.folderIcon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                           </svg>
                           <span className="tracking-wide">{category}</span>
-                          <span className="rounded-full bg-white/5 px-1.5 py-0.2 text-[9px] text-slate-500">{items.length}</span>
+                          <span className={`rounded-full px-1.5 py-0.2 text-[9px] ${
+                            isThemeDark ? 'bg-white/5 text-slate-500' : 'bg-slate-200/60 text-slate-500'
+                          }`}>{items.length}</span>
                         </div>
                         <svg
-                          className={`h-3 w-3 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          className={`h-3 w-3 transition-transform ${isThemeDark ? 'text-slate-500' : 'text-slate-400'} ${isExpanded ? 'rotate-90' : ''}`}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -540,7 +660,7 @@ function App() {
                       </button>
 
                       {isExpanded && (
-                        <div className="ml-2 pl-3 border-l border-white/5 space-y-1.5">
+                        <div className={`ml-2 pl-3 border-l space-y-1.5 ${isThemeDark ? 'border-white/5' : 'border-slate-900/5'}`}>
                           {items.map((page) => {
                             const isActive = activeTabId?.startsWith(`${page.pageCode}-`);
                             return (
@@ -549,8 +669,8 @@ function App() {
                                 id={`nav-item-${page.pageCode}`}
                                 className={`group relative flex items-center justify-between rounded-xl border px-3 py-2 transition-all duration-300 ${
                                   isActive
-                                    ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'
-                                    : 'border-transparent hover:bg-white/5 text-slate-300 hover:text-white'
+                                    ? s.navItemActive
+                                    : s.navItemInactive
                                 }`}
                               >
                                 <div
@@ -560,7 +680,9 @@ function App() {
                                   <div className="truncate text-xs font-semibold">
                                     {page.title}
                                   </div>
-                                  <div className="mt-0.5 truncate text-[10px] font-medium text-slate-500">
+                                  <div className={`mt-0.5 truncate text-[10px] font-medium ${
+                                    isThemeDark ? 'text-slate-500' : 'text-slate-500/80'
+                                  }`}>
                                     {page.routePath}
                                   </div>
                                 </div>
@@ -578,7 +700,9 @@ function App() {
                                   </button>
                                   <button
                                     onClick={() => openTab(page.pageCode, page.title, 'config')}
-                                    className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-400 hover:border-cyan-300/40 hover:text-cyan-200 transition-all"
+                                    className={`flex h-6 w-6 items-center justify-center rounded-lg border transition-all ${
+                                      isThemeDark ? 'border-white/10 bg-white/5 text-slate-400 hover:border-cyan-300/40 hover:text-cyan-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-teal-500 hover:text-teal-700'
+                                    }`}
                                     title="Configure Page"
                                   >
                                     <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -600,7 +724,72 @@ function App() {
           )}
         </div>
 
-        <div className={`border-t border-white/10 py-5 transition-all duration-300 ${
+        {/* Theme & Language Selectors */}
+        {!isCollapsed && (
+          <div className={`border-t px-6 py-4 space-y-3.5 transition-all ${isThemeDark ? 'border-white/10' : 'border-slate-900/10'}`}>
+            {/* Language Selector */}
+            <div className="space-y-1.5">
+              <label className={`text-[10px] font-bold uppercase tracking-[0.2em] block ${isThemeDark ? 'text-slate-500' : 'text-slate-500/80'}`}>
+                {t('locale.switch')}
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleLocaleChange('zh-CN')}
+                  className={`flex-1 rounded-xl border py-1 text-xs font-semibold transition ${
+                    locale === 'zh-CN'
+                      ? isThemeDark
+                        ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
+                        : 'border-teal-600 bg-teal-600/10 text-teal-800 shadow-[0_0_10px_rgba(20,110,120,0.1)]'
+                      : isThemeDark
+                        ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/15 hover:text-white'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  中文
+                </button>
+                <button
+                  onClick={() => handleLocaleChange('en-US')}
+                  className={`flex-1 rounded-xl border py-1 text-xs font-semibold transition ${
+                    locale === 'en-US'
+                      ? isThemeDark
+                        ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
+                        : 'border-teal-600 bg-teal-600/10 text-teal-800 shadow-[0_0_10px_rgba(20,110,120,0.1)]'
+                      : isThemeDark
+                        ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/15 hover:text-white'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  EN
+                </button>
+              </div>
+            </div>
+
+            {/* Theme Selector */}
+            <div className="space-y-1.5">
+              <label className={`text-[10px] font-bold uppercase tracking-[0.2em] block ${isThemeDark ? 'text-slate-500' : 'text-slate-500/80'}`}>
+                {t('theme.switch')}
+              </label>
+              <select
+                value={theme}
+                onChange={(e) => handleThemeChange(e.target.value as ThemeCode)}
+                className={`w-full rounded-xl border px-3 py-1.5 text-xs font-medium focus:outline-none transition-all cursor-pointer ${
+                  isThemeDark
+                    ? 'border-white/10 bg-slate-900 text-slate-300 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/30'
+                    : 'border-slate-200 bg-white text-slate-800 focus:border-teal-600/40 focus:ring-1 focus:ring-teal-600/30'
+                }`}
+              >
+                <option value="ocean-dark">{t('theme.ocean-dark')}</option>
+                <option value="cyberpunk">{t('theme.cyberpunk')}</option>
+                <option value="solarized">{t('theme.solarized')}</option>
+                <option value="emerald">{t('theme.emerald')}</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div className={`border-t py-5 transition-all duration-300 ${
+          isThemeDark ? 'border-white/10' : 'border-slate-900/10'
+        } ${
           isCollapsed ? 'px-4 flex justify-center' : 'px-6'
         }`}>
           {isCollapsed ? (
@@ -609,20 +798,26 @@ function App() {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-xs">
-              <span className="font-semibold uppercase tracking-[0.22em] text-emerald-200">Engine state</span>
-              <span className="rounded-full bg-emerald-300/20 px-2 py-1 font-semibold text-emerald-100">Connected</span>
+            <div className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-xs ${
+              isThemeDark
+                ? 'border-emerald-400/20 bg-emerald-400/10'
+                : 'border-emerald-500/20 bg-emerald-50/50'
+            }`}>
+              <span className={`font-semibold uppercase tracking-[0.22em] ${isThemeDark ? 'text-emerald-200' : 'text-emerald-800'}`}>Engine state</span>
+              <span className={`rounded-full px-2 py-1 font-semibold ${isThemeDark ? 'bg-emerald-300/20 text-emerald-100' : 'bg-emerald-100 text-emerald-800'}`}>Connected</span>
             </div>
           )}
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden bg-[linear-gradient(180deg,#e2e8f0,#f8fafc_28%,#eef2ff)]">
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur">
+      <main className={`flex min-w-0 flex-1 flex-col h-full overflow-hidden transition-colors duration-300 ${s.main}`}>
+        <header className={`sticky top-0 z-30 border-b transition-colors duration-300 ${s.header}`}>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
-              className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800 xl:hidden"
+              className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition xl:hidden ${
+                isThemeDark ? 'bg-slate-100 text-slate-900 hover:bg-white' : 'bg-slate-900 text-white hover:bg-slate-800'
+              }`}
             >
               {t('app.openFactory')}
             </button>
@@ -639,15 +834,17 @@ function App() {
                 }}
                 className={`flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
                   activeTabId === tab.id
-                    ? 'border-slate-950 bg-slate-950 text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:text-cyan-700'
+                    ? s.tabActive
+                    : s.tabInactive
                 }`}
               >
                 <span>{tab.title}</span>
                 <button
                   onClick={(e) => closeTab(tab.id, e)}
                   className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
-                    activeTabId === tab.id ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500'
+                    activeTabId === tab.id
+                      ? 'bg-current/10'
+                      : isThemeDark ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   ×
@@ -668,7 +865,7 @@ function App() {
                 t={t}
               />
             ) : (
-              <PageLoader key={activeTab.id} pageCode={activeTab.pageCode} mode={activeTab.mode} />
+              <PageLoader key={`${activeTab.id}-${locale}-${theme}`} pageCode={activeTab.pageCode} mode={activeTab.mode} />
             )
           ) : (
             <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
@@ -689,7 +886,7 @@ function App() {
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
-                        className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-300"
+                        className={`rounded-full px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] transition ${s.btnAccent}`}
                       >
                         {t('app.openPageFactory')}
                       </button>
@@ -716,7 +913,7 @@ function App() {
                       </div>
                       <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
                         <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{t('app.theme')}</div>
-                        <div className="mt-2 text-sm font-semibold text-amber-200">{t('app.themeValue')}</div>
+                        <div className="mt-2 text-sm font-semibold text-amber-200">{t('theme.' + theme)}</div>
                       </div>
                     </div>
                   </div>
@@ -731,3 +928,4 @@ function App() {
 }
 
 export default App;
+

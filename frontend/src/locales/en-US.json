@@ -137,5 +137,13 @@
   "action.notRegistered": "Action \"{label}\" is not registered",
   "action.gridRefreshed": "Grid refreshed",
   "action.exportedCsv": "Exported {count} rows to CSV",
-  "action.rowDuplicated": "Row duplicated into create form"
+  "action.rowDuplicated": "Row duplicated into create form",
+  "theme.switch": "Switch Theme",
+  "theme.ocean-dark": "Ocean Deep",
+  "theme.cyberpunk": "Cyberpunk Neon",
+  "theme.solarized": "Solarized Warm",
+  "theme.emerald": "Emerald Forest",
+  "locale.switch": "Switch Language",
+  "locale.zh-CN": "简体中文",
+  "locale.en-US": "English"
 }
