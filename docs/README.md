@@ -8,9 +8,10 @@
 2. [模型边界](./wiki/model-boundaries.md)
 3. [CRUD 设计说明](./wiki/crud-boundaries.md)
 4. [v1.5 模块化 DSL 方案](./wiki/v1.5-modular-dsl-plan.md)
-5. [Roadmap](./wiki/roadmap.md)
-6. [新会话开发提示词](./wiki/new-session-development-prompt.md)
-7. [需求与架构方案](../requirement.md)
+5. [Loading & Logging DSL 规范](./wiki/loading-and-logging-dsl.md)
+6. [Roadmap](./wiki/roadmap.md)
+7. [新会话开发提示词](./wiki/new-session-development-prompt.md)
+8. [需求与架构方案](../requirement.md)
 
 当前最重要的结论只有三条：
 
