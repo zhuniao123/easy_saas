@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageLoader from './PageLoader';
+import SqlRepoConsole from './SqlRepoConsole';
 import { createTranslator, getDefaultLocale } from './i18n';
 
 interface PageSummary {
@@ -10,18 +11,20 @@ interface PageSummary {
   entityCode?: string;
 }
 
+type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo';
+
 interface Tab {
   id: string;
   title: string;
   pageCode: string;
-  mode: 'config' | 'runtime' | 'manager';
+  mode: TabMode;
 }
 
 interface PageManagerConsoleProps {
   pages: PageSummary[];
   onPageCreated: () => void;
   onPageDeleted: (pageCode: string) => void;
-  openTab: (pageCode: string, title: string, mode: 'config' | 'runtime' | 'manager') => void;
+  openTab: (pageCode: string, title: string, mode: TabMode) => void;
   t: (key: string, values?: Record<string, string | number>) => string;
 }
 
@@ -327,16 +330,22 @@ function App() {
     void fetchPages();
   }, [fetchPages]);
 
-  const openTab = (pageCode: string, title: string, mode: 'config' | 'runtime' | 'manager') => {
+  const openTab = (pageCode: string, title: string, mode: TabMode) => {
     const tabId = `${pageCode}-${mode}`;
     setTabs((prev) => {
       if (prev.some((tab) => tab.id === tabId)) return prev;
       const nextTitle =
-        mode === 'manager' ? t('app.factoryTab') : mode === 'config' ? t('app.configTab', { title }) : t('app.runtimeTab', { title });
+        mode === 'manager'
+          ? t('app.factoryTab')
+          : mode === 'sqlrepo'
+            ? 'SQL Repository'
+            : mode === 'config'
+              ? t('app.configTab', { title })
+              : t('app.runtimeTab', { title });
       return [...prev, { id: tabId, title: nextTitle, pageCode, mode }];
     });
     setActiveTabId(tabId);
-    if (mode === 'manager') {
+    if (mode === 'manager' || mode === 'sqlrepo') {
       setIsCollapsed(false);
     } else {
       setIsCollapsed(true);
@@ -352,7 +361,7 @@ function App() {
         setActiveTabId(nextActiveTab ? nextActiveTab.id : null);
         if (!nextActiveTab) {
           setIsCollapsed(false);
-        } else if (nextActiveTab.mode === 'manager') {
+        } else if (nextActiveTab.mode === 'manager' || nextActiveTab.mode === 'sqlrepo') {
           setIsCollapsed(false);
         } else {
           setIsCollapsed(true);
@@ -561,6 +570,17 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
+              <button
+                onClick={() => openTab('sys-sql-repo', 'SQL Repository', 'sqlrepo')}
+                className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                  isThemeDark
+                    ? 'border-cyan-300/30 bg-cyan-300/10 hover:border-cyan-300/50'
+                    : 'border-teal-500/30 bg-teal-50 hover:border-teal-500/50'
+                }`}
+                title="SQL Repository"
+              >
+                <span className={`text-[10px] font-bold ${isThemeDark ? 'text-cyan-100' : 'text-teal-800'}`}>SQL</span>
+              </button>
 
               {pages.map((page) => {
                 const isActive = activeTabId?.startsWith(`${page.pageCode}-`);
@@ -608,18 +628,30 @@ function App() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between gap-2 mb-4">
                 <div className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${s.textMuted}`}>{t('app.workspaceTabs')}</div>
-                <button
-                  onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
-                  className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
-                    isThemeDark
-                      ? 'border-white/10 bg-white/5 text-white hover:border-cyan-300/40 hover:bg-cyan-300/10'
-                      : 'border-slate-200 bg-white text-slate-800 hover:border-teal-500/40 hover:bg-slate-50'
-                  }`}
-                >
-                  {t('app.openFactory')}
-                </button>
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  <button
+                    onClick={() => openTab('sys-sql-repo', 'SQL Repository', 'sqlrepo')}
+                    className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
+                      isThemeDark
+                        ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100 hover:border-cyan-300/50'
+                        : 'border-teal-500/30 bg-teal-50 text-teal-800 hover:border-teal-500/50'
+                    }`}
+                  >
+                    SQL Repo
+                  </button>
+                  <button
+                    onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
+                    className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
+                      isThemeDark
+                        ? 'border-white/10 bg-white/5 text-white hover:border-cyan-300/40 hover:bg-cyan-300/10'
+                        : 'border-slate-200 bg-white text-slate-800 hover:border-teal-500/40 hover:bg-slate-50'
+                    }`}
+                  >
+                    {t('app.openFactory')}
+                  </button>
+                </div>
               </div>
 
               {Object.keys(groupedPages).length === 0 ? (
@@ -826,7 +858,7 @@ function App() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTabId(tab.id);
-                  if (tab.mode === 'manager') {
+                  if (tab.mode === 'manager' || tab.mode === 'sqlrepo') {
                     setIsCollapsed(false);
                   } else {
                     setIsCollapsed(true);
@@ -864,6 +896,8 @@ function App() {
                 openTab={openTab}
                 t={t}
               />
+            ) : activeTab.mode === 'sqlrepo' ? (
+              <SqlRepoConsole />
             ) : (
               <PageLoader key={`${activeTab.id}-${locale}-${theme}`} pageCode={activeTab.pageCode} mode={activeTab.mode} />
             )
