@@ -23,15 +23,16 @@
 4. 冲突时：**功能正确性 > 样式**；writable / SQL 安全优先合并 ledger 侧。
 5. 本地 identity 可只用 repo 级 `git config user.name`（已可用 `saas-demo-agent`）。
 
-## 本会话已提交 / 计划提交
+## 本会话已提交
 
-- [x] docs: v1.x plan + building-blocks + roadmap
-- [ ] feat(A): query_mode + isPageWritable + restore safe UPDATE
-- [ ] feat(A): pageDsl default features opt-in + frontend module skeleton
-- [ ] feat(B): column decorators (money/badge/…)
-- [ ] feat(B): product ledger install SQL demo
+- [x] docs: v1.x plan + building-blocks + roadmap (`bf93b48`)
+- [x] feat(A): query_mode + writable 403 + tests (`2cb8646`)
+- [x] feat(A/B): pageDsl opt-in + editors/decorators (`a975874`)
+- [x] feat(B): product ledger install SQL (`18cd9e9`)
+- 并行：`7e60dd5` 为另一路 shell/UX（含 `App.tsx`）
 
 ## 其它 agent 请勿覆盖
 
-- 勿把 `updateRow` 改成 delete+insert（易破坏 FK / 序列）；应用 `UPDATE … WHERE pk = :id`。
-- 勿默认 `features.create/edit/delete = true` 而不经 writable 门禁。
+- **`updateRow` 请保持 `UPDATE … WHERE pk`**，不要再改 delete+insert（FK/序列风险）。协调见 Phase A 注释。
+- 勿默认 `features.create/edit/delete = true` 而不经 server `writable` 门禁。
+- 继续 Shell 请专注 `App.tsx`；ledger 侧优先 `demos/`、`pageDsl`、`PageService`、`runtime/`。
