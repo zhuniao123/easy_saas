@@ -24,6 +24,7 @@ public class PageController {
         Map<String, Object> config = pageService.getPageConfig(pageCode);
         String configJsonStr = (String) config.get("config");
         config.put("config", objectMapper.readValue(configJsonStr, Map.class));
+        config.put("writable", pageService.isPageWritable(pageCode));
         return config;
     }
 

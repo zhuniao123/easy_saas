@@ -102,16 +102,24 @@ const registry: Record<string, ActionHandler> = {
     const nextRow = { ...context.row };
     delete nextRow.id;
     
-    // Auto-append -COPY suffix to identifier strings to prevent unique key violations
+    // Auto-append -COPY suffix to identifier strings to prevent unique key violations,
+    // but avoid altering foreign keys ending with _code or _id
     Object.keys(nextRow).forEach((key) => {
       const val = nextRow[key];
-      if (typeof val === 'string' && (
-        key.toLowerCase().includes('no') || 
-        key.toLowerCase().includes('code') || 
-        key.toLowerCase().includes('name')
-      )) {
-        if (!val.endsWith('-COPY')) {
-          nextRow[key] = `${val}-COPY`;
+      if (typeof val === 'string') {
+        const lowerKey = key.toLowerCase();
+        if (
+          lowerKey === 'no' ||
+          lowerKey === 'name' ||
+          lowerKey === 'title' ||
+          lowerKey === 'code' ||
+          lowerKey.endsWith('_no') ||
+          lowerKey.endsWith('_name') ||
+          lowerKey.endsWith('_title')
+        ) {
+          if (!val.endsWith('-COPY')) {
+            nextRow[key] = `${val}-COPY`;
+          }
         }
       }
     });

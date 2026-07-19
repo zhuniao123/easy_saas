@@ -10,6 +10,7 @@ interface PageConfig {
   queryCode?: string;
   entityCode?: string;
   config: unknown;
+  writable?: boolean;
 }
 
 interface EntityConfig {
@@ -101,6 +102,8 @@ export default function PageLoader({
     [config, pageCode],
   );
 
+  const isPageWritable = config?.writable === true;
+
   const locale = useMemo(() => resolveLocale(pageDsl.i18n.locale), [pageDsl.i18n.locale]);
   const t = useMemo(() => createTranslator(locale, pageDsl.i18n.messages), [locale, pageDsl.i18n.messages]);
   const pageModelValidation = useMemo(() => {
@@ -146,7 +149,7 @@ export default function PageLoader({
 
   const pageActions = pageDsl.table.actions.filter((action) => (action.scope || 'page') === 'page');
   const rowActions = pageDsl.table.actions.filter((action) => action.scope === 'row');
-  const showActionColumn = rowActions.length > 0 || (entityFields.length > 0 && (pageDsl.features.edit || pageDsl.features.delete));
+  const showActionColumn = rowActions.length > 0 || (isPageWritable && (pageDsl.features.edit || pageDsl.features.delete));
   const filters = pageDsl.table.filters;
   const rowPaddingClass = pageDsl.features.density === 'compact' ? 'py-2.5' : 'py-4';
   const showConfigSidebar = mode === 'config';
@@ -1043,7 +1046,7 @@ export default function PageLoader({
               <div className="mt-2 text-lg font-semibold text-slate-900">{t('page.smartGridTitle')}</div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {entityFields.length > 0 && pageDsl.features.create && (
+              {isPageWritable && pageDsl.features.create && (
                 <button
                   onClick={() => openCreate()}
                   className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500"
@@ -1279,7 +1282,7 @@ export default function PageLoader({
                                   {action.label}
                                 </button>
                               ))}
-                              {entityFields.length > 0 && (pageDsl.features.edit || pageDsl.features.delete) && (
+                              {isPageWritable && (pageDsl.features.edit || pageDsl.features.delete) && (
                                 <>
                                   {pageDsl.features.edit && (
                                     <button

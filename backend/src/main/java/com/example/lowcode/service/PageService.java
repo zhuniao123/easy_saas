@@ -118,6 +118,15 @@ public class PageService {
             throw new IllegalArgumentException("Route path is required");
         }
 
+        // Create the physical table in the database with default columns
+        String createTableSql = "CREATE TABLE IF NOT EXISTS \"" + pageCode + "\" (" +
+                "id SERIAL PRIMARY KEY, " +
+                "name VARCHAR(200), " +
+                "created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), " +
+                "updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()" +
+                ")";
+        jdbcTemplate.getJdbcOperations().execute(createTableSql);
+
         String entityCode = pageCode + "_entity";
         String queryCode = "q_" + pageCode;
         String defaultPageConfig = """
@@ -126,7 +135,7 @@ public class PageService {
                 "title": "%s",
                 "description": "SQL-driven workspace generated from page metadata.",
                 "badge": "Stage One Grid",
-                "emptyState": "No rows yet. Use raw SQL to seed test data or update the query."
+                "emptyState": "No rows yet. Click 'Add Row' or seed test data."
               },
               "dataSource": {
                 "queryCode": "%s",
@@ -134,7 +143,12 @@ public class PageService {
                 "pageSizeOptions": [20, 50, 100]
               },
               "table": {
-                "columns": [],
+                "columns": [
+                  {"field": "id", "headerName": "ID", "width": 80, "sortable": true},
+                  {"field": "name", "headerName": "Name", "width": 200, "sortable": true},
+                  {"field": "created_at", "headerName": "Created At", "width": 180, "type": "datetime"},
+                  {"field": "updated_at", "headerName": "Updated At", "width": 180, "type": "datetime"}
+                ],
                 "filters": [],
                 "actions": [
                   { "code": "refresh_grid", "label": "Refresh", "dsl": "grid.refresh", "scope": "page", "variant": "primary" },
@@ -156,19 +170,19 @@ public class PageService {
         Map<String, Object> entityParams = new HashMap<>();
         entityParams.put("entityCode", entityCode);
         entityParams.put("tableName", pageCode);
-        entityParams.put("fieldsJson", "[]");
+        entityParams.put("fieldsJson", "[{\"field\": \"id\", \"label\": \"ID\", \"type\": \"integer\"}, {\"field\": \"name\", \"label\": \"Name\", \"type\": \"string\"}, {\"field\": \"created_at\", \"label\": \"Created At\", \"type\": \"datetime\"}, {\"field\": \"updated_at\", \"label\": \"Updated At\", \"type\": \"datetime\"}]");
         jdbcTemplate.update(
-            "INSERT INTO lc_entity_model (entity_code, table_name, fields_json) VALUES (:entityCode, :tableName, :fieldsJson::jsonb) ON CONFLICT (entity_code) DO NOTHING",
+            "INSERT INTO lc_entity_model (entity_code, table_name, primary_key, fields_json) VALUES (:entityCode, :tableName, 'id', :fieldsJson::jsonb) ON CONFLICT (entity_code) DO NOTHING",
             entityParams
         );
         
-        // 2. Insert query
+        // 2. Insert query (factory pages are single-table writable templates)
         Map<String, Object> queryParams = new HashMap<>();
         queryParams.put("queryCode", queryCode);
         queryParams.put("entityCode", entityCode);
-        queryParams.put("sqlText", "SELECT 1 as val");
+        queryParams.put("sqlText", "SELECT id, name, created_at, updated_at FROM \"" + pageCode + "\"");
         jdbcTemplate.update(
-            "INSERT INTO lc_query_model (query_code, anchor_entity, sql_text) VALUES (:queryCode, :entityCode, :sqlText) ON CONFLICT (query_code) DO NOTHING",
+            "INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, query_mode) VALUES (:queryCode, :entityCode, :sqlText, 'singleTableTemplate') ON CONFLICT (query_code) DO NOTHING",
             queryParams
         );
         
@@ -216,7 +230,87 @@ public class PageService {
         }
     }
 
+    public boolean isPageWritable(String pageCode) {
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("pageCode", pageCode);
+            Map<String, Object> page = jdbcTemplate.queryForMap(
+                "SELECT query_code as \"queryCode\", entity_code as \"entityCode\" FROM lc_page_model WHERE page_code = :pageCode",
+                params
+            );
+            String entityCode = (String) page.get("entityCode");
+            String queryCode = (String) page.get("queryCode");
+            if (entityCode == null || entityCode.trim().isEmpty()) {
+                return false;
+            }
+            if (queryCode == null || queryCode.trim().isEmpty()) {
+                return false;
+            }
+
+            // Load query config (query_mode: rawSql is never auto-writable)
+            Map<String, Object> qParams = new HashMap<>();
+            qParams.put("queryCode", queryCode);
+            Map<String, Object> query = jdbcTemplate.queryForMap(
+                "SELECT anchor_entity as \"anchorEntity\", COALESCE(query_mode, 'rawSql') as \"queryMode\", sql_text as \"sqlText\" FROM lc_query_model WHERE query_code = :queryCode",
+                qParams
+            );
+            String queryMode = query.get("queryMode") == null ? "rawSql" : String.valueOf(query.get("queryMode"));
+            if ("rawSql".equalsIgnoreCase(queryMode)) {
+                return false;
+            }
+            String anchorEntity = (String) query.get("anchorEntity");
+            if (anchorEntity == null || !anchorEntity.equalsIgnoreCase(entityCode)) {
+                return false;
+            }
+
+            // Load entity config
+            Map<String, Object> eParams = new HashMap<>();
+            eParams.put("entityCode", entityCode);
+            Map<String, Object> entity = jdbcTemplate.queryForMap(
+                "SELECT table_name as \"tableName\", primary_key as \"primaryKey\" FROM lc_entity_model WHERE entity_code = :entityCode",
+                eParams
+            );
+            String tableName = (String) entity.get("tableName");
+            String primaryKey = (String) entity.get("primaryKey");
+            if (tableName == null || tableName.trim().isEmpty()) {
+                return false;
+            }
+            if (primaryKey == null || primaryKey.trim().isEmpty()) {
+                return false;
+            }
+
+            // Result set must expose the primary key column (best-effort from sql text)
+            String sqlText = query.get("sqlText") == null ? "" : String.valueOf(query.get("sqlText"));
+            if (!sqlTextLooksLikeItSelectsPrimaryKey(sqlText, primaryKey)) {
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Lightweight check: SELECT * or explicit PK token present.
+     * Not a full SQL parser — blocks obvious aggregates without PK.
+     */
+    private boolean sqlTextLooksLikeItSelectsPrimaryKey(String sqlText, String primaryKey) {
+        if (sqlText == null || sqlText.isBlank() || primaryKey == null || primaryKey.isBlank()) {
+            return false;
+        }
+        String normalized = sqlText.toLowerCase();
+        String pk = primaryKey.toLowerCase();
+        if (normalized.contains(" select *") || normalized.trim().startsWith("select *") || normalized.contains("select*")) {
+            return true;
+        }
+        // word-boundary-ish match for pk identifier
+        return normalized.matches("(?s).*\\b" + java.util.regex.Pattern.quote(pk) + "\\b.*");
+    }
+
     public void insertRow(String pageCode, Map<String, Object> rowData) {
+        if (!isPageWritable(pageCode)) {
+            throw new IllegalStateException("CRUD operations are disabled for this page because it does not satisfy single-table primary-key write requirements.");
+        }
         Map<String, Object> entity = resolveEntity(pageCode);
         String tableName = requireSafeIdentifier((String) entity.get("tableName"), "Table name");
         String primaryKey = requireSafeIdentifier((String) entity.get("primaryKey"), "Primary key");
@@ -250,6 +344,9 @@ public class PageService {
     }
 
     public void updateRow(String pageCode, Object id, Map<String, Object> rowData) {
+        if (!isPageWritable(pageCode)) {
+            throw new IllegalStateException("CRUD operations are disabled for this page because it does not satisfy single-table primary-key write requirements.");
+        }
         Map<String, Object> entity = resolveEntity(pageCode);
         String tableName = requireSafeIdentifier((String) entity.get("tableName"), "Table name");
         String primaryKey = requireSafeIdentifier((String) entity.get("primaryKey"), "Primary key");
@@ -292,6 +389,9 @@ public class PageService {
     }
 
     public void deleteRow(String pageCode, Object id) {
+        if (!isPageWritable(pageCode)) {
+            throw new IllegalStateException("CRUD operations are disabled for this page because it does not satisfy single-table primary-key write requirements.");
+        }
         Map<String, Object> entity = resolveEntity(pageCode);
         String tableName = requireSafeIdentifier((String) entity.get("tableName"), "Table name");
         String primaryKey = requireSafeIdentifier((String) entity.get("primaryKey"), "Primary key");
@@ -476,7 +576,11 @@ public class PageService {
             }
 
             Object value = entry.getValue();
-            if (omitBlankPrimaryKey && key.equals(primaryKey) && value instanceof String && ((String) value).trim().isEmpty()) {
+            if (value instanceof String && ((String) value).trim().isEmpty()) {
+                value = null;
+            }
+
+            if (omitBlankPrimaryKey && key.equals(primaryKey) && value == null) {
                 continue;
             }
             sanitized.put(key, value);
