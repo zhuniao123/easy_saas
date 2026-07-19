@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { type ActionConfig, type FilterConfig, resolveActionHandler } from './actionRegistry';
+import { type ActionConfig, type FilterConfig, type DrillDownRequest, resolveActionHandler } from './actionRegistry';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
 import { editorTypeFromFieldType, htmlInputTypeForEditor } from './editors';
 import { formatDecoratedValue, resolveTone, toneClassName } from './runtime/decorators';
+import DrillDownDrawer from './runtime/DrillDownDrawer';
 
 interface PageConfig {
   pageCode: string;
@@ -92,6 +93,7 @@ export default function PageLoader({
   const [activeStudioPanel, setActiveStudioPanel] = useState<StudioPanel>('sql');
   const [showPreviewPanel, setShowPreviewPanel] = useState(mode !== 'config');
   const [sqlValidation, setSqlValidation] = useState<SqlValidationState>({ status: 'idle' });
+  const [drillDown, setDrillDown] = useState<DrillDownRequest | null>(null);
 
   const [dynamicFilterOptions, setDynamicFilterOptions] = useState<Record<string, Array<{ label: string; value: string }>>>({});
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Record<string, Array<{ label: string; value: string }>>>({});
@@ -341,6 +343,7 @@ export default function PageLoader({
       pageCode,
       refresh: () => refreshData(),
       openCreate,
+      openDrillDown: setDrillDown,
       notify,
       t,
     }).catch(() => {
@@ -1457,6 +1460,8 @@ export default function PageLoader({
           </div>
         </div>
       )}
+
+      <DrillDownDrawer request={drillDown} onClose={() => setDrillDown(null)} />
     </div>
   );
 }

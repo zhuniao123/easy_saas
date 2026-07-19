@@ -14,10 +14,25 @@ export interface SqlTransactionConfig {
   statements: Array<string | { sql: string; kind?: 'write' | 'assert'; name?: string }>;
 }
 
+export interface OpenQueryConfig {
+  queryCode: string;
+  title?: string;
+  presentation?: 'drawer' | 'modal';
+  pageSize?: number;
+  bind?: Record<string, SqlBindSpec>;
+}
+
+export interface DrillDownRequest {
+  queryCode: string;
+  title: string;
+  params: Record<string, unknown>;
+  pageSize?: number;
+}
+
 export interface ActionConfig {
   code: string;
   label: string;
-  /** builtin | sqlTransaction | client */
+  /** builtin | sqlTransaction | openQuery | client */
   type?: string;
   /** Catalog key; defaults to code when type=sqlTransaction */
   actionCode?: string;
@@ -28,6 +43,7 @@ export interface ActionConfig {
   confirmText?: string;
   /** Page-embedded SQL tx (server still loads from DB; never sent as SQL body) */
   sqlTransaction?: SqlTransactionConfig;
+  openQuery?: OpenQueryConfig;
   when?: {
     field: string;
     equals?: string | number | boolean;
@@ -74,9 +90,39 @@ export interface ActionContext {
   pageCode?: string;
   refresh: () => void;
   openCreate: (seed?: Record<string, unknown>) => void;
+  openDrillDown?: (request: DrillDownRequest) => void;
   notify: (message: string) => void;
   t: Translator;
 }
+
+const resolveBindParams = (
+  bind: Record<string, SqlBindSpec> | undefined,
+  row: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  const params: Record<string, unknown> = {};
+  if (!bind) return params;
+  for (const [name, spec] of Object.entries(bind)) {
+    const from = spec.from || 'row';
+    if (from === 'fixed') {
+      params[name] = spec.value;
+      continue;
+    }
+    if (from === 'row') {
+      const field = spec.field || name;
+      const value = row?.[field];
+      if ((value === undefined || value === null || value === '') && spec.required !== false) {
+        throw new Error(`Missing bind param :${name} from row.${field}`);
+      }
+      params[name] = value;
+    }
+  }
+  return params;
+};
+
+const interpolateTitle = (template: string, row?: Record<string, unknown>) =>
+  template.replace(/\{\{\s*row\.([a-zA-Z0-9_]+)\s*\}\}/g, (_, field: string) =>
+    row?.[field] == null ? '' : String(row[field]),
+  );
 
 type ActionHandler = (config: ActionConfig, context: ActionContext) => void | Promise<void>;
 
@@ -168,6 +214,30 @@ const normalizeDslCommand = (command: string) => {
   return aliases[trimmed] || trimmed;
 };
 
+const executeOpenQuery: ActionHandler = async (action, context) => {
+  const cfg = action.openQuery;
+  if (!cfg?.queryCode) {
+    context.notify(context.t('action.notRegistered', { label: action.label }));
+    return;
+  }
+  if (!context.openDrillDown) {
+    context.notify('Drill-down UI is not available');
+    return;
+  }
+  try {
+    const params = resolveBindParams(cfg.bind, context.row);
+    const title = interpolateTitle(cfg.title || `${action.label} · ${cfg.queryCode}`, context.row);
+    context.openDrillDown({
+      queryCode: cfg.queryCode,
+      title,
+      params,
+      pageSize: cfg.pageSize || 20,
+    });
+  } catch (e) {
+    context.notify(e instanceof Error ? e.message : 'openQuery failed');
+  }
+};
+
 const executeSqlTransaction: ActionHandler = async (action, context) => {
   const actionCode = action.actionCode || action.code;
   if (!actionCode) {
@@ -211,6 +281,9 @@ const executeSqlTransaction: ActionHandler = async (action, context) => {
 
 export const resolveActionHandler = (action: ActionConfig): ActionHandler | null => {
   const type = (action.type || '').toLowerCase();
+  if (type === 'openquery' || action.openQuery) {
+    return executeOpenQuery;
+  }
   if (type === 'sqltransaction' || action.sqlTransaction) {
     return executeSqlTransaction;
   }

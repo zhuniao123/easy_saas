@@ -163,6 +163,10 @@ const normalizeActions = (actions: unknown): ActionConfig[] =>
               action.sqlTransaction && typeof action.sqlTransaction === 'object'
                 ? (action.sqlTransaction as ActionConfig['sqlTransaction'])
                 : undefined,
+            openQuery:
+              action.openQuery && typeof action.openQuery === 'object'
+                ? (action.openQuery as ActionConfig['openQuery'])
+                : undefined,
             when:
               action.when && typeof action.when === 'object'
                 ? {
