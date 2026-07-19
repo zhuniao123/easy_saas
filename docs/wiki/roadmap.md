@@ -13,58 +13,58 @@
 - 保留 raw SQL 入口
 - 单表 CRUD 雏形、动态下拉/自动补全、多页面 SPA
 
-### 待收尾（并入 1.x Phase A）
+## v1.x（当前主线，可演示）
 
-- 明确 CRUD 启用条件（默认只读）
-- 收敛 EntityModel 定位
-- 提升编辑器体验
+主题：`积木化单表工作台 + 小店多页 Demo`
 
-## v1.x（当前主线）
+| 能力 | 状态 |
+|------|------|
+| rawSql / singleTableTemplate + writable 门禁 | 已有 |
+| sqlTransaction + sqlAssetCode 仓库 | 已有 |
+| SQL 仓库试跑 + openQuery 钻取 | 已有 |
+| 小店 8 页 Demo（`demos/shop_saas`） | 已有 |
+| 字典 / 缓存 / 完整权限 | **约定与占位，见 2.0 规划** |
 
-主题：`积木化单表工作台 + 商品台账样板`
+### 1.x 硬原则（防以后翻车）
 
-详细计划：[v1x-product-ledger-building-blocks](../superpowers/plans/2026-07-19-v1x-product-ledger-building-blocks.md)  
-边界说明：[building-blocks.md](./building-blocks.md)
-
-| 子阶段 | 主题 | 要点 |
-|--------|------|------|
-| **1.5 Core** | 模板/通用拆分 + 单表可写硬化 | `rawSql` / `singleTableTemplate`；writable 门禁；editor/decorator 地基 |
-| **1.6 Actions** | 可配置 SQL 事务按钮 | 行/页动作、参数化、事务、审计日志 |
-| **1.7 IO** | 通用导入导出 | CSV 进出，独立于模板 |
-| **1.x Demo** | 商品台账 | 纯配置堆积木验收 |
-
-### 1.x 做
-
-- 网页版商品台账：增删改查
-- 通用 Action（含 sqlTransaction）
-- CSV 导入导出
-- 实用控件与列装饰器
-- 控件/动作/IO **不写死在模板里**
+- 业务尽量 **DSL + SQL**，禁止领域硬编码 Controller  
+- 静态枚举用 **dictCode 命名**（实现可先 static）  
+- 执行入口集中：Query / Action / Options（便于接缓存与权限）  
+- 详见：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)
 
 ### 1.x 不做
 
-- 主从表 / 单据头行（→ 2.0）
-- join 查询可写
-- 通用流程引擎 / Groovy 业务编排
-- 完整权限与多租户
+- 主从表 UI  
+- Redis / 完整 Authz / IoPlugin 生产化  
+- 用 Groovy 替代过账 SQL  
 
 ## 阶段二 / 2.0
 
-主题：`masterDetailTemplate`（owtb 最常见模型）
+主题：`主从模板 + 平台能力接驳（不挡业务配置）`
 
-### 目标
+### 2.0 产品
 
-- 主从/层级页面结构
-- 详情页替代单纯弹窗
-- 采购/销售类单据 UI
-- **复用 1.x 的 sqlTransaction、Editor、Decorator、IO**
+- `masterDetailTemplate`（owtb 头行模型）  
+- 详情页 / 可配置 `openPage` 弹出（完整 Page 运行时，优于仅 query 抽屉）  
+- 复用 1.x：sqlTransaction、SQL 仓库、openQuery、Editor  
+
+### 2.0 平台（规划文档已写）
+
+| 模块 | 要点 |
+|------|------|
+| **缓存** | Metadata + options + 可选只读 query；TTL/tags；写后失效 |
+| **JS / Groovy 埋点** | before/after query & action；减负 SQL，不替代权威事务 |
+| **Tab 性能** | 元数据会话缓存、options batch、runtime/studio 拆分、idle 预取 |
+| **权限** | AuthzGateway：page/action/query；稳定 resource id |
+| **外部插件** | afterAction + outbox/SPI，SQL 主路径、I/O 侧车 |
+
+分阶段：2.0a 主从 → 2.0b 性能/缓存 → 2.0c 脚本/字典 → 2.0d 权限与插件  
+
+完整说明：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)
 
 ## 阶段三
 
 主题：`SQL-driven SaaS Platform`
 
-### 目标
-
-- 更稳定的 DSL
-- 多页面编排与模板市场
-- 权限、部署、插件 I/O 侧车成熟化
+- 更稳 DSL、模板市场、多租户、插件生态  
+- 部署与可观测成熟化  

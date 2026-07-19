@@ -32,12 +32,20 @@
 
 ## 明确留给 2.0+
 
-- masterDetail 主从表  
-- 采购/销售单据过账 UI  
-- 流程引擎、完整权限、异步大文件 Job  
+- masterDetail 主从表、可配置完整 `openPage` 弹出  
+- 字典表落地、Query/Options 缓存、JS/Groovy 埋点补全  
+- Tab 元数据预加载 / options batch  
+- AuthzGateway、外部 IoPlugin  
+- 详见 [v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)  
 
-## 样板验收：商品台账
+## 1.x 已可遵守（避免成为瓶颈）
 
-用 singleTable + 控件装饰器 + 若干 sqlTransaction 按钮 + CSV 进出，**零定制 Java 业务代码** 配出商品增删改查台账。
+- 业务只进 DSL + SQL 仓库，不进领域 Java  
+- 枚举预留 `dictCode` 命名（可先 static 实现）  
+- options 能 static 不 sql；列表 pageSize 保守  
+- 执行集中在 Query/Action，便于 2.0 套缓存与权限  
 
-数量调整类按钮只证明「事务动作积木」，**不等于**进销存入库过账。
+## 样板验收
+
+- 单页：商品台账（product_ledger）  
+- 多页：小店 SaaS（`demos/shop_saas`，`/shop/*`）

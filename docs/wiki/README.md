@@ -10,6 +10,7 @@
 - [SQL 事务动作配置（Phase C）](./sql-transaction-actions.md)
 - [SQL 仓库 + 关联钻取](./sql-repo-and-drilldown.md)
 - [小店多页面 Demo](../demos/shop_saas/README.md)
+- [2.0 平台能力规划（缓存/脚本/性能/权限插件）](./v2-platform-capabilities-plan.md)
 - [v1.5 模块化 DSL 方案](./v1.5-modular-dsl-plan.md)
 - [v1.x 商品台账积木化计划](../superpowers/plans/2026-07-19-v1x-product-ledger-building-blocks.md)
 - [后续开发 Wiki](./dev-wiki.md)
