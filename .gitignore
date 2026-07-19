@@ -24,3 +24,7 @@ dist/
 # Preview / temporary archives
 *.tgz
 *.tar.gz
+
+# Local DB / dumps (do not commit)
+postgres-data/
+*.sql.gz

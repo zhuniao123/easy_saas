@@ -6,6 +6,7 @@
 - [模型边界](./model-boundaries.md)
 - [CRUD 设计说明](./crud-boundaries.md)
 - [积木边界：模板 vs 通用（1.x）](./building-blocks.md)
+- [并行 Agent 分工](./AGENT_COORDINATION.md)
 - [v1.5 模块化 DSL 方案](./v1.5-modular-dsl-plan.md)
 - [v1.x 商品台账积木化计划](../superpowers/plans/2026-07-19-v1x-product-ledger-building-blocks.md)
 - [后续开发 Wiki](./dev-wiki.md)

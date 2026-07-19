@@ -11,11 +11,15 @@ CREATE TABLE IF NOT EXISTS lc_query_model (
     query_code         VARCHAR(100) PRIMARY KEY,
     anchor_entity      VARCHAR(100) REFERENCES lc_entity_model(entity_code),
     sql_text           TEXT NOT NULL,
+    query_mode         VARCHAR(50) NOT NULL DEFAULT 'rawSql',
     params_json        JSONB NOT NULL DEFAULT '[]'::jsonb,
     result_fields_json JSONB NOT NULL DEFAULT '[]'::jsonb,
     groovy_script_code VARCHAR(100),
     timeout_ms         INTEGER NOT NULL DEFAULT 5000
 );
+
+-- Existing databases created before query_mode existed
+ALTER TABLE lc_query_model ADD COLUMN IF NOT EXISTS query_mode VARCHAR(50) NOT NULL DEFAULT 'rawSql';
 
 CREATE TABLE IF NOT EXISTS lc_page_model (
     page_code          VARCHAR(100) PRIMARY KEY,

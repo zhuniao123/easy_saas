@@ -2,7 +2,9 @@ package com.example.lowcode.controller;
 
 import com.example.lowcode.service.PageService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 
@@ -81,7 +83,13 @@ public class PageController {
     public Map<String, Object> insertData(
             @PathVariable String pageCode,
             @RequestBody Map<String, Object> rowData) {
-        pageService.insertRow(pageCode, rowData);
+        try {
+            pageService.insertRow(pageCode, rowData);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;
@@ -92,7 +100,13 @@ public class PageController {
             @PathVariable String pageCode,
             @PathVariable Object id,
             @RequestBody Map<String, Object> rowData) {
-        pageService.updateRow(pageCode, id, rowData);
+        try {
+            pageService.updateRow(pageCode, id, rowData);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;
@@ -102,7 +116,13 @@ public class PageController {
     public Map<String, Object> deleteData(
             @PathVariable String pageCode,
             @PathVariable Object id) {
-        pageService.deleteRow(pageCode, id);
+        try {
+            pageService.deleteRow(pageCode, id);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;

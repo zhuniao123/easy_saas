@@ -371,13 +371,14 @@ public class QueryEngineService {
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         return jdbcTemplate.queryForObject(
-            "SELECT query_code as \"queryCode\", anchor_entity as \"anchorEntity\", sql_text as \"sqlText\" FROM lc_query_model WHERE query_code = :queryCode",
+            "SELECT query_code as \"queryCode\", anchor_entity as \"anchorEntity\", sql_text as \"sqlText\", COALESCE(query_mode, 'rawSql') as \"queryMode\" FROM lc_query_model WHERE query_code = :queryCode",
             params,
             (rs, rowNum) -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("queryCode", rs.getString("queryCode"));
                 map.put("anchorEntity", rs.getString("anchorEntity"));
                 map.put("sqlText", rs.getString("sqlText"));
+                map.put("queryMode", rs.getString("queryMode"));
                 return map;
             }
         );
