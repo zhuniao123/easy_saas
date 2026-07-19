@@ -28,3 +28,4 @@ dist/
 # Local DB / dumps (do not commit)
 postgres-data/
 *.sql.gz
+backups/

@@ -36,6 +36,67 @@ public class ActionService {
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private ConfigValidationService configValidationService;
+
+    public void saveAction(String actionCode, Map<String, Object> body) {
+        String label = body.get("label") == null ? actionCode : String.valueOf(body.get("label"));
+        String actionType = body.get("actionType") == null ? "sqlTransaction" : String.valueOf(body.get("actionType"));
+        Object configObj = body.get("config");
+        String configJson;
+        try {
+            if (configObj instanceof String s) {
+                configJson = s;
+            } else if (configObj != null) {
+                configJson = objectMapper.writeValueAsString(configObj);
+            } else if (body.get("configJson") != null) {
+                configJson = String.valueOf(body.get("configJson"));
+            } else {
+                // whole body minus meta fields
+                Map<String, Object> copy = new LinkedHashMap<>(body);
+                copy.remove("label");
+                copy.remove("actionType");
+                copy.remove("enabled");
+                configJson = objectMapper.writeValueAsString(copy);
+            }
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid action config JSON: " + ex.getMessage());
+        }
+        configValidationService.validateActionSave(actionCode, actionType, label, configJson);
+        boolean enabled = body.get("enabled") == null || Boolean.TRUE.equals(body.get("enabled"))
+                || "true".equalsIgnoreCase(String.valueOf(body.get("enabled")));
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", actionCode);
+        params.put("type", actionType);
+        params.put("label", label);
+        params.put("config", configJson);
+        params.put("enabled", enabled);
+        Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM lc_action WHERE action_code = :code",
+                params,
+                Integer.class
+        );
+        if (exists != null && exists > 0) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE lc_action
+                    SET action_type = :type, label = :label, config_json = :config::jsonb,
+                        enabled = :enabled, updated_at = NOW()
+                    WHERE action_code = :code
+                    """,
+                    params
+            );
+        } else {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO lc_action(action_code, action_type, label, config_json, enabled)
+                    VALUES (:code, :type, :label, :config::jsonb, :enabled)
+                    """,
+                    params
+            );
+        }
+    }
 
     public Map<String, Object> execute(String actionCode, Map<String, Object> requestBody) {
         if (actionCode == null || actionCode.isBlank()) {

@@ -72,12 +72,13 @@ export interface FilterConfig {
   options?: 
     | Array<{ label: string; value: string }>
     | {
-        source: 'static' | 'sql';
+        source: 'static' | 'sql' | 'dict';
         items?: Array<{ label: string; value: string }>;
         queryCode?: string;
         labelField?: string;
         valueField?: string;
         keywordParam?: string;
+        dictCode?: string;
       };
 }
 

@@ -33,6 +33,8 @@ public class SqlRepoService {
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private ConfigValidationService configValidationService;
 
     public List<Map<String, Object>> listAssets() {
         List<Map<String, Object>> assets = jdbcTemplate.query(
@@ -156,28 +158,20 @@ public class SqlRepoService {
     }
 
     public void saveAsset(String queryCode, Map<String, Object> body) {
-        if (!SAFE_CODE.matcher(queryCode).matches()) {
-            throw new IllegalArgumentException("queryCode must be a safe identifier");
-        }
         String sqlText = body.get("sqlText") == null ? null : String.valueOf(body.get("sqlText"));
-        if (sqlText == null || sqlText.isBlank()) {
-            throw new IllegalArgumentException("sqlText is required");
-        }
         String queryMode = body.get("queryMode") == null || String.valueOf(body.get("queryMode")).isBlank()
                 ? null
                 : String.valueOf(body.get("queryMode"));
         // dml = statement body for sqlTransaction (shared SQL repo; not used as page list query)
-        if (queryMode == null) {
+        if (queryMode == null && sqlText != null) {
             queryMode = isSelectLike(sqlText) ? "rawSql" : "dml";
         }
-        if (!Set.of("rawSql", "singleTableTemplate", "dml").contains(queryMode)) {
-            throw new IllegalArgumentException("queryMode must be rawSql, singleTableTemplate, or dml");
-        }
-        if ("dml".equals(queryMode) && isSelectLike(sqlText)) {
+        if (queryMode != null && "dml".equals(queryMode) && sqlText != null && isSelectLike(sqlText)) {
             queryMode = "rawSql";
-        } else if (!isSelectLike(sqlText) && !"dml".equals(queryMode)) {
+        } else if (queryMode != null && sqlText != null && !isSelectLike(sqlText) && !"dml".equals(queryMode)) {
             queryMode = "dml";
         }
+        configValidationService.validateSqlAsset(queryCode, sqlText, queryMode);
         String anchorEntity = body.get("anchorEntity") == null || String.valueOf(body.get("anchorEntity")).isBlank()
                 ? null
                 : String.valueOf(body.get("anchorEntity"));

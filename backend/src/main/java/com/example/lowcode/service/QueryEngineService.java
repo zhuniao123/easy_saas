@@ -33,6 +33,8 @@ public class QueryEngineService {
     private PageService pageService;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private ConfigValidationService configValidationService;
 
     public Map<String, Object> executeSql(String queryCode, Map<String, Object> requestParams) {
         return executeSql(queryCode, requestParams, new ArrayList<>());
@@ -385,6 +387,7 @@ public class QueryEngineService {
     }
 
     public void updateQueryConfig(String queryCode, String sqlText) {
+        configValidationService.validateSqlAsset(queryCode, sqlText, null);
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         params.put("sqlText", sqlText);

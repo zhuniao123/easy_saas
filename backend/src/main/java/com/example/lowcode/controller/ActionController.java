@@ -14,6 +14,18 @@ public class ActionController {
     @Autowired
     private ActionService actionService;
 
+    @PutMapping("/{actionCode}")
+    public Map<String, Object> save(
+            @PathVariable String actionCode,
+            @RequestBody Map<String, Object> body) {
+        try {
+            actionService.saveAction(actionCode, body == null ? Map.of() : body);
+            return Map.of("status", "success", "actionCode", actionCode);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
     @PostMapping("/{actionCode}/execute")
     public Map<String, Object> execute(
             @PathVariable String actionCode,
