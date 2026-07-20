@@ -1,12 +1,15 @@
 package com.example.lowcode.controller;
 
+import com.example.lowcode.service.AuthService;
 import com.example.lowcode.service.PageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/pages")
@@ -15,10 +18,21 @@ public class PageController {
     private PageService pageService;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private AuthService authService;
 
     @GetMapping
-    public java.util.List<Map<String, Object>> listPages() {
-        return pageService.listPages();
+    public List<Map<String, Object>> listPages() {
+        List<Map<String, Object>> all = pageService.listPages();
+        if (!authService.isAuthEnabled()) {
+            return all;
+        }
+        return all.stream()
+                .filter(p -> {
+                    Object code = p.get("pageCode");
+                    return code != null && authService.hasPermission("page:" + code);
+                })
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{pageCode}")

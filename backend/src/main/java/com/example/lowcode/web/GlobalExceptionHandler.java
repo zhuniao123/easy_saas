@@ -1,5 +1,7 @@
 package com.example.lowcode.web;
 
+import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotPermissionException;
 import com.example.lowcode.service.ErrorLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,18 @@ import java.util.Map;
 public class GlobalExceptionHandler {
     @Autowired
     private ErrorLogService errorLogService;
+
+    @ExceptionHandler(NotLoginException.class)
+    public ResponseEntity<Map<String, Object>> handleNotLogin(NotLoginException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody("UNAUTHORIZED", "Not logged in"));
+    }
+
+    @ExceptionHandler(NotPermissionException.class)
+    public ResponseEntity<Map<String, Object>> handleNotPerm(NotPermissionException ex, HttpServletRequest req) {
+        errorLogService.log("api", req.getRequestURI(), req.getMethod(),
+                "NotPermissionException", ex.getMessage(), ex, null);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("FORBIDDEN", ex.getMessage()));
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex, HttpServletRequest req) {

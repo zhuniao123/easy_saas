@@ -26,7 +26,7 @@ public class PageControllerTest {
 
     @Test
     public void testGetPageConfig() throws Exception {
-        jdbcTemplate.execute("DELETE FROM lc_page_model");
+        jdbcTemplate.execute("DELETE FROM lc_page_model WHERE page_code = 'test_page'");
         jdbcTemplate.execute("INSERT INTO lc_page_model (page_code, title, route_path, config_json) VALUES ('test_page', 'Test Title', '/test', '{\"filters\":[]}'::jsonb)");
 
         mockMvc.perform(get("/api/v1/pages/test_page"))
@@ -38,7 +38,7 @@ public class PageControllerTest {
 
     @Test
     public void testUpdatePageConfig() throws Exception {
-        jdbcTemplate.execute("DELETE FROM lc_page_model");
+        jdbcTemplate.execute("DELETE FROM lc_page_model WHERE page_code = 'cfg_page'");
         jdbcTemplate.execute("INSERT INTO lc_page_model (page_code, title, route_path, config_json) VALUES ('cfg_page', 'Config Page', '/cfg', '{\"filters\":[],\"columns\":[],\"actions\":[]}'::jsonb)");
 
         mockMvc.perform(post("/api/v1/pages/cfg_page/configure")
@@ -55,9 +55,9 @@ public class PageControllerTest {
 
     @Test
     public void testCrudUsesConfiguredPrimaryKey() throws Exception {
-        jdbcTemplate.execute("DELETE FROM lc_page_model");
-        jdbcTemplate.execute("DELETE FROM lc_query_model");
-        jdbcTemplate.execute("DELETE FROM lc_entity_model");
+        jdbcTemplate.execute("DELETE FROM lc_page_model WHERE page_code = 'supplier_page'");
+        jdbcTemplate.execute("DELETE FROM lc_query_model WHERE query_code = 'q_supplier'");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model WHERE entity_code = 'supplier'");
         jdbcTemplate.execute("DROP TABLE IF EXISTS biz_supplier CASCADE");
         jdbcTemplate.execute("CREATE TABLE biz_supplier (supplier_id BIGSERIAL PRIMARY KEY, supplier_code VARCHAR(50), supplier_name VARCHAR(100))");
         jdbcTemplate.execute("INSERT INTO lc_entity_model (entity_code, table_name, primary_key, fields_json) VALUES ('supplier', 'biz_supplier', 'supplier_id', '[{\"field\":\"supplier_id\",\"label\":\"ID\",\"type\":\"integer\"},{\"field\":\"supplier_code\",\"label\":\"Code\",\"type\":\"string\"},{\"field\":\"supplier_name\",\"label\":\"Name\",\"type\":\"string\"}]'::jsonb)");

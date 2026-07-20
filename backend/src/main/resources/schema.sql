@@ -138,3 +138,44 @@ INSERT INTO lc_dict_item (dict_code, item_value, item_label, sort_order) VALUES
     ('shop.move_type', 'ADJ', '调整', 3)
 ON CONFLICT (dict_code, item_value) DO NOTHING;
 
+-- RBAC (v1.2 Slice A)
+CREATE TABLE IF NOT EXISTS lc_user (
+    user_id            BIGSERIAL PRIMARY KEY,
+    login_name         VARCHAR(100) NOT NULL UNIQUE,
+    password_hash      VARCHAR(200) NOT NULL,
+    display_name       VARCHAR(200) NOT NULL,
+    org_id             BIGINT NOT NULL DEFAULT 1,
+    enabled            BOOLEAN NOT NULL DEFAULT true,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lc_role (
+    role_code          VARCHAR(50) PRIMARY KEY,
+    name               VARCHAR(100) NOT NULL,
+    data_scope         VARCHAR(20) NOT NULL DEFAULT 'all'
+);
+
+CREATE TABLE IF NOT EXISTS lc_user_role (
+    user_id            BIGINT NOT NULL REFERENCES lc_user(user_id) ON DELETE CASCADE,
+    role_code          VARCHAR(50) NOT NULL REFERENCES lc_role(role_code) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_code)
+);
+
+CREATE TABLE IF NOT EXISTS lc_permission (
+    perm_code          VARCHAR(200) PRIMARY KEY,
+    perm_type          VARCHAR(20) NOT NULL,
+    resource_code      VARCHAR(200) NOT NULL,
+    description        VARCHAR(500)
+);
+
+CREATE TABLE IF NOT EXISTS lc_role_permission (
+    role_code          VARCHAR(50) NOT NULL REFERENCES lc_role(role_code) ON DELETE CASCADE,
+    perm_code          VARCHAR(200) NOT NULL REFERENCES lc_permission(perm_code) ON DELETE CASCADE,
+    PRIMARY KEY (role_code, perm_code)
+);
+
+INSERT INTO lc_role (role_code, name, data_scope) VALUES
+    ('owner', '老板', 'all'),
+    ('clerk', '店员', 'org')
+ON CONFLICT (role_code) DO NOTHING;
+

@@ -19,10 +19,12 @@ public class GroovyInterceptorTest {
 
     @Test
     public void testGroovyHookExecution() {
-        jdbcTemplate.execute("DELETE FROM lc_script");
-        jdbcTemplate.execute("DELETE FROM lc_query_model");
-        jdbcTemplate.execute("DELETE FROM lc_entity_model");
-        
+        // Scoped cleanup only — never wipe shared demo metadata
+        jdbcTemplate.execute("DELETE FROM lc_page_model WHERE query_code = 'q_test_groovy'");
+        jdbcTemplate.execute("DELETE FROM lc_query_model WHERE query_code = 'q_test_groovy'");
+        jdbcTemplate.execute("DELETE FROM lc_entity_model WHERE entity_code = 'entity_test_groovy'");
+        jdbcTemplate.execute("DELETE FROM lc_script WHERE script_code = 'test_groovy'");
+
         String groovyCode = "import com.example.lowcode.interceptor.IGroovyActionInterceptor;\n" +
             "class SampleHook implements IGroovyActionInterceptor {\n" +
             "  void beforeQuery(Map params) { params.put(\"val\", 99) }\n" +
@@ -33,12 +35,18 @@ public class GroovyInterceptorTest {
             "INSERT INTO lc_script(script_code, script_type, script_content) VALUES (?, ?, ?)",
             "test_groovy", "BACKEND_GROOVY", groovyCode
         );
-        
-        jdbcTemplate.execute("INSERT INTO lc_entity_model(entity_code, table_name, fields_json) VALUES ('users', 'users', '[]'::jsonb)");
-        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, groovy_script_code) VALUES ('q_test', 'users', 'SELECT 1 as val', 'test_groovy')");
+
+        jdbcTemplate.execute(
+            "INSERT INTO lc_entity_model(entity_code, table_name, fields_json) " +
+            "VALUES ('entity_test_groovy', 'lc_entity_model', '[]'::jsonb)"
+        );
+        jdbcTemplate.execute(
+            "INSERT INTO lc_query_model(query_code, anchor_entity, sql_text, groovy_script_code) " +
+            "VALUES ('q_test_groovy', 'entity_test_groovy', 'SELECT 1 as val', 'test_groovy')"
+        );
 
         Map<String, Object> req = new HashMap<>();
-        Map<String, Object> res = queryEngine.executeSql("q_test", req);
+        Map<String, Object> res = queryEngine.executeSql("q_test_groovy", req);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rows = (List<Map<String, Object>>) res.get("rows");
         assertThat(rows.get(0).get("val")).isEqualTo(88);

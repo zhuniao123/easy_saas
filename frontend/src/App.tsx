@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageLoader from './PageLoader';
 import SqlRepoConsole from './SqlRepoConsole';
-import { createTranslator, getDefaultLocale } from './i18n';
+import LoginScreen from './LoginScreen';
+import { can, canPage, clearSession, fetchAuthStatus, fetchMe, getProfile, getToken, logout } from './auth';
+import { createTranslator, getDefaultLocale, type LocaleCode } from './i18n';
 
 interface PageSummary {
   pageCode: string;
@@ -296,6 +298,10 @@ function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [authEnabled, setAuthEnabled] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [authed, setAuthed] = useState(false);
+  const [displayName, setDisplayName] = useState('');
 
   const [locale, setLocale] = useState<LocaleCode>(() => getDefaultLocale());
   const [theme, setTheme] = useState<ThemeCode>(() => {
@@ -319,6 +325,11 @@ function App() {
   const fetchPages = useCallback(() => {
     return fetch('/api/v1/pages')
       .then((res) => {
+        if (res.status === 401) {
+          clearSession();
+          setAuthed(false);
+          throw new Error('Unauthorized');
+        }
         if (!res.ok) throw new Error(t('app.failedToFetchPages'));
         return res.json();
       })
@@ -327,10 +338,59 @@ function App() {
   }, [t]);
 
   useEffect(() => {
-    void fetchPages();
-  }, [fetchPages]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const status = await fetchAuthStatus();
+        if (cancelled) return;
+        setAuthEnabled(status.enabled);
+        if (!status.enabled) {
+          setAuthed(true);
+          setAuthReady(true);
+          return;
+        }
+        if (!getToken()) {
+          setAuthed(false);
+          setAuthReady(true);
+          return;
+        }
+        const me = await fetchMe();
+        if (cancelled) return;
+        setDisplayName(me.displayName || me.loginName || '');
+        setAuthed(true);
+      } catch {
+        if (!cancelled) {
+          clearSession();
+          setAuthed(false);
+        }
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authReady && authed) {
+      void fetchPages();
+    }
+  }, [authReady, authed, fetchPages]);
 
   const openTab = (pageCode: string, title: string, mode: TabMode) => {
+    if (mode === 'manager' && !can('page:sys-page-manager') && !can('perm:config')) {
+      return;
+    }
+    if (mode === 'sqlrepo' && !can('page:sys-sql-repo') && !can('perm:config')) {
+      return;
+    }
+    if ((mode === 'runtime' || mode === 'config') && pageCode && !pageCode.startsWith('sys-') && !canPage(pageCode)) {
+      return;
+    }
+    if (mode === 'config' && !can('perm:config')) {
+      return;
+    }
     const tabId = `${pageCode}-${mode}`;
     setTabs((prev) => {
       if (prev.some((tab) => tab.id === tabId)) return prev;
@@ -454,6 +514,29 @@ function App() {
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
+  const showFactory = can('page:sys-page-manager') || can('perm:config');
+  const showSqlRepo = can('page:sys-sql-repo') || can('perm:config');
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">
+        Loading…
+      </div>
+    );
+  }
+
+  if (authEnabled && !authed) {
+    return (
+      <LoginScreen
+        onLoggedIn={() => {
+          const p = getProfile();
+          setDisplayName(p?.displayName || p?.loginName || '');
+          setAuthed(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className={`flex h-screen w-screen overflow-hidden ${isThemeDark ? 'bg-[#020617] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       <aside className={`relative hidden shrink-0 border-r h-full overflow-hidden transition-all duration-300 ease-in-out xl:flex xl:flex-col ${
@@ -504,6 +587,26 @@ function App() {
             <p className={`mt-5 text-sm leading-7 ${s.textMuted}`}>
               {t('app.sidebarDescription')}
             </p>
+          )}
+          {!isCollapsed && authed && (
+            <div className={`mt-4 flex items-center justify-between gap-2 text-xs ${s.textMuted}`}>
+              <span className="truncate">{displayName || getProfile()?.loginName || 'user'}</span>
+              {authEnabled && (
+                <button
+                  type="button"
+                  className="rounded-full border border-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-white/10"
+                  onClick={async () => {
+                    await logout();
+                    setAuthed(false);
+                    setTabs([]);
+                    setActiveTabId(null);
+                    setPages([]);
+                  }}
+                >
+                  Logout
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -556,6 +659,7 @@ function App() {
         }`}>
           {isCollapsed ? (
             <div className="space-y-3 flex flex-col items-center">
+              {showFactory && (
               <button
                 onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
                 className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
@@ -570,6 +674,8 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
+              )}
+              {showSqlRepo && (
               <button
                 onClick={() => openTab('sys-sql-repo', 'SQL Repository', 'sqlrepo')}
                 className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
@@ -581,6 +687,7 @@ function App() {
               >
                 <span className={`text-[10px] font-bold ${isThemeDark ? 'text-cyan-100' : 'text-teal-800'}`}>SQL</span>
               </button>
+              )}
 
               {pages.map((page) => {
                 const isActive = activeTabId?.startsWith(`${page.pageCode}-`);
@@ -631,6 +738,7 @@ function App() {
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${s.textMuted}`}>{t('app.workspaceTabs')}</div>
                 <div className="flex flex-wrap justify-end gap-1.5">
+                  {showSqlRepo && (
                   <button
                     onClick={() => openTab('sys-sql-repo', 'SQL Repository', 'sqlrepo')}
                     className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
@@ -641,6 +749,8 @@ function App() {
                   >
                     SQL Repo
                   </button>
+                  )}
+                  {showFactory && (
                   <button
                     onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
                     className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
@@ -651,6 +761,7 @@ function App() {
                   >
                     {t('app.openFactory')}
                   </button>
+                  )}
                 </div>
               </div>
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type ActionConfig, type FilterConfig, type DrillDownRequest, resolveActionHandler } from './actionRegistry';
+import { can, canAction, getProfile } from './auth';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
 import { logEvent } from './logger';
@@ -130,31 +131,58 @@ export default function PageLoader({
     }
   }, [fieldsJsonStr, t]);
 
+  const fieldDenies = useMemo(() => {
+    const denies = getProfile()?.fieldDenies || [];
+    // fieldDenies entries are like "entity_shop_product.cost_price" — match bare field name too
+    const bare = new Set<string>();
+    for (const d of denies) {
+      bare.add(d);
+      const dot = d.lastIndexOf('.');
+      if (dot >= 0) bare.add(d.substring(dot + 1));
+    }
+    return bare;
+  }, [config]);
+
   const runtimeColumns = useMemo<ColumnMeta[]>(() => {
     if (!queryResult) return [];
     const configured = pageDsl.table.columns || [];
-    if (configured.length === 0) return queryResult.columns;
+    const source = configured.length === 0
+      ? queryResult.columns
+      : configured.reduce<ColumnMeta[]>((acc, column) => {
+          if (column.hidden) return acc;
+          const byField = new Map(queryResult.columns.map((c) => [c.field, c]));
+          const matched = byField.get(column.field);
+          if (!matched) return acc;
+          acc.push({
+            ...matched,
+            label: column.label || matched.label,
+            width: column.width,
+            align: column.align,
+            format: column.format || matched.format,
+            tone: column.tone || matched.tone,
+            toneRules: column.toneRules,
+          });
+          return acc;
+        }, []);
+    return source.filter((col) => !fieldDenies.has(col.field));
+  }, [pageDsl.table.columns, queryResult, fieldDenies]);
 
-    const byField = new Map(queryResult.columns.map((column) => [column.field, column]));
-    return configured.reduce<ColumnMeta[]>((acc, column) => {
-      if (column.hidden) return acc;
-      const matched = byField.get(column.field);
-      if (!matched) return acc;
-      acc.push({
-        ...matched,
-        label: column.label || matched.label,
-        width: column.width,
-        align: column.align,
-        format: column.format || matched.format,
-        tone: column.tone || matched.tone,
-        toneRules: column.toneRules,
-      });
-      return acc;
-    }, []);
-  }, [pageDsl.table.columns, queryResult]);
-
-  const pageActions = pageDsl.table.actions.filter((action) => (action.scope || 'page') === 'page');
-  const rowActions = pageDsl.table.actions.filter((action) => action.scope === 'row');
+  const actionAllowed = (action: ActionConfig) => {
+    const type = (action.type || '').toLowerCase();
+    if (type === 'sqltransaction' || action.sqlTransaction) {
+      const code = action.actionCode || action.code;
+      return canAction(code);
+    }
+    if (type === 'openquery' || action.openQuery) {
+      const qc = action.openQuery?.queryCode;
+      return !qc || can(`query:${qc}`);
+    }
+    return true;
+  };
+  const pageActions = pageDsl.table.actions.filter(
+    (action) => (action.scope || 'page') === 'page' && actionAllowed(action),
+  );
+  const rowActions = pageDsl.table.actions.filter((action) => action.scope === 'row' && actionAllowed(action));
   const showActionColumn = rowActions.length > 0 || (isPageWritable && (pageDsl.features.edit || pageDsl.features.delete));
   const filters = pageDsl.table.filters;
   const rowPaddingClass = pageDsl.features.density === 'compact' ? 'py-2.5' : 'py-4';

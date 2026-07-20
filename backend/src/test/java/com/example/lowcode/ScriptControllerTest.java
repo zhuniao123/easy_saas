@@ -22,7 +22,7 @@ public class ScriptControllerTest {
 
     @Test
     public void testGetJsScript() throws Exception {
-        jdbcTemplate.execute("DELETE FROM lc_script");
+        jdbcTemplate.execute("DELETE FROM lc_script WHERE script_code = 'test_act'");
         jdbcTemplate.execute("INSERT INTO lc_script(script_code, script_type, script_content) VALUES ('test_act', 'FRONTEND_JS', 'console.log(\"hello\");')");
 
         mockMvc.perform(get("/api/v1/scripts/test_act.js"))
