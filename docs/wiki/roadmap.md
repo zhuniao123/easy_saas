@@ -32,11 +32,24 @@
 - 执行入口集中：Query / Action / Options（便于接缓存与权限）  
 - 详见：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)
 
+### 1.1 终点（当前）
+
+配置驱动 + 小店多页 **可演示**。见各 demos 与既有 wiki。
+
+### 1.2「能交给店员」— P0 用户已拍板
+
+| 优先级 | 主题 | 文档 |
+|--------|------|------|
+| **P0** | **RBAC**（登录、page/action/query、前后端分工） | [v1.2-rbac-and-locks.md](./v1.2-rbac-and-locks.md) |
+| **P0** | **锁粒度 DSL/Entity**（事务头统一加锁） | 同上 |
+| 紧随 | 整单过账、测库隔离、数据范围 forcedParams、定时备份 | 待与「这个也需要」对齐 |
+
 ### 1.x 不做
 
 - 主从表 UI  
-- Redis / 完整 Authz / IoPlugin 生产化  
+- Redis / IoPlugin 生产化  
 - 用 Groovy 替代过账 SQL  
+- 把 role/user 写进每条 SQL 资产  
 
 ## 阶段二 / 2.0
 
@@ -46,7 +59,7 @@
 
 - `masterDetailTemplate`（owtb 头行模型）  
 - 详情页 / 可配置 `openPage` 弹出（完整 Page 运行时，优于仅 query 抽屉）  
-- 复用 1.x：sqlTransaction、SQL 仓库、openQuery、Editor  
+- 复用 1.x：sqlTransaction、SQL 仓库、openQuery、Editor、**RBAC/锁**  
 
 ### 2.0 平台（规划文档已写）
 
@@ -55,12 +68,13 @@
 | **缓存** | Metadata + options + 可选只读 query；TTL/tags；写后失效 |
 | **JS / Groovy 埋点** | before/after query & action；减负 SQL，不替代权威事务 |
 | **Tab 性能** | 元数据会话缓存、options batch、runtime/studio 拆分、idle 预取 |
-| **权限** | AuthzGateway：page/action/query；稳定 resource id |
+| **权限深化** | 数据范围/RLS 兜底（1.2 先做 RBAC + forcedParams 雏形） |
 | **外部插件** | afterAction + outbox/SPI，SQL 主路径、I/O 侧车 |
 
-分阶段：2.0a 主从 → 2.0b 性能/缓存 → 2.0c 脚本/字典 → 2.0d 权限与插件  
+分阶段：2.0a 主从 → 2.0b 性能/缓存 → 2.0c 脚本/字典 → 2.0d 插件  
 
-完整说明：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)
+完整说明：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)  
+索引/锁/多端/权限注入：[indexes-locks-mobile-authz.md](./indexes-locks-mobile-authz.md)
 
 ## 阶段三
 
