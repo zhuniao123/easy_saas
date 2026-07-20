@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type ActionConfig, type FilterConfig, type DrillDownRequest, resolveActionHandler } from './actionRegistry';
-import { can, canAction, getProfile } from './auth';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
 import { logEvent } from './logger';
 import { editorTypeFromFieldType, htmlInputTypeForEditor } from './editors';
 import { formatDecoratedValue, resolveTone, toneClassName } from './runtime/decorators';
+import {
+  filterActionsByPermission,
+  filterColumnsByPermission,
+  getFieldDenySet,
+} from './runtime/permissions';
 import DrillDownDrawer from './runtime/DrillDownDrawer';
 
 interface PageConfig {
@@ -131,17 +135,8 @@ export default function PageLoader({
     }
   }, [fieldsJsonStr, t]);
 
-  const fieldDenies = useMemo(() => {
-    const denies = getProfile()?.fieldDenies || [];
-    // fieldDenies entries are like "entity_shop_product.cost_price" — match bare field name too
-    const bare = new Set<string>();
-    for (const d of denies) {
-      bare.add(d);
-      const dot = d.lastIndexOf('.');
-      if (dot >= 0) bare.add(d.substring(dot + 1));
-    }
-    return bare;
-  }, [config]);
+  // Page runtime permission policy lives in runtime/permissions (framework base), not ad-hoc here.
+  const fieldDenies = useMemo(() => getFieldDenySet(), [config]);
 
   const runtimeColumns = useMemo<ColumnMeta[]>(() => {
     if (!queryResult) return [];
@@ -164,25 +159,17 @@ export default function PageLoader({
           });
           return acc;
         }, []);
-    return source.filter((col) => !fieldDenies.has(col.field));
+    return filterColumnsByPermission(source, fieldDenies);
   }, [pageDsl.table.columns, queryResult, fieldDenies]);
 
-  const actionAllowed = (action: ActionConfig) => {
-    const type = (action.type || '').toLowerCase();
-    if (type === 'sqltransaction' || action.sqlTransaction) {
-      const code = action.actionCode || action.code;
-      return canAction(code);
-    }
-    if (type === 'openquery' || action.openQuery) {
-      const qc = action.openQuery?.queryCode;
-      return !qc || can(`query:${qc}`);
-    }
-    return true;
-  };
-  const pageActions = pageDsl.table.actions.filter(
-    (action) => (action.scope || 'page') === 'page' && actionAllowed(action),
+  const pageActions = useMemo(
+    () => filterActionsByPermission(pageDsl.table.actions, 'page'),
+    [pageDsl.table.actions]
   );
-  const rowActions = pageDsl.table.actions.filter((action) => action.scope === 'row' && actionAllowed(action));
+  const rowActions = useMemo(
+    () => filterActionsByPermission(pageDsl.table.actions, 'row'),
+    [pageDsl.table.actions]
+  );
   const showActionColumn = rowActions.length > 0 || (isPageWritable && (pageDsl.features.edit || pageDsl.features.delete));
   const filters = pageDsl.table.filters;
   const rowPaddingClass = pageDsl.features.density === 'compact' ? 'py-2.5' : 'py-4';

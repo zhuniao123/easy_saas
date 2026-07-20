@@ -45,18 +45,30 @@ export function clearSession() {
   cachedProfile = null;
 }
 
+/**
+ * Framework base permission checks — driven by permissions[] from login /me.
+ * Prefer canPage / canAction / canQuery for resource codes; use can() for raw codes like perm:config.
+ */
 export function can(perm: string): boolean {
+  if (!perm) return false;
   const profile = getProfile();
   const perms = profile?.permissions || [];
   return perms.includes('*') || perms.includes(perm);
 }
 
-export function canPage(pageCode: string): boolean {
+export function canPage(pageCode: string | undefined | null): boolean {
+  if (!pageCode) return false;
   return can(`page:${pageCode}`);
 }
 
-export function canAction(actionCode: string): boolean {
+export function canAction(actionCode: string | undefined | null): boolean {
+  if (!actionCode) return false;
   return can(`action:${actionCode}`);
+}
+
+export function canQuery(queryCode: string | undefined | null): boolean {
+  if (!queryCode) return false;
+  return can(`query:${queryCode}`);
 }
 
 export function installAuthFetch() {

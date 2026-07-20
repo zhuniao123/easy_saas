@@ -3,7 +3,8 @@ import PageLoader from './PageLoader';
 import SqlRepoConsole from './SqlRepoConsole';
 import RbacAdminConsole from './RbacAdminConsole';
 import LoginScreen from './LoginScreen';
-import { can, canPage, clearSession, fetchAuthStatus, fetchMe, getProfile, getToken, logout } from './auth';
+import { clearSession, fetchAuthStatus, fetchMe, getProfile, getToken, logout } from './auth';
+import { can, canOpenSystemPage, canPage, canConfig } from './runtime/permissions';
 import { createTranslator, getDefaultLocale, type LocaleCode } from './i18n';
 
 interface PageSummary {
@@ -380,19 +381,19 @@ function App() {
   }, [authReady, authed, fetchPages]);
 
   const openTab = (pageCode: string, title: string, mode: TabMode) => {
-    if (mode === 'manager' && !can('page:sys-page-manager') && !can('perm:config')) {
+    if (mode === 'manager' && !canOpenSystemPage('sys-page-manager')) {
       return;
     }
-    if (mode === 'sqlrepo' && !can('page:sys-sql-repo') && !can('perm:config')) {
+    if (mode === 'sqlrepo' && !canOpenSystemPage('sys-sql-repo')) {
       return;
     }
-    if (mode === 'rbac' && !can('page:sys-rbac') && !can('perm:config')) {
+    if (mode === 'rbac' && !canOpenSystemPage('sys-rbac')) {
       return;
     }
     if ((mode === 'runtime' || mode === 'config') && pageCode && !pageCode.startsWith('sys-') && !canPage(pageCode)) {
       return;
     }
-    if (mode === 'config' && !can('perm:config')) {
+    if (mode === 'config' && !canConfig()) {
       return;
     }
     const tabId = `${pageCode}-${mode}`;
@@ -524,9 +525,9 @@ function App() {
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
-  const showFactory = can('page:sys-page-manager') || can('perm:config');
-  const showSqlRepo = can('page:sys-sql-repo') || can('perm:config');
-  const showRbac = can('page:sys-rbac') || can('perm:config');
+  const showFactory = canOpenSystemPage('sys-page-manager');
+  const showSqlRepo = canOpenSystemPage('sys-sql-repo');
+  const showRbac = canOpenSystemPage('sys-rbac');
 
   if (!authReady) {
     return (
