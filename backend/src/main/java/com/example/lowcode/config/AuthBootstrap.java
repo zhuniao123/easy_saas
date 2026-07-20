@@ -16,6 +16,7 @@ public class AuthBootstrap implements ApplicationRunner {
         try {
             authService.ensureSeedData();
             authService.refreshRoleGrants();
+            authService.applyClerkDefaultsIfNeeded();
         } catch (Exception ex) {
             System.err.println("[AuthBootstrap] seed failed: " + ex.getMessage());
         }

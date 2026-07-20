@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageLoader from './PageLoader';
 import SqlRepoConsole from './SqlRepoConsole';
+import RbacAdminConsole from './RbacAdminConsole';
 import LoginScreen from './LoginScreen';
 import { can, canPage, clearSession, fetchAuthStatus, fetchMe, getProfile, getToken, logout } from './auth';
 import { createTranslator, getDefaultLocale, type LocaleCode } from './i18n';
@@ -13,7 +14,7 @@ interface PageSummary {
   entityCode?: string;
 }
 
-type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo';
+type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo' | 'rbac';
 
 interface Tab {
   id: string;
@@ -385,6 +386,9 @@ function App() {
     if (mode === 'sqlrepo' && !can('page:sys-sql-repo') && !can('perm:config')) {
       return;
     }
+    if (mode === 'rbac' && !can('page:sys-rbac') && !can('perm:config')) {
+      return;
+    }
     if ((mode === 'runtime' || mode === 'config') && pageCode && !pageCode.startsWith('sys-') && !canPage(pageCode)) {
       return;
     }
@@ -399,13 +403,15 @@ function App() {
           ? t('app.factoryTab')
           : mode === 'sqlrepo'
             ? 'SQL Repository'
-            : mode === 'config'
-              ? t('app.configTab', { title })
-              : t('app.runtimeTab', { title });
+            : mode === 'rbac'
+              ? '权限管理'
+              : mode === 'config'
+                ? t('app.configTab', { title })
+                : t('app.runtimeTab', { title });
       return [...prev, { id: tabId, title: nextTitle, pageCode, mode }];
     });
     setActiveTabId(tabId);
-    if (mode === 'manager' || mode === 'sqlrepo') {
+    if (mode === 'manager' || mode === 'sqlrepo' || mode === 'rbac') {
       setIsCollapsed(false);
     } else {
       setIsCollapsed(true);
@@ -421,7 +427,11 @@ function App() {
         setActiveTabId(nextActiveTab ? nextActiveTab.id : null);
         if (!nextActiveTab) {
           setIsCollapsed(false);
-        } else if (nextActiveTab.mode === 'manager' || nextActiveTab.mode === 'sqlrepo') {
+        } else if (
+          nextActiveTab.mode === 'manager' ||
+          nextActiveTab.mode === 'sqlrepo' ||
+          nextActiveTab.mode === 'rbac'
+        ) {
           setIsCollapsed(false);
         } else {
           setIsCollapsed(true);
@@ -516,6 +526,7 @@ function App() {
 
   const showFactory = can('page:sys-page-manager') || can('perm:config');
   const showSqlRepo = can('page:sys-sql-repo') || can('perm:config');
+  const showRbac = can('page:sys-rbac') || can('perm:config');
 
   if (!authReady) {
     return (
@@ -688,6 +699,19 @@ function App() {
                 <span className={`text-[10px] font-bold ${isThemeDark ? 'text-cyan-100' : 'text-teal-800'}`}>SQL</span>
               </button>
               )}
+              {showRbac && (
+              <button
+                onClick={() => openTab('sys-rbac', '权限管理', 'rbac')}
+                className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                  isThemeDark
+                    ? 'border-violet-300/30 bg-violet-300/10 hover:border-violet-300/50'
+                    : 'border-violet-500/30 bg-violet-50 hover:border-violet-500/50'
+                }`}
+                title="权限管理"
+              >
+                <span className={`text-[10px] font-bold ${isThemeDark ? 'text-violet-100' : 'text-violet-800'}`}>RBAC</span>
+              </button>
+              )}
 
               {pages.map((page) => {
                 const isActive = activeTabId?.startsWith(`${page.pageCode}-`);
@@ -738,6 +762,18 @@ function App() {
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${s.textMuted}`}>{t('app.workspaceTabs')}</div>
                 <div className="flex flex-wrap justify-end gap-1.5">
+                  {showRbac && (
+                  <button
+                    onClick={() => openTab('sys-rbac', '权限管理', 'rbac')}
+                    className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
+                      isThemeDark
+                        ? 'border-violet-300/30 bg-violet-300/10 text-violet-100 hover:border-violet-300/50'
+                        : 'border-violet-500/30 bg-violet-50 text-violet-800 hover:border-violet-500/50'
+                    }`}
+                  >
+                    权限
+                  </button>
+                  )}
                   {showSqlRepo && (
                   <button
                     onClick={() => openTab('sys-sql-repo', 'SQL Repository', 'sqlrepo')}
@@ -969,7 +1005,7 @@ function App() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTabId(tab.id);
-                  if (tab.mode === 'manager' || tab.mode === 'sqlrepo') {
+                  if (tab.mode === 'manager' || tab.mode === 'sqlrepo' || tab.mode === 'rbac') {
                     setIsCollapsed(false);
                   } else {
                     setIsCollapsed(true);
@@ -1009,6 +1045,8 @@ function App() {
               />
             ) : activeTab.mode === 'sqlrepo' ? (
               <SqlRepoConsole />
+            ) : activeTab.mode === 'rbac' ? (
+              <RbacAdminConsole />
             ) : (
               <PageLoader key={`${activeTab.id}-${locale}-${theme}`} pageCode={activeTab.pageCode} mode={activeTab.mode} />
             )

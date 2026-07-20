@@ -289,7 +289,7 @@ public class AuthService {
         }
 
         grantRoleAllKnown("owner", true);
-        grantRoleClerkDefaults();
+        grantRoleClerkDefaults(); // first seed only path
     }
 
     private void ensurePermissionCatalog() {
@@ -302,9 +302,10 @@ public class AuthService {
         for (String page : pages) {
             upsertPerm("page:" + page, "page", page, "Page " + page);
         }
-        // always include factory/sqlrepo virtual
+        // always include factory/sqlrepo/rbac virtual pages
         upsertPerm("page:sys-page-manager", "page", "sys-page-manager", "Page factory");
         upsertPerm("page:sys-sql-repo", "page", "sys-sql-repo", "SQL repository");
+        upsertPerm("page:sys-rbac", "page", "sys-rbac", "RBAC admin console");
         upsertPerm("perm:config", "page", "config", "Configure pages/SQL/actions");
 
         List<String> queries = jdbcTemplate.query(
@@ -376,6 +377,7 @@ public class AuthService {
                 "perm:config",
                 "page:sys-sql-repo",
                 "page:sys-page-manager",
+                "page:sys-rbac",
                 "action:shop_disable_product",
                 "action:disable_product",
                 "field:entity_shop_product.cost_price",
@@ -399,10 +401,24 @@ public class AuthService {
         }
     }
 
-    /** Refresh permission grants after new pages installed. */
+    /**
+     * Sync permission catalog from pages/queries/actions and ensure owner has all.
+     * Does NOT re-apply clerk defaults — admin matrix edits must stick.
+     */
     public void refreshRoleGrants() {
         ensurePermissionCatalog();
         grantRoleAllKnown("owner", true);
-        grantRoleClerkDefaults();
+    }
+
+    /** First-time seed only: apply clerk default matrix. */
+    public void applyClerkDefaultsIfNeeded() {
+        Integer n = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM lc_role_permission WHERE role_code = 'clerk'",
+                new HashMap<>(),
+                Integer.class
+        );
+        if (n != null && n == 0) {
+            grantRoleClerkDefaults();
+        }
     }
 }

@@ -53,7 +53,8 @@ public class AuthzInterceptor implements HandlerInterceptor {
             return null;
         }
 
-        if (path.startsWith("/api/v1/sql-repo")
+        if (path.startsWith("/api/v1/admin/")
+                || path.startsWith("/api/v1/sql-repo")
                 || path.startsWith("/api/v1/error-logs")
                 || path.contains("/configure")
                 || ("POST".equalsIgnoreCase(method) && path.equals("/api/v1/pages"))
