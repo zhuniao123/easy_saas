@@ -51,6 +51,16 @@
 - 用 Groovy 替代过账 SQL  
 - 把 role/user 写进每条 SQL 资产  
 
+### 1.5 收官 + 1.6 多库预埋
+
+| 能力 | 状态 |
+|------|------|
+| RBAC + 权限台 + Factory 表格/模板 | 已有 |
+| Showcase demo | 已有 |
+| **多数据源目录 + 密码 AES-GCM** | **1.6 已预埋**（见 [v1.6-multi-datasource.md](./v1.6-multi-datasource.md)） |
+| 页面/查询 `data_source_code` 列 | 已加（可空 = 平台库） |
+| 运行时按 ds 路由 Query/Action/CRUD | **下一切片** |
+
 ## 阶段二 / 2.0
 
 主题：`主从模板 + 平台能力接驳（不挡业务配置）`

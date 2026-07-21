@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageLoader from './PageLoader';
 import SqlRepoConsole from './SqlRepoConsole';
 import RbacAdminConsole from './RbacAdminConsole';
+import DataSourceConsole from './DataSourceConsole';
 import LoginScreen from './LoginScreen';
 import { clearSession, fetchAuthStatus, fetchMe, getProfile, getToken, logout } from './auth';
 import { canOpenSystemPage, canPage, canConfig } from './runtime/permissions';
@@ -15,7 +16,7 @@ interface PageSummary {
   entityCode?: string;
 }
 
-type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo' | 'rbac';
+type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo' | 'rbac' | 'datasources';
 
 interface Tab {
   id: string;
@@ -531,6 +532,9 @@ function App() {
     if (mode === 'rbac' && !canOpenSystemPage('sys-rbac')) {
       return;
     }
+    if (mode === 'datasources' && !canConfig() && !canOpenSystemPage('sys-data-sources')) {
+      return;
+    }
     // Config mode is for Factory editors: only perm:config required (not page:*).
     // Runtime: page:* OR configurator bypass (so owner can preview any page after create).
     if (mode === 'config' && !canConfig()) {
@@ -555,13 +559,15 @@ function App() {
             ? 'SQL Repository'
             : mode === 'rbac'
               ? '权限管理'
-              : mode === 'config'
-                ? t('app.configTab', { title })
-                : t('app.runtimeTab', { title });
+              : mode === 'datasources'
+                ? '数据源'
+                : mode === 'config'
+                  ? t('app.configTab', { title })
+                  : t('app.runtimeTab', { title });
       return [...prev, { id: tabId, title: nextTitle, pageCode, mode }];
     });
     setActiveTabId(tabId);
-    if (mode === 'manager' || mode === 'sqlrepo' || mode === 'rbac') {
+    if (mode === 'manager' || mode === 'sqlrepo' || mode === 'rbac' || mode === 'datasources') {
       setIsCollapsed(false);
     } else {
       setIsCollapsed(true);
@@ -580,7 +586,8 @@ function App() {
         } else if (
           nextActiveTab.mode === 'manager' ||
           nextActiveTab.mode === 'sqlrepo' ||
-          nextActiveTab.mode === 'rbac'
+          nextActiveTab.mode === 'rbac' ||
+          nextActiveTab.mode === 'datasources'
         ) {
           setIsCollapsed(false);
         } else {
@@ -677,6 +684,7 @@ function App() {
   const showFactory = canOpenSystemPage('sys-page-manager');
   const showSqlRepo = canOpenSystemPage('sys-sql-repo');
   const showRbac = canOpenSystemPage('sys-rbac');
+  const showDataSources = canConfig() || canOpenSystemPage('sys-data-sources');
 
   if (!authReady) {
     return (
@@ -862,6 +870,19 @@ function App() {
                 <span className={`text-[10px] font-bold ${isThemeDark ? 'text-violet-100' : 'text-violet-800'}`}>RBAC</span>
               </button>
               )}
+              {showDataSources && (
+              <button
+                onClick={() => openTab('sys-data-sources', '数据源', 'datasources')}
+                className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                  isThemeDark
+                    ? 'border-indigo-300/30 bg-indigo-300/10 hover:border-indigo-300/50'
+                    : 'border-indigo-500/30 bg-indigo-50 hover:border-indigo-500/50'
+                }`}
+                title="数据源"
+              >
+                <span className={`text-[10px] font-bold ${isThemeDark ? 'text-indigo-100' : 'text-indigo-800'}`}>DS</span>
+              </button>
+              )}
 
               {pages.map((page) => {
                 const isActive = activeTabId?.startsWith(`${page.pageCode}-`);
@@ -926,6 +947,18 @@ function App() {
                     }`}
                   >
                     权限
+                  </button>
+                  )}
+                  {showDataSources && (
+                  <button
+                    onClick={() => openTab('sys-data-sources', '数据源', 'datasources')}
+                    className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
+                      isThemeDark
+                        ? 'border-indigo-300/30 bg-indigo-300/10 text-indigo-100 hover:border-indigo-300/50'
+                        : 'border-indigo-500/30 bg-indigo-50 text-indigo-800 hover:border-indigo-500/50'
+                    }`}
+                  >
+                    数据源
                   </button>
                   )}
                   {showSqlRepo && (
@@ -1161,7 +1194,12 @@ function App() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTabId(tab.id);
-                  if (tab.mode === 'manager' || tab.mode === 'sqlrepo' || tab.mode === 'rbac') {
+                  if (
+                    tab.mode === 'manager' ||
+                    tab.mode === 'sqlrepo' ||
+                    tab.mode === 'rbac' ||
+                    tab.mode === 'datasources'
+                  ) {
                     setIsCollapsed(false);
                   } else {
                     setIsCollapsed(true);
@@ -1203,6 +1241,8 @@ function App() {
               <SqlRepoConsole />
             ) : activeTab.mode === 'rbac' ? (
               <RbacAdminConsole />
+            ) : activeTab.mode === 'datasources' ? (
+              <DataSourceConsole />
             ) : (
               <PageLoader
                 key={`${activeTab.id}-${locale}-${theme}`}

@@ -306,6 +306,7 @@ public class AuthService {
         upsertPerm("page:sys-page-manager", "page", "sys-page-manager", "Page factory");
         upsertPerm("page:sys-sql-repo", "page", "sys-sql-repo", "SQL repository");
         upsertPerm("page:sys-rbac", "page", "sys-rbac", "RBAC admin console");
+        upsertPerm("page:sys-data-sources", "page", "sys-data-sources", "Data source catalog");
         upsertPerm("perm:config", "page", "config", "Configure pages/SQL/actions");
 
         List<String> queries = jdbcTemplate.query(
@@ -378,6 +379,7 @@ public class AuthService {
                 "page:sys-sql-repo",
                 "page:sys-page-manager",
                 "page:sys-rbac",
+                "page:sys-data-sources",
                 "action:shop_disable_product",
                 "action:disable_product",
                 "field:entity_shop_product.cost_price",

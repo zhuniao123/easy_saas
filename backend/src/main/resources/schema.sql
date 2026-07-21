@@ -30,6 +30,40 @@ CREATE TABLE IF NOT EXISTS lc_page_model (
     config_json        JSONB NOT NULL
 );
 
+-- v1.6 multi-datasource catalog (encrypted passwords; runtime routing next slice)
+CREATE TABLE IF NOT EXISTS lc_data_source (
+    ds_code            VARCHAR(100) PRIMARY KEY,
+    name               VARCHAR(200) NOT NULL,
+    driver_class       VARCHAR(200) NOT NULL DEFAULT 'org.postgresql.Driver',
+    jdbc_url           VARCHAR(1000) NOT NULL,
+    username           VARCHAR(200) NOT NULL,
+    password_cipher    TEXT,
+    max_pool_size      INTEGER NOT NULL DEFAULT 5,
+    enabled            BOOLEAN NOT NULL DEFAULT true,
+    is_platform        BOOLEAN NOT NULL DEFAULT false,
+    remark             VARCHAR(500),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Soft bind: no FK here (Spring schema runner splits on ';', so DO blocks break).
+-- App validates ds_code against lc_data_source when set.
+ALTER TABLE lc_query_model ADD COLUMN IF NOT EXISTS data_source_code VARCHAR(100);
+ALTER TABLE lc_page_model ADD COLUMN IF NOT EXISTS data_source_code VARCHAR(100);
+
+INSERT INTO lc_data_source (ds_code, name, driver_class, jdbc_url, username, password_cipher, is_platform, remark)
+VALUES (
+  'default',
+  '平台库（Spring 主数据源）',
+  'org.postgresql.Driver',
+  'jdbc:postgresql://127.0.0.1:5432/lowcode',
+  'lowcode',
+  NULL,
+  true,
+  'Runtime always uses spring.datasource; password not stored here'
+)
+ON CONFLICT (ds_code) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS lc_script (
     script_code        VARCHAR(100) PRIMARY KEY,
     script_type        VARCHAR(50) NOT NULL,
