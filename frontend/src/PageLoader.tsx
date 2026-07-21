@@ -97,7 +97,8 @@ export default function PageLoader({
   const [crudError, setCrudError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeStudioPanel, setActiveStudioPanel] = useState<StudioPanel>('sql');
-  const [showPreviewPanel, setShowPreviewPanel] = useState(mode !== 'config');
+  // Always show grid preview in config mode so editors can verify columns/actions while editing.
+  const [showPreviewPanel, setShowPreviewPanel] = useState(true);
   const [sqlValidation, setSqlValidation] = useState<SqlValidationState>({ status: 'idle' });
   const [drillDown, setDrillDown] = useState<DrillDownRequest | null>(null);
 
@@ -231,7 +232,7 @@ export default function PageLoader({
       method: 'POST',
     });
     if (!res.ok) {
-      throw new Error(t('error.failedToSaveSql'));
+      throw new Error(await readApiError(res, t('error.failedToSaveSql')));
     }
     const data = await res.json();
     if (!data.valid) {
@@ -345,11 +346,34 @@ export default function PageLoader({
     executeQuery(queryCode, nextPage, nextPageSize, nextSortField, nextSortOrder, nextFilterValues);
   };
 
+  const readApiError = async (res: Response, fallback: string) => {
+    try {
+      const body = await res.json();
+      return String(body.message || body.error || fallback);
+    } catch {
+      return fallback;
+    }
+  };
+
   const loadQueryEditor = useCallback((queryCodeValue: string) => {
     fetch(`/api/v1/queries/${queryCodeValue}`)
-      .then((res) => res.json())
-      .then((queryConfig) => setSqlText(queryConfig.sqlText || ''))
-      .catch(() => setSqlText(''));
+      .then(async (res) => {
+        if (!res.ok) {
+          const msg = await readApiError(res, 'Failed to load query SQL');
+          setSaveStatus(msg);
+          setSqlText('');
+          return null;
+        }
+        return res.json();
+      })
+      .then((queryConfig) => {
+        if (!queryConfig) return;
+        setSqlText(queryConfig.sqlText || '');
+      })
+      .catch(() => {
+        setSqlText('');
+        setSaveStatus('Failed to load query SQL');
+      });
   }, []);
 
   const closeEditor = () => {
@@ -742,7 +766,14 @@ export default function PageLoader({
   };
 
   const handleSaveSql = async () => {
-    if (!queryCode) return;
+    if (!queryCode) {
+      setSaveStatus('No queryCode bound to this page — cannot save SQL.');
+      return;
+    }
+    if (!sqlText.trim()) {
+      setSaveStatus('SQL is empty — load failed or not yet filled in.');
+      return;
+    }
     setSaveStatus(t('status.savingSql'));
     try {
       const saveResponse = await fetch(`/api/v1/queries/${queryCode}/configure`, {
@@ -751,7 +782,7 @@ export default function PageLoader({
         body: JSON.stringify({ sqlText }),
       });
       if (!saveResponse.ok) {
-        throw new Error(t('error.failedToSaveSql'));
+        throw new Error(await readApiError(saveResponse, t('error.failedToSaveSql')));
       }
 
       const introspection = await introspectQueryModel(queryCode);
@@ -777,8 +808,11 @@ export default function PageLoader({
           : Promise.resolve(new Response(null, { status: 200 })),
       ]);
 
-      if (!pageSaveResponse.ok || !entitySaveResponse.ok) {
-        throw new Error(t('error.failedToSavePageModel'));
+      if (!pageSaveResponse.ok) {
+        throw new Error(await readApiError(pageSaveResponse, t('error.failedToSavePageModel')));
+      }
+      if (!entitySaveResponse.ok) {
+        throw new Error(await readApiError(entitySaveResponse, t('error.failedToSaveSchema')));
       }
 
       setConfig((prev) => (prev ? { ...prev, config: nextPageConfig } : prev));
@@ -826,70 +860,69 @@ export default function PageLoader({
     }
   };
 
-  const handleSaveSchema = () => {
-    if (!entityCode) return;
+  const handleSaveSchema = async () => {
+    if (!entityCode) {
+      setSaveStatus('No entityCode bound — cannot save entity model.');
+      return;
+    }
     if (!entityModelValidation.valid) {
       setSaveStatus(entityModelValidation.message || t('error.invalidJson'));
       return;
     }
-    const parsed = JSON.parse(fieldsJsonStr);
-    setEntityFields(parsed || []);
-    setSaveStatus(t('status.savingSchema'));
-    fetch(`/api/v1/pages/entities/${entityCode}/configure`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fieldsJson: fieldsJsonStr, primaryKey: entityMeta?.primaryKey || null }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(t('error.failedToSaveSchema'));
-        return res.json();
-      })
-      .then(() => {
-        setSaveStatus(t('status.schemaSaved'));
-        window.setTimeout(() => setSaveStatus(null), 2500);
-      })
-      .catch((err) => setSaveStatus(err.message || t('error.failedToSaveSchema')));
+    try {
+      const parsed = JSON.parse(fieldsJsonStr);
+      setEntityFields(parsed || []);
+      setSaveStatus(t('status.savingSchema'));
+      const res = await fetch(`/api/v1/pages/entities/${entityCode}/configure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fieldsJson: fieldsJsonStr, primaryKey: entityMeta?.primaryKey || null }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, t('error.failedToSaveSchema')));
+      setSaveStatus(t('status.schemaSaved'));
+      window.setTimeout(() => setSaveStatus(null), 2500);
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : t('error.failedToSaveSchema'));
+    }
   };
 
-  const handleSavePageConfig = () => {
+  const handleSavePageConfig = async () => {
     if (!pageModelValidation.valid) {
       setSaveStatus(pageModelValidation.message || t('error.invalidPageModelJson'));
       return;
     }
-    const parsed = JSON.parse(pageConfigJsonStr);
-    setConfig((prev) => (prev ? { ...prev, config: parsed } : prev));
-    setPageConfigJsonStr(JSON.stringify(parsed, null, 2));
-    setSaveStatus(t('status.savingPageModel'));
-    fetch(`/api/v1/pages/${pageCode}/configure`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ configJson: JSON.stringify(parsed) }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(t('error.failedToSavePageModel'));
-        return res.json();
-      })
-      .then(() => {
-        setSaveStatus(t('status.pageModelSaved'));
-        const normalizedPage = normalizePageDsl(parsed, config?.title || pageCode, queryCode || undefined);
-        const nextQueryCode = normalizedPage.dataSource.queryCode || queryCode;
-        const nextPageSize = normalizedPage.dataSource.pageSize || pageSize;
-        const nextSortField = normalizedPage.dataSource.defaultSort?.field || null;
-        const nextSortOrder = normalizedPage.dataSource.defaultSort?.order || null;
+    try {
+      const parsed = JSON.parse(pageConfigJsonStr);
+      setConfig((prev) => (prev ? { ...prev, config: parsed } : prev));
+      setPageConfigJsonStr(JSON.stringify(parsed, null, 2));
+      setSaveStatus(t('status.savingPageModel'));
+      const res = await fetch(`/api/v1/pages/${pageCode}/configure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configJson: JSON.stringify(parsed) }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, t('error.failedToSavePageModel')));
+      setSaveStatus(t('status.pageModelSaved'));
+      const normalizedPage = normalizePageDsl(parsed, config?.title || pageCode, queryCode || undefined);
+      const nextQueryCode = normalizedPage.dataSource.queryCode || queryCode;
+      const nextPageSize = normalizedPage.dataSource.pageSize || pageSize;
+      const nextSortField = normalizedPage.dataSource.defaultSort?.field || null;
+      const nextSortOrder = normalizedPage.dataSource.defaultSort?.order || null;
 
-        if (nextQueryCode) {
-          setQueryCode(nextQueryCode);
-          loadQueryEditor(nextQueryCode);
-          setPage(1);
-          setPageSize(nextPageSize);
-          setSortField(nextSortField);
-          setSortOrder(nextSortOrder);
-          setFilterValues({});
-          executeQuery(nextQueryCode, 1, nextPageSize, nextSortField, nextSortOrder, {});
-        }
-        window.setTimeout(() => setSaveStatus(null), 2500);
-      })
-      .catch((err) => setSaveStatus(err.message || t('error.failedToSavePageModel')));
+      if (nextQueryCode) {
+        setQueryCode(nextQueryCode);
+        loadQueryEditor(nextQueryCode);
+        setPage(1);
+        setPageSize(nextPageSize);
+        setSortField(nextSortField);
+        setSortOrder(nextSortOrder);
+        setFilterValues({});
+        executeQuery(nextQueryCode, 1, nextPageSize, nextSortField, nextSortOrder, {});
+      }
+      window.setTimeout(() => setSaveStatus(null), 2500);
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : t('error.failedToSavePageModel'));
+    }
   };
 
   const handleExecuteRawSql = () => {
@@ -969,7 +1002,8 @@ export default function PageLoader({
                 <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{t('page.configMode')}</div>
                 <div className="mt-2 text-xl font-semibold text-slate-950">{t('page.configModeTitle')}</div>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
-                  配置态以 studio 为主，表格只作为预览面板按需展开，不再挤占第一视觉层。
+                  配置态：编辑 SQL / Page JSON / Entity JSON 后点保存。下方表格为实时预览。若 SQL
+                  区为空，说明查询加载失败（权限或绑定），请看上方红色/青色状态条。
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
