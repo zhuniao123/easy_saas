@@ -815,7 +815,7 @@ function App() {
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto py-4 transition-all duration-300 ${
+        <div className={`sidebar-scroll sidebar-scroll-auto-hide flex-1 overflow-y-auto py-4 transition-all duration-300 ${
           isCollapsed ? 'px-3' : 'px-6'
         }`}>
           {isCollapsed ? (
