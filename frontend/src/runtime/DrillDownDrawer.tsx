@@ -31,42 +31,45 @@ export default function DrillDownDrawer({ request, onClose }: Props) {
 
   useEffect(() => {
     if (!request) return;
-    setPage(1);
-  }, [request?.queryCode, request?.title]);
+    window.setTimeout(() => setPage(1), 0);
+  }, [request]);
 
   useEffect(() => {
     if (!request) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/v1/queries/${encodeURIComponent(request.queryCode)}/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        params: {
-          ...request.params,
-          _page: page,
-          _pageSize: pageSize,
-        },
-        filters: [],
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || data.error || 'Query failed');
-        return data;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
+      fetch(`/api/v1/queries/${encodeURIComponent(request.queryCode)}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          params: {
+            ...request.params,
+            _page: page,
+            _pageSize: pageSize,
+          },
+          filters: [],
+        }),
       })
-      .then((data) => {
-        if (cancelled) return;
-        setColumns(data.columns || []);
-        setRows(data.rows || []);
-        setTotal(data.total ?? (data.rows || []).length);
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || data.error || 'Query failed');
+          return data;
+        })
+        .then((data) => {
+          if (cancelled) return;
+          setColumns(data.columns || []);
+          setRows(data.rows || []);
+          setTotal(data.total ?? (data.rows || []).length);
+        })
+        .catch((e: Error) => {
+          if (!cancelled) setError(e.message);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
       });
     return () => {
       cancelled = true;

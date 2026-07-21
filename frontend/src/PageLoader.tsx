@@ -141,7 +141,7 @@ export default function PageLoader({
   }, [fieldsJsonStr, t]);
 
   // Page runtime permission policy lives in runtime/permissions (framework base), not ad-hoc here.
-  const fieldDenies = useMemo(() => getFieldDenySet(), [config]);
+  const fieldDenies = useMemo(() => getFieldDenySet(), []);
 
   const runtimeColumns = useMemo<ColumnMeta[]>(() => {
     if (!queryResult) return [];
@@ -337,7 +337,7 @@ export default function PageLoader({
         );
       })
       .finally(() => setLoadingQuery(false));
-  }, [filterValues, filters, page, pageSize, sortField, sortOrder, t]);
+  }, [filterValues, filters, page, pageCode, pageDsl.logging, pageSize, sortField, sortOrder, t]);
 
   const refreshData = (
     nextPage = page,
@@ -421,7 +421,7 @@ export default function PageLoader({
       }
     );
 
-    void handler(action, {
+    void Promise.resolve(handler(action, {
       row,
       rows: queryResult.rows,
       columns: runtimeColumns.map((column) => ({ field: column.field, label: column.label })),
@@ -431,7 +431,7 @@ export default function PageLoader({
       openDrillDown: setDrillDown,
       notify,
       t,
-    }).catch(() => {
+    })).catch(() => {
       /* notify already shown for sqlTransaction failures */
     });
   };
@@ -452,7 +452,7 @@ export default function PageLoader({
     return true;
   };
 
-  const toneClass = (tone?: ColumnMeta['tone']) => {
+  const toneClass = (tone?: string) => {
     switch (tone) {
       case 'muted':
         return 'text-slate-500';

@@ -301,7 +301,11 @@ export const normalizePageDsl = (
           console: logging.console !== false,
           reportToServer: logging.reportToServer === true,
           events: Array.isArray(logging.events)
-            ? (logging.events.map((e) => String(e)).filter((e) => ['click', 'query', 'create', 'edit', 'delete', 'filter'].includes(e)) as any)
+            ? (logging.events
+                .map((e) => String(e))
+                .filter((e): e is NonNullable<PageLoggingConfig['events']>[number] =>
+                  ['click', 'query', 'create', 'edit', 'delete', 'filter'].includes(e),
+                ) as PageLoggingConfig['events'])
             : undefined,
         }
       : undefined,

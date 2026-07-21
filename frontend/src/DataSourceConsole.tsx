@@ -52,7 +52,9 @@ export default function DataSourceConsole() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   const resetForm = () => {

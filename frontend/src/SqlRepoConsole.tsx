@@ -104,7 +104,9 @@ export default function SqlRepoConsole() {
   }, []);
 
   useEffect(() => {
-    void loadList().catch((e) => setError(e instanceof Error ? e.message : 'Load failed'));
+    queueMicrotask(() => {
+      void loadList().catch((e) => setError(e instanceof Error ? e.message : 'Load failed'));
+    });
   }, [loadList]);
 
   const handleSave = async () => {

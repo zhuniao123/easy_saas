@@ -153,7 +153,7 @@ test('renders smart grid action area', async () => {
   await waitFor(() => {
     expect(screen.getByText('Page, entity, and remote SQL control center')).toBeInTheDocument();
     expect(screen.getByText('Save SQL model')).toBeInTheDocument();
-    expect(screen.getByText('Show Preview')).toBeInTheDocument();
+    expect(screen.getByText('Hide Preview')).toBeInTheDocument();
   });
 });
 

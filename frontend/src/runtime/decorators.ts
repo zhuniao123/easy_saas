@@ -35,7 +35,7 @@ const parseToneRule = (rule: string, value: unknown, row?: Record<string, unknow
   const match = trimmed.match(/^value\s*(<=|>=|==|!=|<|>)\s*(.+)$/);
   if (!match) return false;
   const op = match[1];
-  let rightRaw = match[2].trim();
+  const rightRaw = match[2].trim();
   let right: unknown = rightRaw;
 
   if (rightRaw.startsWith('row.') && row) {

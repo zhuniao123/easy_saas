@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -20,6 +21,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class RbacAdminControllerTest {
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private String login(String user, String pass) throws Exception {
         MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
@@ -29,6 +32,19 @@ public class RbacAdminControllerTest {
                 .andReturn();
         String body = login.getResponse().getContentAsString();
         return body.replaceAll("(?s).*\"token\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+    }
+
+    private void ensureDemoPage(String pageCode) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO lc_page_model(page_code, title, route_path, config_json)
+                VALUES (?, ?, ?, '{}'::jsonb)
+                ON CONFLICT (page_code) DO NOTHING
+                """,
+                pageCode,
+                pageCode,
+                "/" + pageCode.replace("_", "-")
+        );
     }
 
     @Test
@@ -60,6 +76,13 @@ public class RbacAdminControllerTest {
         assertThat(body).contains("permCodes");
 
         // Ensure shop_products page exists in catalog after refresh
+        for (String page : new String[] {
+                "shop_products", "shop_sales", "shop_purchases", "shop_stock_moves",
+                "shop_customers", "shop_suppliers", "shop_low_stock",
+                "shop_today_sales", "product_ledger"
+        }) {
+            ensureDemoPage(page);
+        }
         mockMvc.perform(post("/api/v1/admin/rbac/refresh-catalog")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())

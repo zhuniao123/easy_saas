@@ -670,10 +670,10 @@ function App() {
         const page = pages.find((p) => p.pageCode === activeTab.pageCode);
         if (page) {
           const category = getCategory(page.routePath);
-          setExpandedFolders((prev) => {
+          window.setTimeout(() => setExpandedFolders((prev) => {
             if (prev[category]) return prev;
             return { ...prev, [category]: true };
-          });
+          }), 0);
         }
       }
     }
@@ -1319,4 +1319,3 @@ function App() {
 }
 
 export default App;
-

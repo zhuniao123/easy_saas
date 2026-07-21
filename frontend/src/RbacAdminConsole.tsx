@@ -93,11 +93,15 @@ export default function RbacAdminConsole() {
   }, [loadRoles, loadPermissions, loadUsers, loadRolePerms, selectedRole]);
 
   useEffect(() => {
-    void reloadAll();
+    queueMicrotask(() => {
+      void reloadAll();
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    void loadRolePerms(selectedRole).catch((e) => setError(e instanceof Error ? e.message : 'Load failed'));
+    queueMicrotask(() => {
+      void loadRolePerms(selectedRole).catch((e) => setError(e instanceof Error ? e.message : 'Load failed'));
+    });
   }, [selectedRole, loadRolePerms]);
 
   const pagePerms = useMemo(
