@@ -60,6 +60,7 @@
 | **多数据源目录 + 密码 AES-GCM** | **1.6 已预埋**（见 [v1.6-multi-datasource.md](./v1.6-multi-datasource.md)） |
 | 页面/查询 `data_source_code` 列 | 已加（可空 = 平台库） |
 | 运行时按 ds 路由 Query/Action/CRUD | **下一切片** |
+| **AI 建页 skill + CLI 雏形** | **已有**（`ai-page-scaffold` / `tools/easy_saas_cli`）→ 2.0 产品化 |
 
 ## 阶段二 / 2.0
 

@@ -1,0 +1,50 @@
+{
+  "pageCode": "ai_demo_notes",
+  "title": "AI Demo 笔记",
+  "routePath": "/ai/demo-notes",
+  "template": "crud_grid",
+  "primaryKey": "id",
+  "sqlText": "SELECT id, name, created_at, updated_at FROM \"ai_demo_notes\"",
+  "queryMode": "singleTableTemplate",
+  "entityFields": [
+    { "field": "id", "label": "ID", "type": "integer" },
+    { "field": "name", "label": "标题", "type": "string" },
+    { "field": "created_at", "label": "创建时间", "type": "datetime" },
+    { "field": "updated_at", "label": "更新时间", "type": "datetime" }
+  ],
+  "pageConfig": {
+    "presentation": {
+      "title": "AI Demo 笔记",
+      "description": "由 ai-page-scaffold 生成的示例页",
+      "badge": "AI Scaffold",
+      "emptyState": "暂无数据，点击新增"
+    },
+    "dataSource": {
+      "queryCode": "q_ai_demo_notes",
+      "pageSize": 20,
+      "pageSizeOptions": [20, 50]
+    },
+    "table": {
+      "columns": [
+        { "field": "id", "label": "ID", "width": 72 },
+        { "field": "name", "label": "标题", "width": 240 },
+        { "field": "created_at", "label": "创建", "width": 160, "format": "datetime" },
+        { "field": "updated_at", "label": "更新", "width": 160, "format": "datetime" }
+      ],
+      "filters": [
+        { "field": "name", "label": "标题", "type": "text", "placeholder": "搜索标题" }
+      ],
+      "actions": [
+        { "code": "refresh", "label": "刷新", "dsl": "grid.refresh", "scope": "page", "variant": "primary" }
+      ]
+    },
+    "features": {
+      "pagination": true,
+      "create": true,
+      "edit": true,
+      "delete": true,
+      "export": false,
+      "density": "comfortable"
+    }
+  }
+}
