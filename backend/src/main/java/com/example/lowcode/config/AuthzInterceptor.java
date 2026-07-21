@@ -36,6 +36,11 @@ public class AuthzInterceptor implements HandlerInterceptor {
         try {
             String perm = resolvePermission(path, method, request);
             if (perm != null) {
+                // Platform configurators (Factory / SQL Repo / page DSL) may access any
+                // page/query resource; clerks still need the specific page:/query:/action: code.
+                if (!"perm:config".equals(perm) && authService.hasPermission("perm:config")) {
+                    return true;
+                }
                 authService.requirePermission(perm);
             }
             return true;

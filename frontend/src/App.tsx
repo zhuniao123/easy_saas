@@ -4,7 +4,7 @@ import SqlRepoConsole from './SqlRepoConsole';
 import RbacAdminConsole from './RbacAdminConsole';
 import LoginScreen from './LoginScreen';
 import { clearSession, fetchAuthStatus, fetchMe, getProfile, getToken, logout } from './auth';
-import { can, canOpenSystemPage, canPage, canConfig } from './runtime/permissions';
+import { canOpenSystemPage, canPage, canConfig } from './runtime/permissions';
 import { createTranslator, getDefaultLocale, type LocaleCode } from './i18n';
 
 interface PageSummary {
@@ -52,18 +52,29 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
     setLoading(true);
     setError(null);
     try {
+      const code = pageCode.trim();
+      const pageTitle = title.trim();
       const res = await fetch('/api/v1/pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pageCode: pageCode.trim(),
-          title: title.trim(),
+          pageCode: code,
+          title: pageTitle,
           routePath: routePath.trim(),
         }),
       });
-      if (!res.ok) throw new Error(t('app.failedToCreatePage'));
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || body.error || t('app.failedToCreatePage'));
+      }
+      // Refresh permission list so page:* for the new page is in the client profile
+      try {
+        await fetchMe();
+      } catch {
+        /* ignore — canConfig() still opens config */
+      }
       onPageCreated();
-      openTab(pageCode.trim(), title.trim(), 'config');
+      openTab(code, pageTitle, 'config');
       setPageCode('');
       setTitle('');
       setRoutePath('');
@@ -390,10 +401,18 @@ function App() {
     if (mode === 'rbac' && !canOpenSystemPage('sys-rbac')) {
       return;
     }
-    if ((mode === 'runtime' || mode === 'config') && pageCode && !pageCode.startsWith('sys-') && !canPage(pageCode)) {
+    // Config mode is for Factory editors: only perm:config required (not page:*).
+    // Runtime: page:* OR configurator bypass (so owner can preview any page after create).
+    if (mode === 'config' && !canConfig()) {
       return;
     }
-    if (mode === 'config' && !canConfig()) {
+    if (
+      mode === 'runtime' &&
+      pageCode &&
+      !pageCode.startsWith('sys-') &&
+      !canPage(pageCode) &&
+      !canConfig()
+    ) {
       return;
     }
     const tabId = `${pageCode}-${mode}`;

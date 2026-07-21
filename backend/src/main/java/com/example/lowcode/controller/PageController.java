@@ -27,6 +27,10 @@ public class PageController {
         if (!authService.isAuthEnabled()) {
             return all;
         }
+        // Configurators see every page (Factory must list pages even before page:* grant).
+        if (authService.hasPermission("perm:config")) {
+            return all;
+        }
         return all.stream()
                 .filter(p -> {
                     Object code = p.get("pageCode");

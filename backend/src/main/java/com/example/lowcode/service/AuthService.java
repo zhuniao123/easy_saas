@@ -421,4 +421,54 @@ public class AuthService {
             grantRoleClerkDefaults();
         }
     }
+
+    /**
+     * After Factory creates a page: register page/query permissions and grant to
+     * every role that already has perm:config (owner / admins).
+     */
+    public void registerFactoryPageResources(String pageCode, String queryCode) {
+        if (pageCode != null && !pageCode.isBlank()) {
+            upsertPerm("page:" + pageCode, "page", pageCode, "Page " + pageCode);
+            grantToConfigRoles("page:" + pageCode);
+        }
+        if (queryCode != null && !queryCode.isBlank()) {
+            upsertPerm("query:" + queryCode, "query", queryCode, "Query " + queryCode);
+            grantToConfigRoles("query:" + queryCode);
+        }
+    }
+
+    public void unregisterFactoryPageResources(String pageCode, String queryCode) {
+        Map<String, Object> p = new HashMap<>();
+        if (pageCode != null && !pageCode.isBlank()) {
+            p.put("code", "page:" + pageCode);
+            jdbcTemplate.update("DELETE FROM lc_role_permission WHERE perm_code = :code", p);
+            jdbcTemplate.update("DELETE FROM lc_permission WHERE perm_code = :code", p);
+        }
+        if (queryCode != null && !queryCode.isBlank()) {
+            p.put("code", "query:" + queryCode);
+            jdbcTemplate.update("DELETE FROM lc_role_permission WHERE perm_code = :code", p);
+            jdbcTemplate.update("DELETE FROM lc_permission WHERE perm_code = :code", p);
+        }
+    }
+
+    private void grantToConfigRoles(String permCode) {
+        List<String> roles = jdbcTemplate.query(
+                """
+                SELECT DISTINCT role_code FROM lc_role_permission WHERE perm_code = 'perm:config'
+                UNION
+                SELECT 'owner' WHERE EXISTS (SELECT 1 FROM lc_role WHERE role_code = 'owner')
+                """,
+                new HashMap<>(),
+                (rs, i) -> rs.getString(1)
+        );
+        for (String role : roles) {
+            Map<String, Object> p = new HashMap<>();
+            p.put("role", role);
+            p.put("perm", permCode);
+            jdbcTemplate.update(
+                    "INSERT INTO lc_role_permission(role_code, perm_code) VALUES (:role, :perm) ON CONFLICT DO NOTHING",
+                    p
+            );
+        }
+    }
 }

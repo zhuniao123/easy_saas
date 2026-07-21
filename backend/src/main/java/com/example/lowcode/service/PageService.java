@@ -26,6 +26,8 @@ public class PageService {
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
+    @Autowired
+    private AuthService authService;
 
     private String requireSafeIdentifier(String value, String fieldName) {
         if (value == null || !SAFE_IDENTIFIER.matcher(value).matches()) {
@@ -199,6 +201,9 @@ public class PageService {
             "INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code, config_json) VALUES (:pageCode, :title, :routePath, :queryCode, :entityCode, :configJson::jsonb) ON CONFLICT (page_code) DO NOTHING",
             pageParams
         );
+
+        // RBAC: new Factory pages must be immediately openable/editable by configurators
+        authService.registerFactoryPageResources(pageCode, queryCode);
     }
 
     public void deletePage(String pageCode) {
@@ -212,6 +217,8 @@ public class PageService {
         );
         String queryCode = (String) page.get("query_code");
         String entityCode = (String) page.get("entity_code");
+
+        authService.unregisterFactoryPageResources(pageCode, queryCode);
         
         // Delete page
         jdbcTemplate.update("DELETE FROM lc_page_model WHERE page_code = :pageCode", params);
