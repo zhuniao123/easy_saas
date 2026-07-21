@@ -70,12 +70,14 @@
 
 | 版本 | 目标 | 验收重点 |
 |------|------|----------|
-| `1.6` | 多数据源运行时路由 | Query / Action / CRUD 按 `data_source_code` 执行 |
-| `1.7` | AI 建页质量门 | CLI 幂等 apply、dry-run、AI scaffold smoke |
-| `1.8` | 单表工作台完整度 | filter operator、editor registry、dict/options/suggest |
-| `1.9` | 准生产基础能力 | 日志、备份、权限后端脱敏、慢查询观测 |
+| `1.6` | 多数据源运行时路由 + SQL 仓库增强 | Query / Action / CRUD 按 `data_source_code` 执行；SQL 资产统计执行次数、耗时、错误 |
+| `1.7` | AI 建页质量门 + 配置版本化 | CLI 幂等 apply、dry-run、AI scaffold smoke；SQL/JSON 配置可版本管理 |
+| `1.8` | 单表工作台完整度 + 脚本埋点 | filter operator、editor registry、dict/options/suggest；前端 JS plugin 与后端 Groovy hook 产品化 |
+| `1.9` | 准生产基础能力 + 调度入口 | 日志、备份、权限后端脱敏、慢查询观测；JobRegistry 可外挂执行 SQL 仓库任务 |
 
 基础版完成标准：AI 可以创建一个极小 CRUD SaaS，且不需要业务 Java Domain。
+
+复杂 SQL 边界：1.x/2.0 必须支持 `SELECT/WITH` 类型复杂查询、join 只读表格、分页排序筛选的安全包裹；但 join 结果不自动启用 CRUD。写入仍走 `singleTableTemplate` 主键 CRUD 或显式 `sqlTransaction` action。
 
 ## 阶段二 / 2.0
 
@@ -93,10 +95,11 @@
 | 模块 | 要点 |
 |------|------|
 | **缓存** | Metadata + options + 可选只读 query；TTL/tags；写后失效；默认进程内，可接 Redis |
-| **JS / Groovy 埋点** | before/after query & action；减负 SQL，不替代权威事务 |
+| **JS / Groovy 埋点** | before/after query & action；减少重复 SQL 和展示加工压力，不替代权威事务 |
 | **Tab 性能** | 元数据会话缓存、options batch、runtime/studio 拆分、idle 预取 |
 | **权限深化** | 数据范围/RLS 兜底（1.2 先做 RBAC + forcedParams 雏形） |
 | **外部插件** | afterAction + outbox/SPI，SQL 主路径、I/O 侧车 |
+| **SQL 仓库治理** | query/openQuery/options/action/job 都引用仓库；统计执行次数/耗时/错误；SQL/JSON 版本化 |
 | **大文本/搜索** | SearchProvider 占位；PG 可实现，后续可接 Mongo/OpenSearch |
 | **索引/分区** | Advisor + Dialect Executor；先给建议，不自动改库 |
 

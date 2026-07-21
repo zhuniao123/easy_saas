@@ -140,6 +140,8 @@ CacheProvider { get/put/invalidate(tags) }
 
 原则：**权威状态仍以 SQL 事务为准**；脚本吃掉「重复读、展示加工、外部 I/O」。
 
+这部分应从 2.0 平台规划前移到 1.8/1.9 落地。它的价值类似数据库触发器：让展示、个性化、轻量 enrichment、缓存失效和外部事件准备靠可配置 hook 完成，减少为了页面效果反复改 SQL 或反复查库。
+
 ### 2.2 埋点清单（与现有表对齐）
 
 **已有雏形：**
@@ -148,7 +150,7 @@ CacheProvider { get/put/invalidate(tags) }
 - `lc_script`（FRONTEND_JS / BACKEND_GROOVY）  
 - `ScriptController` 下发前端脚本  
 
-**2.0 补齐埋点（配置声明，不写死页面）：**
+**1.8/1.9 补齐埋点（配置声明，不写死页面）：**
 
 ```text
 Query:
@@ -202,6 +204,37 @@ Field/Editor:
 | Groovy 保持窄接口 + 以后沙箱 | 给 Groovy 任意 ClassLoader/文件系统 |
 
 **负荷策略：** 热路径 options → 缓存；列表 enrichment → 批量 SQL 一次或 afterQuery 无 DB；外部 HTTP → afterAction 异步（2.0 job）。
+
+### 2.5 脚本验收标准
+
+- `scriptCode` 统一入 `lc_script`，Page/Query/Action 只保存引用。
+- 前端 JS plugin 支持 page/field/action 三层 hook。
+- 后端 Groovy hook 支持 query/action 的 before/after/onError。
+- 每次脚本执行记录耗时、结果、错误和触发入口。
+- 后端 Groovy 可按租户/环境禁用。
+- 脚本不能绕过 `AuthzGateway`、`ActionRuntime`、SQL transaction。
+
+---
+
+## 2.6 复杂 SQL / join 表格边界
+
+复杂 SQL 是 SQL-first 卖点的一部分，必须支持，但边界要清楚。
+
+| 能力 | 1.8/1.9 要求 | 2.0 要求 |
+|------|--------------|----------|
+| raw SELECT | 可展示、分页、排序、筛选 | 加执行统计和缓存 hint |
+| WITH SELECT | 可作为只读查询 | 加外层包裹和白名单字段 |
+| join SELECT | 可作为只读智能表格 | 可配 openPage/openQuery 钻取 |
+| 聚合查询 | 可读、可筛、可排序 | 支持图表/摘要扩展点 |
+| join CRUD | 不自动支持 | 仍不自动支持，必须显式 action |
+
+平台处理规则：
+
+- 用户 SQL 作为子查询 `q` 包裹，平台只在外层追加筛选、排序、分页。
+- 过滤字段来自 queryModel/pageModel 白名单，不能让前端传任意表达式。
+- 如果 SQL 已经包含复杂 order/limit，平台应优先进入只读兼容模式，必要时要求配置 `supportsWrappedPaging=false`。
+- CRUD 只在 `singleTableTemplate` 且主键明确时启用。
+- join/聚合/视图写入必须通过 `sqlTransaction` action。
 
 ---
 

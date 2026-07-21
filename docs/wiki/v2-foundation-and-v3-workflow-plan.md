@@ -36,9 +36,9 @@
 | 版本 | 目标 | 说明 |
 |------|------|------|
 | `1.6` | 多数据源真正运行时可用 | Query / Action / CRUD 按 `data_source_code` 路由 |
-| `1.7` | 基础版质量门 | CLI apply 幂等、AI 建页 smoke、前后端测试环境稳定 |
-| `1.8` | 单表工作台打磨 | filter operator、editor registry、options/suggest、dict 全链路 |
-| `1.9` | 基础版准生产 | 日志、备份、权限后端脱敏、慢查询可观测、配置变更审计 |
+| `1.7` | 基础版质量门 | CLI apply 幂等、AI 建页 smoke、前后端测试环境稳定、配置版本化 |
+| `1.8` | 单表工作台 + 脚本埋点 | filter operator、editor registry、options/suggest、dict、JS plugin、Groovy hook |
+| `1.9` | 基础版准生产 | 日志、备份、权限后端脱敏、慢查询可观测、配置变更审计、外挂 JobRegistry |
 
 ### 1.3 2.0 前不做
 
@@ -60,6 +60,7 @@
 - `openPage`：完整 Page 运行时弹出，不只是 openQuery 抽屉。
 - `MetadataCache` / `OptionsCache` / 可选 `QueryCache` 接口。
 - `AuthzGateway`：页面、查询、动作、字段、数据范围统一拦截。
+- `ScriptRuntime`：前端 JS plugin + 后端 Groovy hook，像数据库触发器一样挂在 query/action/page/field 上。
 - `PluginHost` / `Outbox` 接口：给 3.0 跨系统联动使用。
 - `JobRegistry` 接口：给 3.0 定时任务使用。
 - `Dialect` / `StorageProvider` / `SearchProvider` 接口：避免强绑定 PG。
@@ -70,6 +71,57 @@
 - 不在 ActionService 里写外部系统专用逻辑。
 - 不让缓存、搜索、分区策略散落在 QueryEngine 里。
 - 不把 Mongo/Redis 适配写成页面特例。
+- 不把脚本变成无边界的远程代码执行平台。
+
+### 2.3 复杂 SQL / join 支持边界
+
+第一阶段到 2.0 必须把复杂查询“读”做好，但不能假装所有复杂 SQL 都能自动写。
+
+必须支持：
+
+- `rawSql` / `queryCode` 使用 `SELECT` 或 `WITH ... SELECT`。
+- 支持普通 join、聚合、子查询、视图查询的只读表格。
+- 平台在外层安全包裹筛选、排序、分页，避免直接拼接到用户 SQL 内部。
+- 筛选字段必须来自 queryModel/pageModel 声明的允许字段或别名。
+- 执行统计记录 queryCode、dsCode、耗时、行数、错误、调用入口。
+
+明确不承诺：
+
+- 自动识别 join 结果并生成多表 CRUD。
+- 自动把复杂 SQL 反解成实体模型。
+- 自动改写不同数据库方言的用户 SQL。
+
+写路径规则：
+
+- 单表明确主键：可启用 `singleTableTemplate` CRUD。
+- 复杂 join：默认只读。
+- 复杂写入：必须走显式 `sqlTransaction` action，由配置作者定义 SQL 仓库资产。
+
+### 2.4 脚本埋点作为减压层
+
+JS/Groovy 的目标不是取代 SQL，而是减少“为了展示、个性化、重复加工而打数据库”的压力。
+
+前端 JS plugin 适合：
+
+- 字段显示格式化。
+- 控件行为和本地提示。
+- 轻量校验。
+- 根据当前页面数据控制 action 可见性。
+- 本地化个性化，不回写权威状态。
+
+后端 Groovy hook 适合：
+
+- query/action before/after/onError。
+- 参数标准化。
+- 批量 enrichment。
+- 调用缓存或外部接口。
+- 写审计、清缓存、生成 outbox payload。
+
+硬边界：
+
+- 权威库存、金额、状态仍由 SQL transaction 保证。
+- Groovy 必须窄接口、可禁用、可审计，后续加沙箱。
+- 脚本引用 `scriptCode`，不把大段脚本塞进 Page JSON。
 
 ## 3. 3.0：SQL-driven Workflow
 
