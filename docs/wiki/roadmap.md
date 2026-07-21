@@ -62,6 +62,21 @@
 | 运行时按 ds 路由 Query/Action/CRUD | **下一切片** |
 | **AI 建页 skill + CLI 雏形** | **已有**（`ai-page-scaffold` / `tools/easy_saas_cli`）→ 2.0 产品化 |
 
+## v1.6 - v1.9（2.0 前基础版打磨）
+
+主题：`基础版准生产`
+
+2.0 前的重点不是继续堆大功能，而是把极小 SaaS 基础版打磨完整。
+
+| 版本 | 目标 | 验收重点 |
+|------|------|----------|
+| `1.6` | 多数据源运行时路由 | Query / Action / CRUD 按 `data_source_code` 执行 |
+| `1.7` | AI 建页质量门 | CLI 幂等 apply、dry-run、AI scaffold smoke |
+| `1.8` | 单表工作台完整度 | filter operator、editor registry、dict/options/suggest |
+| `1.9` | 准生产基础能力 | 日志、备份、权限后端脱敏、慢查询观测 |
+
+基础版完成标准：AI 可以创建一个极小 CRUD SaaS，且不需要业务 Java Domain。
+
 ## 阶段二 / 2.0
 
 主题：`主从模板 + 平台能力接驳（不挡业务配置）`
@@ -71,25 +86,33 @@
 - `masterDetailTemplate`（owtb 头行模型）  
 - 详情页 / 可配置 `openPage` 弹出（完整 Page 运行时，优于仅 query 抽屉）  
 - 复用 1.x：sqlTransaction、SQL 仓库、openQuery、Editor、**RBAC/锁**  
+- 为 3.0 workflow 预留 `JobRegistry`、`PluginHost`、`Outbox`、`SearchProvider`、`CacheProvider`
 
 ### 2.0 平台（规划文档已写）
 
 | 模块 | 要点 |
 |------|------|
-| **缓存** | Metadata + options + 可选只读 query；TTL/tags；写后失效 |
+| **缓存** | Metadata + options + 可选只读 query；TTL/tags；写后失效；默认进程内，可接 Redis |
 | **JS / Groovy 埋点** | before/after query & action；减负 SQL，不替代权威事务 |
 | **Tab 性能** | 元数据会话缓存、options batch、runtime/studio 拆分、idle 预取 |
 | **权限深化** | 数据范围/RLS 兜底（1.2 先做 RBAC + forcedParams 雏形） |
 | **外部插件** | afterAction + outbox/SPI，SQL 主路径、I/O 侧车 |
+| **大文本/搜索** | SearchProvider 占位；PG 可实现，后续可接 Mongo/OpenSearch |
+| **索引/分区** | Advisor + Dialect Executor；先给建议，不自动改库 |
 
 分阶段：2.0a 主从 → 2.0b 性能/缓存 → 2.0c 脚本/字典 → 2.0d 插件  
 
 完整说明：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)  
 索引/锁/多端/权限注入：[indexes-locks-mobile-authz.md](./indexes-locks-mobile-authz.md)
 
-## 阶段三
+## 阶段三 / 3.0
 
-主题：`SQL-driven SaaS Platform`
+主题：`SQL-driven Workflow Platform`
 
-- 更稳 DSL、模板市场、多租户、插件生态  
-- 部署与可观测成熟化  
+- 基于现有 Action 机制演进 Workflow，不推倒重来
+- SQL/action 定义状态流转、指派、认领、转交
+- 定时任务通过 JobRegistry 触发 query/action
+- 跨系统联动走 outbox + PluginHost，不在事务里直接 HTTP
+- 大文本查询走 SearchProvider，缓存走 CacheProvider，避免强依赖 PG
+
+完整说明：[v2-foundation-and-v3-workflow-plan.md](./v2-foundation-and-v3-workflow-plan.md)

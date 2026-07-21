@@ -11,6 +11,7 @@
 - [SQL 仓库 + 关联钻取](./sql-repo-and-drilldown.md)
 - [小店多页面 Demo](../demos/shop_saas/README.md)
 - [2.0 平台能力规划（缓存/脚本/性能/权限插件）](./v2-platform-capabilities-plan.md)
+- [2.0 前基础版打磨与 3.0 SQL 流程规划](./v2-foundation-and-v3-workflow-plan.md)
 - [索引 · 锁 · 移动端/第三方 · 权限与 SQL 灵活性](./indexes-locks-mobile-authz.md)
 - [保存校验 · 字典 · 备份与错误日志](./validation-dict-backup.md)
 - [v1.2 RBAC + 锁粒度（DSL/Entity）](./v1.2-rbac-and-locks.md)
@@ -60,6 +61,12 @@
 - 当前单表模板只是第一个模板
 - 数据源、控件、过滤器、动作和插件必须独立于模板
 - 后续新增主子表、join 只读、流程页时，应复用同一套 DSL 内核
+
+### 6. PG 是默认实现，不是架构边界
+
+- 平台当前优先用 PostgreSQL 实现
+- 缓存、大文本搜索、定时任务、外部联动都应通过 provider/plugin 接口预留
+- Redis、Mongo、OpenSearch、Quartz 等能力应作为可替换实现接入，不应污染页面 DSL
 
 ## 文档更新原则
 

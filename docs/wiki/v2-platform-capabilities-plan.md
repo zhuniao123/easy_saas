@@ -1,7 +1,8 @@
 # 2.0 平台能力规划（缓存 / 脚本埋点 / Tab 性能 / 权限与插件）
 
-> 原则：**业务尽量 DSL + SQL 配置**；静态枚举走**字典**；通用能力进运行时扩展点。  
-> 2.0 交付主从模板等能力时，下面四项必须「可接上」，但 **1.x 小店 SaaS 不能被它们卡住**。
+> 原则：**业务尽量 DSL + SQL 配置**；静态枚举走**字典**；通用能力进运行时扩展点。
+> 2.0 交付主从模板等能力时，下面能力必须「可接上」，但 **1.x 小店 SaaS 不能被它们卡住**。
+> 2.0 不做完整流程引擎；3.0 再基于 Action/sqlTransaction 演进 SQL-driven Workflow。
 
 ---
 
@@ -17,6 +18,7 @@
 | 事务副作用 | `sqlAssetCode` + 事务编排 | Java 里硬编码过账逻辑 |
 | 静态选项 | **字典 Dictionary**（见下）或 static options | 到处散落 magic number |
 | 下钻/关联 | `openQuery` bind + queryCode | 专用下钻 API |
+| 缓存/搜索/任务/插件 | Provider / Registry / PluginHost | 在 QueryEngine 或业务 Service 里写死 Redis/Mongo/HTTP |
 
 ### 0.2 字典（Dictionary）— 1.x 就该立规矩，2.0 做完整
 
@@ -109,9 +111,20 @@ Action 执行成功后：
 ```text
 QueryCache { get/put/invalidateByTag }
 MetadataCache { page, entity, action, dict }
+CacheProvider { get/put/invalidate(tags) }
 ```
 
 `QueryEngineService.execute` / `options` 入口先 `if (cacheSpec.enabled)` 分支，默认 false。
+
+### 1.5 Provider 边界
+
+默认实现可以是进程内缓存；Redis 只应作为 `CacheProvider` 的一种实现。
+
+禁止：
+
+- 在 PageModel 里写 Redis key。
+- 在业务 SQL 里写缓存逻辑。
+- 在 ActionService 里直接依赖 Redis 客户端。
 
 ---
 
@@ -334,6 +347,48 @@ Action DSL：
 - `afterAction` / `invalidateTags` 字段可出现在文档  
 - **不要**在 1.x 业务过账里直接 `RestTemplate` 调外部  
 
+### 4.3 JobRegistry（给 3.0 定时任务）
+
+定时任务应统一触发 query/action，不应散落成系统 cron 脚本。
+
+```json
+{
+  "jobCode": "stock_low_warning",
+  "schedule": "0 */10 * * * *",
+  "queryCode": "q_low_stock",
+  "actionCode": "act_send_low_stock_warning",
+  "enabled": true
+}
+```
+
+2.0 只需要预留接口和日志模型；3.0 再产品化任务 UI、重试、幂等和分布式调度。
+
+### 4.4 SearchProvider（大文本 / 混合存储）
+
+大文本搜索不应强绑 PG。PG 可以作为默认实现，但接口要允许 Mongo/OpenSearch/Elasticsearch 等替换。
+
+```text
+SearchProvider.search(indexCode, keyword, filters, page) -> primaryKeys
+QueryEngine.loadByKeys(queryCode, primaryKeys) -> rows
+```
+
+原则：
+
+- 结构化字段继续走 SQL/JDBC。
+- 大文本、日志、描述、合同等可走 SearchProvider。
+- SearchProvider 返回主键集合，再回主数据源查结构化字段。
+
+### 4.5 Index / Partition Advisor
+
+智能索引、分区分表先做建议层，再做执行层。
+
+```text
+PartitionAdvisor.suggest(queryLog, entity, filters)
+DialectExecutor.apply(changeSet)
+```
+
+2.0 可以只保存建议和展示风险；自动建索引、分区、分表必须进入 change set / approval。
+
 ---
 
 ## 5. 版本切分：什么时候做什么
@@ -345,6 +400,7 @@ Action DSL：
 | **2.0b 性能** | 元数据前端缓存、options batch、query cache 接口 | 上全量结果缓存 |
 | **2.0c 扩展** | 字典表、JS plugin loader、Groovy 埋点补全 | 任意脚本改核心 |
 | **2.0d 安全与集成** | AuthzGateway、租户 param、IoPlugin SPI + outbox | 每个外部系统 hardcode |
+| **3.0 Workflow** | 指派、定时任务、outbox 联动、workflow audit | 把流程状态写死成 Java Domain |
 
 ---
 
@@ -379,24 +435,27 @@ Action DSL：
 ## 7. 架构示意（目标态，不要求 1.x 一次建成）
 
 ```text
-                    ┌──────────── DSL / SQL 配置（PG）────────────┐
-                    │ Page  Query  Action  Dict  Script  Plugin   │
+                    ┌──────────── DSL / SQL 配置（默认 PG）────────┐
+                    │ Page Query Action Dict Script Plugin Job     │
                     └───────────────────┬─────────────────────────┘
                                         │
-          ┌──────────────┬──────────────┼──────────────┬─────────────┐
+          ┌──────────────┬──────────────┼──────────────┬─────────────┬────────────┐
           ▼              ▼              ▼              ▼             ▼
-     MetadataCache  QueryEngine   ActionRuntime   Options/Dict   PluginHost
-          │           │ cache?         │ hooks          │ cache      │
-          │           ▼                ▼                ▼            ▼
-          │        PostgreSQL      SQL Tx + log      (cached)   External I/O
+     MetadataCache  QueryEngine   ActionRuntime   Options/Dict   PluginHost  JobRegistry
+          │           │ cache?         │ hooks          │ cache      │          │
+          │           ▼                ▼                ▼            ▼          ▼
+          │        DataSource      SQL Tx + log      CacheProvider External I/O Scheduler
           │           ▲
           └───────────┴──── AuthzGateway（统一拦）──────────────────
+                      │
+                 SearchProvider / Dialect / PartitionAdvisor
 ```
 
 ---
 
 ## 8. 一句话
 
-- **现在：** 业务继续堆在 **DSL + SQL 仓库 + 字典约定**；运行时只做通用解释。  
-- **2.0：** 缓存、JS/Groovy 埋点、Tab 预加载、权限与外部插件 **接在统一入口上**，而不是打补丁进小店代码。  
+- **现在：** 业务继续堆在 **DSL + SQL 仓库 + 字典约定**；运行时只做通用解释。
+- **2.0：** 缓存、JS/Groovy 埋点、Tab 预加载、权限、搜索、任务、外部插件 **接在统一入口上**，而不是打补丁进小店代码。
+- **3.0：** 基于 Action/sqlTransaction 做 SQL-driven Workflow，补指派、定时任务、outbox 联动。
 - **成功标准：** 加一个权限或加一层 options 缓存时，**小店 8 个页面配置一行都不用改业务 Java**。
