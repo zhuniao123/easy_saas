@@ -32,20 +32,58 @@ interface PageManagerConsoleProps {
   t: (key: string, values?: Record<string, string | number>) => string;
 }
 
-// Factory cards sit on a light surface — never use white-on-white shell styles here.
 const factoryPrimaryBtn =
-  'rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-white transition hover:bg-slate-800';
+  'rounded-full bg-slate-950 px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] text-white transition hover:bg-slate-800';
 const factorySecondaryBtn =
-  'rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold tracking-[0.14em] text-slate-800 transition hover:border-cyan-500 hover:text-cyan-700';
+  'rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] text-slate-800 transition hover:border-cyan-500 hover:text-cyan-700';
 const factoryDangerBtn =
-  'rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-rose-700 transition hover:bg-rose-100';
+  'rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] text-rose-700 transition hover:bg-rose-100';
+
+interface PageTemplate {
+  code: string;
+  name: string;
+  description: string;
+  createsTable?: boolean;
+  queryMode?: string;
+}
 
 function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }: PageManagerConsoleProps) {
   const [pageCode, setPageCode] = useState('');
   const [title, setTitle] = useState('');
   const [routePath, setRoutePath] = useState('');
+  const [template, setTemplate] = useState('crud_grid');
+  const [templates, setTemplates] = useState<PageTemplate[]>([]);
+  const [filter, setFilter] = useState('');
+  const [showCreate, setShowCreate] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/v1/pages/templates')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? (data as PageTemplate[]) : [];
+        setTemplates(list);
+        if (list.length && !list.some((x) => x.code === template)) {
+          setTemplate(list[0].code);
+        }
+      })
+      .catch(() => setTemplates([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredPages = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return pages;
+    return pages.filter(
+      (p) =>
+        p.pageCode.toLowerCase().includes(q) ||
+        p.title.toLowerCase().includes(q) ||
+        (p.routePath || '').toLowerCase().includes(q) ||
+        (p.queryCode || '').toLowerCase().includes(q) ||
+        (p.entityCode || '').toLowerCase().includes(q)
+    );
+  }, [pages, filter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,23 +104,24 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
           pageCode: code,
           title: pageTitle,
           routePath: routePath.trim(),
+          template,
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || body.error || t('app.failedToCreatePage'));
       }
-      // Refresh permission list so page:* for the new page is in the client profile
       try {
         await fetchMe();
       } catch {
-        /* ignore — canConfig() still opens config */
+        /* ignore */
       }
       onPageCreated();
       openTab(code, pageTitle, 'config');
       setPageCode('');
       setTitle('');
       setRoutePath('');
+      setTemplate('crud_grid');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('app.somethingWentWrong');
       setError(message);
@@ -91,156 +130,233 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
     }
   };
 
+  const onCodeChange = (value: string) => {
+    const next = value.replace(/[^a-zA-Z0-9_]/g, '');
+    setPageCode(next);
+    if (!routePath || routePath === `/${pageCode}` || routePath === `/${pageCode.replace(/_/g, '-')}`) {
+      setRoutePath(next ? `/${next.replace(/_/g, '-')}` : '');
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-6 py-8 lg:px-8">
-      <section className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_transparent_26%),linear-gradient(160deg,rgba(15,23,42,0.95),rgba(2,6,23,0.96))] p-6 text-white shadow-[0_30px_90px_rgba(2,6,23,0.42)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.32em] text-cyan-200">{t('app.factoryBadge')}</div>
-            <h2 className="text-4xl font-semibold tracking-[-0.05em] text-white">
-              {t('app.factoryTitle')}
-            </h2>
-            <p className="text-sm leading-7 text-slate-300">
-              {t('app.factoryDescription')}
-            </p>
+    <div className="flex h-full min-h-0 w-full flex-col gap-4 px-4 py-4 lg:px-6">
+      {/* Compact header */}
+      <section className="shrink-0 rounded-2xl border border-white/10 bg-[linear-gradient(120deg,#0f172a,#020617)] px-5 py-4 text-white shadow-lg">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300">{t('app.factoryBadge')}</div>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight">{t('app.factoryTitle')}</h2>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-400">{t('app.factoryDescription')}</p>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-left text-xs">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="uppercase tracking-[0.18em] text-slate-400">{t('app.pages')}</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{pages.length}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">{t('app.pages')}</div>
+              <div className="text-xl font-semibold">{pages.length}</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="uppercase tracking-[0.18em] text-slate-400">{t('app.mode')}</div>
-              <div className="mt-2 text-sm font-semibold text-cyan-200">{t('app.modeValue')}</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="uppercase tracking-[0.18em] text-slate-400">{t('app.target')}</div>
-              <div className="mt-2 text-sm font-semibold text-amber-200">{t('app.targetValue')}</div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreate((v) => !v)}
+              className="rounded-full border border-cyan-400/40 bg-cyan-400/15 px-4 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/25"
+            >
+              {showCreate ? t('app.hideCreateForm') : t('app.showCreateForm')}
+            </button>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      {/* Create form — full width, not a narrow left column */}
+      {showCreate && (
         <form
           onSubmit={handleSubmit}
-          className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]"
+          className="shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
         >
-          <div className="space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{t('app.createPage')}</div>
-            <h3 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">{t('app.createPageTitle')}</h3>
-            <p className="text-sm leading-7 text-slate-500">
-              {t('app.createPageDescription')}
-            </p>
-          </div>
-
-          {error && <div className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
-
-          <div className="mt-6 space-y-4">
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{t('app.pageCode')}</span>
-              <input
-                value={pageCode}
-                onChange={(e) => setPageCode(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                placeholder="orders_liveboard"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
-                required
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{t('app.title')}</span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Orders Liveboard"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
-                required
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{t('app.routePath')}</span>
-              <input
-                value={routePath}
-                onChange={(e) => setRoutePath(e.target.value)}
-                placeholder="/orders/liveboard"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
-                required
-              />
-            </label>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between gap-3">
-            <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">{t('app.rawSqlDriven')}</div>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">{t('app.createPage')}</div>
+              <h3 className="text-lg font-semibold text-slate-950">{t('app.createPageTitle')}</h3>
+            </div>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-full bg-slate-950 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-full bg-slate-950 px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {loading ? t('app.creating') : t('app.createPageAction')}
             </button>
           </div>
-        </form>
 
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{t('app.currentWorkspaces')}</div>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{t('app.currentWorkspacesTitle')}</h3>
-            </div>
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-              {pages.length} {t('app.active')}
-            </div>
+          {error && <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t('app.pageCode')}</span>
+              <input
+                value={pageCode}
+                onChange={(e) => onCodeChange(e.target.value)}
+                placeholder="orders_liveboard"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan-400"
+                required
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t('app.title')}</span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Orders Liveboard"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan-400"
+                required
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t('app.routePath')}</span>
+              <input
+                value={routePath}
+                onChange={(e) => setRoutePath(e.target.value)}
+                placeholder="/orders/liveboard"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan-400"
+                required
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t('app.template')}</span>
+              <select
+                value={template}
+                onChange={(e) => setTemplate(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan-400"
+              >
+                {(templates.length
+                  ? templates
+                  : [
+                      { code: 'crud_grid', name: 'CRUD 表格', description: '' },
+                      { code: 'status_board', name: '状态看板', description: '' },
+                      { code: 'readonly_sql', name: '只读 SQL', description: '' },
+                      { code: 'blank', name: '空白页', description: '' },
+                    ]
+                ).map((tpl) => (
+                  <option key={tpl.code} value={tpl.code}>
+                    {tpl.name} ({tpl.code})
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="mt-6 space-y-3">
-            {pages.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm text-slate-400">
-                {t('app.noPages')}
-              </div>
-            ) : (
-              pages.map((page) => (
-                <div
-                  key={page.pageCode}
-                  className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-[linear-gradient(180deg,#fff,#f8fafc)] p-5 lg:flex-row lg:items-center lg:justify-between"
+          {/* Template cards */}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {(templates.length
+              ? templates
+              : [
+                  { code: 'crud_grid', name: 'CRUD 表格', description: t('app.templateCrudHint'), createsTable: true },
+                  { code: 'status_board', name: '状态看板', description: t('app.templateStatusHint'), createsTable: true },
+                  { code: 'readonly_sql', name: '只读 SQL', description: t('app.templateReadonlyHint'), createsTable: false },
+                  { code: 'blank', name: '空白页', description: t('app.templateBlankHint'), createsTable: false },
+                ]
+            ).map((tpl) => {
+              const active = template === tpl.code;
+              return (
+                <button
+                  key={tpl.code}
+                  type="button"
+                  onClick={() => setTemplate(tpl.code)}
+                  className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                    active
+                      ? 'border-cyan-500 bg-cyan-50 ring-1 ring-cyan-400'
+                      : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h4 className="text-lg font-semibold text-slate-950">{page.title}</h4>
-                      <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
-                        {page.pageCode}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-900">{tpl.name}</span>
+                    {tpl.createsTable && (
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-800">
+                        table
                       </span>
-                    </div>
-                    <div className="text-sm text-slate-500">{page.routePath}</div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openTab(page.pageCode, page.title, 'config')}
-                      className={factoryPrimaryBtn}
-                    >
-                      {t('app.openConfig')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openTab(page.pageCode, page.title, 'runtime')}
-                      className={factorySecondaryBtn}
-                    >
-                      {t('app.launchRuntime')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onPageDeleted(page.pageCode)}
-                      className={factoryDangerBtn}
-                    >
-                      {t('app.delete')}
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">{tpl.description}</p>
+                </button>
+              );
+            })}
           </div>
+        </form>
+      )}
+
+      {/* Pages table — main work area, uses full width */}
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">{t('app.currentWorkspaces')}</div>
+            <h3 className="text-base font-semibold text-slate-950">
+              {t('app.currentWorkspacesTitle')}{' '}
+              <span className="text-sm font-normal text-slate-500">
+                ({filteredPages.length}/{pages.length})
+              </span>
+            </h3>
+          </div>
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t('app.searchPages')}
+            className="w-full max-w-xs rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan-400 sm:w-72"
+          />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto">
+          {filteredPages.length === 0 ? (
+            <div className="px-6 py-16 text-center text-sm text-slate-400">{t('app.noPages')}</div>
+          ) : (
+            <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                <tr className="border-b border-slate-200">
+                  <th className="px-4 py-3 font-semibold">{t('app.pageCode')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('app.title')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('app.routePath')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('app.queryCode')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('app.entityCode')}</th>
+                  <th className="px-4 py-3 font-semibold text-right">{t('app.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPages.map((page) => (
+                  <tr key={page.pageCode} className="border-b border-slate-100 hover:bg-slate-50/80">
+                    <td className="px-4 py-2.5">
+                      <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-800">
+                        {page.pageCode}
+                      </code>
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-slate-900">{page.title}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{page.routePath}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{page.queryCode || '—'}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{page.entityCode || '—'}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openTab(page.pageCode, page.title, 'config')}
+                          className={factoryPrimaryBtn}
+                        >
+                          {t('app.openConfig')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openTab(page.pageCode, page.title, 'runtime')}
+                          className={factorySecondaryBtn}
+                        >
+                          {t('app.launchRuntime')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onPageDeleted(page.pageCode)}
+                          className={factoryDangerBtn}
+                        >
+                          {t('app.delete')}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
     </div>
@@ -1073,7 +1189,7 @@ function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className={`min-h-0 flex-1 ${activeTab?.mode === 'manager' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {activeTab ? (
             activeTab.mode === 'manager' ? (
               <PageManagerConsole

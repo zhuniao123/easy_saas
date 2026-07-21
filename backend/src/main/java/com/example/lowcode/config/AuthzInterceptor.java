@@ -69,6 +69,9 @@ public class AuthzInterceptor implements HandlerInterceptor {
             return "perm:config";
         }
 
+        if ("GET".equalsIgnoreCase(method) && path.equals("/api/v1/pages/templates")) {
+            return "perm:config";
+        }
         if ("GET".equalsIgnoreCase(method) && path.matches("/api/v1/pages/[^/]+$")) {
             String pageCode = path.substring("/api/v1/pages/".length());
             return "page:" + pageCode;

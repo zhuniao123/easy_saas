@@ -82,13 +82,21 @@ public class PageController {
         return res;
     }
 
+    @GetMapping("/templates")
+    public List<Map<String, Object>> listTemplates() {
+        return pageService.listPageTemplates();
+    }
+
     @PostMapping
     public Map<String, Object> createPage(@RequestBody Map<String, Object> requestBody) {
         try {
             String pageCode = (String) requestBody.get("pageCode");
             String title = (String) requestBody.get("title");
             String routePath = (String) requestBody.get("routePath");
-            pageService.createPage(pageCode, title, routePath);
+            String template = requestBody.get("template") == null
+                    ? "crud_grid"
+                    : String.valueOf(requestBody.get("template"));
+            pageService.createPage(pageCode, title, routePath, template);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }

@@ -114,95 +114,233 @@ public class PageService {
         );
     }
 
+    public List<Map<String, Object>> listPageTemplates() {
+        List<Map<String, Object>> list = new ArrayList<>();
+        list.add(templateMeta("crud_grid", "CRUD 表格", "可写单表：id/name/时间戳，完整增删改查", true, "singleTableTemplate"));
+        list.add(templateMeta("status_board", "状态看板", "可写单表 + status 字段与筛选，适合待办/工单", true, "singleTableTemplate"));
+        list.add(templateMeta("readonly_sql", "只读 SQL 视图", "rawSql 只读页，不建业务表，适合报表/预警", false, "rawSql"));
+        list.add(templateMeta("blank", "空白页", "最小骨架：占位 SQL + 空列配置，自行在配置态完善", false, "rawSql"));
+        return list;
+    }
+
+    private Map<String, Object> templateMeta(String code, String name, String description, boolean createsTable, String queryMode) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("code", code);
+        m.put("name", name);
+        m.put("description", description);
+        m.put("createsTable", createsTable);
+        m.put("queryMode", queryMode);
+        return m;
+    }
+
     public void createPage(String pageCode, String title, String routePath) {
+        createPage(pageCode, title, routePath, "crud_grid");
+    }
+
+    public void createPage(String pageCode, String title, String routePath, String templateCode) {
         requireSafeIdentifier(pageCode, "Page code");
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Title is required");
         }
         configValidationService.validateRoutePath(routePath);
-
-        // Create the physical table in the database with default columns
-        String createTableSql = "CREATE TABLE IF NOT EXISTS \"" + pageCode + "\" (" +
-                "id SERIAL PRIMARY KEY, " +
-                "name VARCHAR(200), " +
-                "created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), " +
-                "updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()" +
-                ")";
-        jdbcTemplate.getJdbcOperations().execute(createTableSql);
-
+        String template = templateCode == null || templateCode.isBlank() ? "crud_grid" : templateCode.trim();
+        String safeTitle = title.replace("\"", "\\\"");
         String entityCode = pageCode + "_entity";
         String queryCode = "q_" + pageCode;
-        String defaultPageConfig = """
-            {
-              "presentation": {
-                "title": "%s",
-                "description": "SQL-driven workspace generated from page metadata.",
-                "badge": "Stage One Grid",
-                "emptyState": "No rows yet. Click 'Add Row' or seed test data."
-              },
-              "dataSource": {
-                "queryCode": "%s",
-                "pageSize": 20,
-                "pageSizeOptions": [20, 50, 100]
-              },
-              "table": {
-                "columns": [
-                  {"field": "id", "headerName": "ID", "width": 80, "sortable": true},
-                  {"field": "name", "headerName": "Name", "width": 200, "sortable": true},
-                  {"field": "created_at", "headerName": "Created At", "width": 180, "type": "datetime"},
-                  {"field": "updated_at", "headerName": "Updated At", "width": 180, "type": "datetime"}
-                ],
-                "filters": [],
-                "actions": [
-                  { "code": "refresh_grid", "label": "Refresh", "dsl": "grid.refresh", "scope": "page", "variant": "primary" },
-                  { "code": "export_grid", "label": "Export CSV", "dsl": "grid.exportCsv", "scope": "page", "variant": "secondary" }
-                ]
-              },
-              "features": {
-                "pagination": true,
-                "create": true,
-                "edit": true,
-                "delete": true,
-                "export": true,
-                "density": "comfortable"
-              }
+
+        String sqlText;
+        String queryMode;
+        String fieldsJson;
+        String configJson;
+        boolean createPhysicalTable = false;
+        String createTableSql = null;
+
+        switch (template) {
+            case "status_board" -> {
+                createPhysicalTable = true;
+                createTableSql = "CREATE TABLE IF NOT EXISTS \"" + pageCode + "\" (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "name VARCHAR(200), " +
+                        "status VARCHAR(50) NOT NULL DEFAULT 'draft', " +
+                        "created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), " +
+                        "updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()" +
+                        ")";
+                queryMode = "singleTableTemplate";
+                sqlText = "SELECT id, name, status, created_at, updated_at FROM \"" + pageCode + "\"";
+                fieldsJson = """
+                    [{"field":"id","label":"ID","type":"integer"},{"field":"name","label":"名称","type":"string"},{"field":"status","label":"状态","type":"string"},{"field":"created_at","label":"创建时间","type":"datetime"},{"field":"updated_at","label":"更新时间","type":"datetime"}]
+                    """.trim();
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "Status board — filter and maintain records by status.",
+                        "badge": "Status Board",
+                        "emptyState": "No rows yet."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 20, "pageSizeOptions": [20, 50, 100] },
+                      "table": {
+                        "columns": [
+                          {"field":"id","label":"ID","width":72},
+                          {"field":"name","label":"名称","width":200},
+                          {"field":"status","label":"状态","width":120,"format":"badge"},
+                          {"field":"created_at","label":"创建时间","width":160,"format":"datetime"},
+                          {"field":"updated_at","label":"更新时间","width":160,"format":"datetime"}
+                        ],
+                        "filters": [
+                          {"field":"status","label":"状态","type":"text","placeholder":"draft / done"}
+                        ],
+                        "actions": [
+                          {"code":"refresh_grid","label":"刷新","dsl":"grid.refresh","scope":"page","variant":"primary"},
+                          {"code":"create","label":"新增","dsl":"record.create","scope":"page","variant":"success"}
+                        ]
+                      },
+                      "features": {
+                        "pagination": true, "create": true, "edit": true, "delete": true,
+                        "export": true, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(safeTitle, queryCode);
             }
-            """.formatted(title.replace("\"", "\\\""), queryCode);
-        
-        // 1. Insert entity
-        Map<String, Object> entityParams = new HashMap<>();
-        entityParams.put("entityCode", entityCode);
-        entityParams.put("tableName", pageCode);
-        entityParams.put("fieldsJson", "[{\"field\": \"id\", \"label\": \"ID\", \"type\": \"integer\"}, {\"field\": \"name\", \"label\": \"Name\", \"type\": \"string\"}, {\"field\": \"created_at\", \"label\": \"Created At\", \"type\": \"datetime\"}, {\"field\": \"updated_at\", \"label\": \"Updated At\", \"type\": \"datetime\"}]");
-        jdbcTemplate.update(
-            "INSERT INTO lc_entity_model (entity_code, table_name, primary_key, fields_json) VALUES (:entityCode, :tableName, 'id', :fieldsJson::jsonb) ON CONFLICT (entity_code) DO NOTHING",
-            entityParams
-        );
-        
-        // 2. Insert query (factory pages are single-table writable templates)
+            case "readonly_sql" -> {
+                queryMode = "rawSql";
+                sqlText = "SELECT 1 AS tip, 'Edit SQL in config mode to build a read-only view' AS message";
+                fieldsJson = "[]";
+                entityCode = null;
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "Read-only SQL view. Bind a report query in the SQL studio.",
+                        "badge": "Read-only SQL",
+                        "emptyState": "No rows. Update the query SQL."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 50, "pageSizeOptions": [20, 50, 100] },
+                      "table": {
+                        "columns": [
+                          {"field":"tip","label":"Tip","width":80},
+                          {"field":"message","label":"Message","width":420}
+                        ],
+                        "filters": [],
+                        "actions": [
+                          {"code":"refresh_grid","label":"刷新","dsl":"grid.refresh","scope":"page","variant":"primary"},
+                          {"code":"export_grid","label":"导出","dsl":"grid.exportCsv","scope":"page","variant":"secondary"}
+                        ]
+                      },
+                      "features": {
+                        "pagination": true, "create": false, "edit": false, "delete": false,
+                        "export": true, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(safeTitle, queryCode);
+            }
+            case "blank" -> {
+                queryMode = "rawSql";
+                sqlText = "SELECT now() AS ts, 'blank template — configure SQL and columns' AS note";
+                fieldsJson = "[]";
+                entityCode = null;
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "Blank workspace. Configure SQL, entity, and page model next.",
+                        "badge": "Blank",
+                        "emptyState": "Empty page model."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 20, "pageSizeOptions": [20, 50, 100] },
+                      "table": { "columns": [], "filters": [], "actions": [
+                        {"code":"refresh_grid","label":"刷新","dsl":"grid.refresh","scope":"page","variant":"primary"}
+                      ]},
+                      "features": {
+                        "pagination": true, "create": false, "edit": false, "delete": false,
+                        "export": false, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(safeTitle, queryCode);
+            }
+            case "crud_grid" -> {
+                createPhysicalTable = true;
+                createTableSql = "CREATE TABLE IF NOT EXISTS \"" + pageCode + "\" (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "name VARCHAR(200), " +
+                        "created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), " +
+                        "updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()" +
+                        ")";
+                queryMode = "singleTableTemplate";
+                sqlText = "SELECT id, name, created_at, updated_at FROM \"" + pageCode + "\"";
+                fieldsJson = """
+                    [{"field":"id","label":"ID","type":"integer"},{"field":"name","label":"Name","type":"string"},{"field":"created_at","label":"Created At","type":"datetime"},{"field":"updated_at","label":"Updated At","type":"datetime"}]
+                    """.trim();
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "SQL-driven workspace generated from page metadata.",
+                        "badge": "CRUD Grid",
+                        "emptyState": "No rows yet. Click Add or seed test data."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 20, "pageSizeOptions": [20, 50, 100] },
+                      "table": {
+                        "columns": [
+                          {"field":"id","label":"ID","width":80},
+                          {"field":"name","label":"Name","width":200},
+                          {"field":"created_at","label":"Created At","width":180,"format":"datetime"},
+                          {"field":"updated_at","label":"Updated At","width":180,"format":"datetime"}
+                        ],
+                        "filters": [],
+                        "actions": [
+                          {"code":"refresh_grid","label":"Refresh","dsl":"grid.refresh","scope":"page","variant":"primary"},
+                          {"code":"export_grid","label":"Export CSV","dsl":"grid.exportCsv","scope":"page","variant":"secondary"}
+                        ]
+                      },
+                      "features": {
+                        "pagination": true, "create": true, "edit": true, "delete": true,
+                        "export": true, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(safeTitle, queryCode);
+            }
+            default -> throw new IllegalArgumentException(
+                    "Unknown page template: " + template + " (use crud_grid | status_board | readonly_sql | blank)");
+        }
+
+        if (createPhysicalTable && createTableSql != null) {
+            jdbcTemplate.getJdbcOperations().execute(createTableSql);
+        }
+
+        if (entityCode != null) {
+            Map<String, Object> entityParams = new HashMap<>();
+            entityParams.put("entityCode", entityCode);
+            entityParams.put("tableName", pageCode);
+            entityParams.put("fieldsJson", fieldsJson);
+            jdbcTemplate.update(
+                "INSERT INTO lc_entity_model (entity_code, table_name, primary_key, fields_json) VALUES (:entityCode, :tableName, 'id', :fieldsJson::jsonb) ON CONFLICT (entity_code) DO NOTHING",
+                entityParams
+            );
+        }
+
         Map<String, Object> queryParams = new HashMap<>();
         queryParams.put("queryCode", queryCode);
         queryParams.put("entityCode", entityCode);
-        queryParams.put("sqlText", "SELECT id, name, created_at, updated_at FROM \"" + pageCode + "\"");
+        queryParams.put("sqlText", sqlText);
+        queryParams.put("queryMode", queryMode);
         jdbcTemplate.update(
-            "INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, query_mode) VALUES (:queryCode, :entityCode, :sqlText, 'singleTableTemplate') ON CONFLICT (query_code) DO NOTHING",
+            "INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, query_mode) VALUES (:queryCode, :entityCode, :sqlText, :queryMode) ON CONFLICT (query_code) DO NOTHING",
             queryParams
         );
-        
-        // 3. Insert page
+
         Map<String, Object> pageParams = new HashMap<>();
         pageParams.put("pageCode", pageCode);
         pageParams.put("title", title);
         pageParams.put("routePath", routePath);
         pageParams.put("queryCode", queryCode);
         pageParams.put("entityCode", entityCode);
-        pageParams.put("configJson", defaultPageConfig);
+        pageParams.put("configJson", configJson);
         jdbcTemplate.update(
             "INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code, config_json) VALUES (:pageCode, :title, :routePath, :queryCode, :entityCode, :configJson::jsonb) ON CONFLICT (page_code) DO NOTHING",
             pageParams
         );
 
-        // RBAC: new Factory pages must be immediately openable/editable by configurators
         authService.registerFactoryPageResources(pageCode, queryCode);
     }
 
