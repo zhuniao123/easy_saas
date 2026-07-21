@@ -6,6 +6,7 @@ import { logEvent } from './logger';
 import { editorTypeFromFieldType, htmlInputTypeForEditor } from './editors';
 import { formatDecoratedValue, resolveTone, toneClassName } from './runtime/decorators';
 import {
+  canConfig,
   filterActionsByPermission,
   filterColumnsByPermission,
   getFieldDenySet,
@@ -62,9 +63,12 @@ const inferInputType = (type: string) => {
 export default function PageLoader({
   pageCode,
   mode = 'runtime',
+  onOpenConfig,
 }: {
   pageCode: string;
   mode?: 'config' | 'runtime';
+  /** Shell can switch this page into Factory config mode */
+  onOpenConfig?: () => void;
 }) {
   const [config, setConfig] = useState<PageConfig | null>(null);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
@@ -973,22 +977,38 @@ export default function PageLoader({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-left text-xs text-slate-200 sm:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.rows')}</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{total}</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.columns')}</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{runtimeColumns.length}</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.filters')}</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{filters.length}</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.actions')}</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{pageActions.length + rowActions.length}</div>
+          <div className="flex flex-col items-stretch gap-3">
+            {mode === 'runtime' && canConfig() && onOpenConfig && (
+              <button
+                type="button"
+                onClick={onOpenConfig}
+                className="rounded-full border border-amber-300/40 bg-amber-400 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.16em] text-slate-950 shadow-[0_0_24px_rgba(251,191,36,0.35)] transition hover:bg-amber-300"
+              >
+                {t('app.openConfig')}
+              </button>
+            )}
+            {mode === 'config' && (
+              <div className="rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                {t('page.configMode')}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3 text-left text-xs text-slate-200 sm:grid-cols-4">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.rows')}</div>
+                <div className="mt-2 text-2xl font-semibold text-white">{total}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.columns')}</div>
+                <div className="mt-2 text-2xl font-semibold text-white">{runtimeColumns.length}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.filters')}</div>
+                <div className="mt-2 text-2xl font-semibold text-white">{filters.length}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.actions')}</div>
+                <div className="mt-2 text-2xl font-semibold text-white">{pageActions.length + rowActions.length}</div>
+              </div>
             </div>
           </div>
         </div>

@@ -32,8 +32,13 @@ interface PageManagerConsoleProps {
   t: (key: string, values?: Record<string, string | number>) => string;
 }
 
-const shellButton =
-  'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-white transition hover:border-cyan-300/40 hover:bg-cyan-300/10';
+// Factory cards sit on a light surface — never use white-on-white shell styles here.
+const factoryPrimaryBtn =
+  'rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-white transition hover:bg-slate-800';
+const factorySecondaryBtn =
+  'rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold tracking-[0.14em] text-slate-800 transition hover:border-cyan-500 hover:text-cyan-700';
+const factoryDangerBtn =
+  'rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-rose-700 transition hover:bg-rose-100';
 
 function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }: PageManagerConsoleProps) {
   const [pageCode, setPageCode] = useState('');
@@ -210,15 +215,24 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
                     <div className="text-sm text-slate-500">{page.routePath}</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => openTab(page.pageCode, page.title, 'runtime')} className={shellButton}>
-                      {t('app.launchRuntime')}
-                    </button>
-                    <button onClick={() => openTab(page.pageCode, page.title, 'config')} className={shellButton}>
+                    <button
+                      type="button"
+                      onClick={() => openTab(page.pageCode, page.title, 'config')}
+                      className={factoryPrimaryBtn}
+                    >
                       {t('app.openConfig')}
                     </button>
                     <button
+                      type="button"
+                      onClick={() => openTab(page.pageCode, page.title, 'runtime')}
+                      className={factorySecondaryBtn}
+                    >
+                      {t('app.launchRuntime')}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => onPageDeleted(page.pageCode)}
-                      className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-rose-700 transition hover:bg-rose-100"
+                      className={factoryDangerBtn}
                     >
                       {t('app.delete')}
                     </button>
@@ -760,17 +774,21 @@ function App() {
                       </div>
                       <div className="p-1 space-y-1">
                         <button
+                          type="button"
                           onClick={() => openTab(page.pageCode, page.title, 'runtime')}
                           className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium ${isThemeDark ? 'text-slate-300 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                         >
-                          Launch Runtime
+                          {t('app.launchRuntime')}
                         </button>
-                        <button
-                          onClick={() => openTab(page.pageCode, page.title, 'config')}
-                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium ${isThemeDark ? 'text-slate-300 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-                        >
-                          Configure Page
-                        </button>
+                        {canConfig() && (
+                          <button
+                            type="button"
+                            onClick={() => openTab(page.pageCode, page.title, 'config')}
+                            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold ${isThemeDark ? 'text-amber-200 hover:bg-amber-400/10' : 'text-amber-800 hover:bg-amber-50'}`}
+                          >
+                            {t('app.openConfig')}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -886,29 +904,31 @@ function App() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex shrink-0 items-center gap-1">
                                   <button
-                                    onClick={() => openTab(page.pageCode, page.title, 'runtime')}
-                                    className="flex h-6 w-6 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 transition-all"
-                                    title="Launch Runtime"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openTab(page.pageCode, page.title, 'runtime');
+                                    }}
+                                    className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400 hover:text-slate-950"
+                                    title={t('app.launchRuntime')}
                                   >
-                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                    Run
                                   </button>
-                                  <button
-                                    onClick={() => openTab(page.pageCode, page.title, 'config')}
-                                    className={`flex h-6 w-6 items-center justify-center rounded-lg border transition-all ${
-                                      isThemeDark ? 'border-white/10 bg-white/5 text-slate-400 hover:border-cyan-300/40 hover:text-cyan-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-teal-500 hover:text-teal-700'
-                                    }`}
-                                    title="Configure Page"
-                                  >
-                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                  </button>
+                                  {canConfig() && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openTab(page.pageCode, page.title, 'config');
+                                      }}
+                                      className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-100 hover:bg-amber-300 hover:text-slate-950"
+                                      title={t('app.openConfig')}
+                                    >
+                                      Config
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1068,7 +1088,19 @@ function App() {
             ) : activeTab.mode === 'rbac' ? (
               <RbacAdminConsole />
             ) : (
-              <PageLoader key={`${activeTab.id}-${locale}-${theme}`} pageCode={activeTab.pageCode} mode={activeTab.mode} />
+              <PageLoader
+                key={`${activeTab.id}-${locale}-${theme}`}
+                pageCode={activeTab.pageCode}
+                mode={activeTab.mode === 'config' ? 'config' : 'runtime'}
+                onOpenConfig={
+                  activeTab.mode === 'runtime' && canConfig()
+                    ? () => {
+                        const page = pages.find((p) => p.pageCode === activeTab.pageCode);
+                        openTab(activeTab.pageCode, page?.title || activeTab.pageCode, 'config');
+                      }
+                    : undefined
+                }
+              />
             )
           ) : (
             <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
