@@ -433,7 +433,8 @@ DialectExecutor.apply(changeSet)
 | **2.0b 性能** | 元数据前端缓存、options batch、query cache 接口 | 上全量结果缓存 |
 | **2.0c 扩展** | 字典表、JS plugin loader、Groovy 埋点补全 | 任意脚本改核心 |
 | **2.0d 安全与集成** | AuthzGateway、租户 param、IoPlugin SPI + outbox | 每个外部系统 hardcode |
-| **3.0 Workflow** | 指派、定时任务、outbox 联动、workflow audit | 把流程状态写死成 Java Domain |
+| **支线 Job** | 单节点 scheduler + SQL 仓库 query/action 引用 | 阻塞 1.6-1.9 主线 |
+| **3.0 Workflow** | 指派、JobRegistry、outbox 联动、workflow audit | 把流程状态写死成 Java Domain |
 
 ---
 

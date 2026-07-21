@@ -36,11 +36,27 @@
 | 版本 | 目标 | 说明 |
 |------|------|------|
 | `1.6` | 多数据源真正运行时可用 | Query / Action / CRUD 按 `data_source_code` 路由 |
-| `1.7` | 基础版质量门 | CLI apply 幂等、AI 建页 smoke、前后端测试环境稳定、配置版本化 |
+| `1.7` | AI 上下文快照 + 配置质量门 | Schema/DSL/i18n/SQL Repo Snapshot、PageSpec v0、dry-run、validation report、配置版本化 |
 | `1.8` | 单表工作台 + 脚本埋点 | filter operator、editor registry、options/suggest、dict、JS plugin、Groovy hook |
-| `1.9` | 基础版准生产 | 日志、备份、权限后端脱敏、慢查询可观测、配置变更审计、外挂 JobRegistry |
+| `1.9` | 基础版准生产 | 日志、备份、权限后端脱敏、慢查询可观测、配置变更审计 |
 
-### 1.3 2.0 前不做
+### 1.3 1.7 的准确输出
+
+1.7 不应该承诺“自然语言一键建页已经足够聪明”。真正要稳定的是 AI 的输入上下文和输出协议。
+
+1.7 输出：
+
+- `Schema Snapshot`：表、字段、主键、索引、注释、疑似关联。
+- `DSL Snapshot`：已有 PageModel、EntityModel、ActionModel、Dict、Editor、Options。
+- `I18n Snapshot`：中英文词条、字段显示名、按钮、状态枚举。
+- `SQL Repo Snapshot`：queryCode、参数、返回列、用途、执行统计。
+- `PageSpec v0`：AI 最终产物的稳定 JSON 协议。
+- `Validation Report`：SQL/JSON/schema 引用、CRUD 主键、join 只读、i18n 缺失等校验结果。
+- `Agent Adapter` 预留：Codex skill、LangGraph、n8n、MCP Agent 都只需产出 PageSpec。
+
+这样 LangGraph 可以承载“自然语言 → PageSpec”的编排，但平台不依赖某个 Agent 实现。
+
+### 1.4 2.0 前不做
 
 - 完整流程引擎
 - 任意脚本平台
@@ -49,6 +65,24 @@
 - 跨系统编排平台
 
 这些能力要留接口，但不要提前把基础版复杂化。
+
+### 1.5 支线任务：外挂式定时任务
+
+定时任务暂时作为支线，不阻塞 1.6-1.9 主线验收。
+
+支线范围：
+
+- 单节点 scheduler。
+- 引用 SQL 仓库的 `queryCode/actionCode`。
+- 记录 job 执行日志。
+- 失败可人工重跑。
+
+后续进入 2.0/3.0：
+
+- `JobRegistry`。
+- 任务 UI。
+- 重试和幂等键。
+- 多节点锁或外部调度器。
 
 ## 2. 2.0 的产品边界
 

@@ -60,7 +60,7 @@
 | **多数据源目录 + 密码 AES-GCM** | **1.6 已预埋**（见 [v1.6-multi-datasource.md](./v1.6-multi-datasource.md)） |
 | 页面/查询 `data_source_code` 列 | 已加（可空 = 平台库） |
 | 运行时按 ds 路由 Query/Action/CRUD | **下一切片** |
-| **AI 建页 skill + CLI 雏形** | **已有**（`ai-page-scaffold` / `tools/easy_saas_cli`）→ 2.0 产品化 |
+| **AI 建页 skill + CLI 雏形** | **已有**（`ai-page-scaffold` / `tools/easy_saas_cli`）→ 先稳定 PageSpec 与上下文快照，AI 编排后续接入 |
 
 ## v1.6 - v1.9（2.0 前基础版打磨）
 
@@ -71,13 +71,17 @@
 | 版本 | 目标 | 验收重点 |
 |------|------|----------|
 | `1.6` | 多数据源运行时路由 + SQL 仓库增强 | Query / Action / CRUD 按 `data_source_code` 执行；SQL 资产统计执行次数、耗时、错误 |
-| `1.7` | AI 建页质量门 + 配置版本化 | CLI 幂等 apply、dry-run、AI scaffold smoke；SQL/JSON 配置可版本管理 |
+| `1.7` | AI 上下文快照 + 配置质量门 | Schema/DSL/i18n/SQL Repo Snapshot；PageSpec v0；CLI apply dry-run；SQL/JSON 配置版本管理 |
 | `1.8` | 单表工作台完整度 + 脚本埋点 | filter operator、editor registry、dict/options/suggest；前端 JS plugin 与后端 Groovy hook 产品化 |
-| `1.9` | 准生产基础能力 + 调度入口 | 日志、备份、权限后端脱敏、慢查询观测；JobRegistry 可外挂执行 SQL 仓库任务 |
+| `1.9` | 准生产基础能力 | 日志、备份、权限后端脱敏、慢查询观测、配置变更审计 |
 
 基础版完成标准：AI 可以创建一个极小 CRUD SaaS，且不需要业务 Java Domain。
 
 复杂 SQL 边界：1.x/2.0 必须支持 `SELECT/WITH` 类型复杂查询、join 只读表格、分页排序筛选的安全包裹；但 join 结果不自动启用 CRUD。写入仍走 `singleTableTemplate` 主键 CRUD 或显式 `sqlTransaction` action。
+
+### 支线任务：外挂式定时任务
+
+定时任务不阻塞 1.6-1.9 主线。作为支线先做单节点 scheduler，引用 SQL 仓库的 `queryCode/actionCode`；后续再接入 `JobRegistry`、任务 UI、重试、幂等键和分布式锁。
 
 ## 阶段二 / 2.0
 
@@ -99,7 +103,7 @@
 | **Tab 性能** | 元数据会话缓存、options batch、runtime/studio 拆分、idle 预取 |
 | **权限深化** | 数据范围/RLS 兜底（1.2 先做 RBAC + forcedParams 雏形） |
 | **外部插件** | afterAction + outbox/SPI，SQL 主路径、I/O 侧车 |
-| **SQL 仓库治理** | query/openQuery/options/action/job 都引用仓库；统计执行次数/耗时/错误；SQL/JSON 版本化 |
+| **SQL 仓库治理** | query/openQuery/options/action 都引用仓库；job 作为支线引用仓库；统计执行次数/耗时/错误；SQL/JSON 版本化 |
 | **大文本/搜索** | SearchProvider 占位；PG 可实现，后续可接 Mongo/OpenSearch |
 | **索引/分区** | Advisor + Dialect Executor；先给建议，不自动改库 |
 

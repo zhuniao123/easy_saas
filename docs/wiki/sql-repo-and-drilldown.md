@@ -4,7 +4,7 @@
 
 1. **SQL 与 DSL 分离**：页面只引用 `queryCode`，SQL 正文在仓库资产中维护与试跑。  
 2. **在主副表之前**用 `openQuery` 抽屉实现「类子表」查看（只读关联列表，不是单据头行编辑）。
-3. **仓库治理**：页面主查询、关联查询、options SQL、action SQL、job SQL 都进入仓库，便于统计、版本管理和长期优化。
+3. **仓库治理**：页面主查询、关联查询、options SQL、action SQL 都进入仓库，job SQL 作为支线复用仓库资产，便于统计、版本管理和长期优化。
 
 ## SQL 仓库
 
@@ -22,7 +22,7 @@
 | 资产 ID | `queryCode` |
 | 页面引用 | `dataSource.queryCode` / `openQuery.queryCode` / filter options |
 | **动作引用** | `lc_action.statements[].sqlAssetCode` → 同一仓库 |
-| **任务引用** | `lc_job.query_code` / `lc_job.action_code` → 同一仓库和动作目录 |
+| **任务引用（支线）** | `lc_job.query_code` / `lc_job.action_code` → 同一仓库和动作目录 |
 | `query_mode` | `rawSql` / `singleTableTemplate` / **`dml`**（事务语句正文） / `options` |
 | 试跑 | 仅 SELECT/WITH；DML 资产不可 try-run，只给 sqlTransaction 执行 |
 | 反向引用 | 详情展示 `pageRefs` + `actionRefs` + `jobRefs` + `optionsRefs` |
@@ -104,7 +104,7 @@ limit :limit offset :offset
 }
 ```
 
-1.9 可先做单节点外挂 scheduler；2.0 接入统一 JobRegistry；3.0 再补任务 UI、重试、幂等键和分布式锁。
+定时任务作为支线，不阻塞 1.6-1.9 主线。可先做单节点外挂 scheduler；2.0 接入统一 JobRegistry；3.0 再补任务 UI、重试、幂等键和分布式锁。
 
 ## openQuery 钻取
 
