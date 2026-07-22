@@ -92,6 +92,7 @@
 
 - `masterDetailTemplate`：主表 + 详情 + 子表。
 - `openPage`：完整 Page 运行时弹出，不只是 openQuery 抽屉。
+- `dashboardLiteTemplate`：固定容器 + SQL 驱动组件，支持简单 dashboard，不做拖拽和自由布局。
 - `MetadataCache` / `OptionsCache` / 可选 `QueryCache` 接口。
 - `AuthzGateway`：页面、查询、动作、字段、数据范围统一拦截。
 - `ScriptRuntime`：前端 JS plugin + 后端 Groovy hook，像数据库触发器一样挂在 query/action/page/field 上。
@@ -106,6 +107,7 @@
 - 不让缓存、搜索、分区策略散落在 QueryEngine 里。
 - 不把 Mongo/Redis 适配写成页面特例。
 - 不把脚本变成无边界的远程代码执行平台。
+- 不做自由拖拽页面设计器，Dashboard 只做少量稳定布局原语。
 
 ### 2.3 复杂 SQL / join 支持边界
 
@@ -156,6 +158,53 @@ JS/Groovy 的目标不是取代 SQL，而是减少“为了展示、个性化、
 - 权威库存、金额、状态仍由 SQL transaction 保证。
 - Groovy 必须窄接口、可禁用、可审计，后续加沙箱。
 - 脚本引用 `scriptCode`，不把大段脚本塞进 Page JSON。
+
+### 2.5 Dashboard Lite / 容器页面
+
+后续会有 dashboard 类需求：把不同 SQL 驱动的图形、静态图片、指标卡、表格拼到同一页。这个能力应做成轻量容器模板，而不是拖拽页面设计器。
+
+目标：
+
+- 支持固定布局：`rows`、`columns`、`sections`、`tabs`。
+- 支持组件：`statCard`、`chart`、`table`、`image`、`staticText`、`markdown`。
+- 每个数据组件引用 SQL 仓库 `queryCode`。
+- 支持简单响应式：桌面多列，移动端单列堆叠。
+- 组件级 loading/error/empty 状态复用现有 DSL。
+- 组件权限、数据源、缓存、i18n 走统一入口。
+
+非目标：
+
+- 不做拖拽画布。
+- 不做任意 CSS 布局。
+- 不做复杂 BI 报表设计器。
+- 不让 dashboard 组件直接写业务 Java。
+
+示例：
+
+```json
+{
+  "template": "dashboardLiteTemplate",
+  "layout": {
+    "sections": [
+      {
+        "columns": 3,
+        "items": [
+          { "type": "statCard", "queryCode": "q_today_sales", "titleKey": "dashboard.todaySales" },
+          { "type": "statCard", "queryCode": "q_low_stock_count", "titleKey": "dashboard.lowStock" },
+          { "type": "image", "src": "/assets/brand/storefront.png", "altKey": "dashboard.storefront" }
+        ]
+      },
+      {
+        "columns": 2,
+        "items": [
+          { "type": "chart", "chartType": "line", "queryCode": "q_sales_trend" },
+          { "type": "table", "queryCode": "q_recent_orders" }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## 3. 3.0：SQL-driven Workflow
 

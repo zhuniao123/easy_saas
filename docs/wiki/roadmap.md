@@ -91,6 +91,7 @@
 
 - `masterDetailTemplate`（owtb 头行模型）  
 - 详情页 / 可配置 `openPage` 弹出（完整 Page 运行时，优于仅 query 抽屉）  
+- `dashboardLiteTemplate`：固定容器网格 + SQL 驱动组件拼装，不做拖拽页面
 - 复用 1.x：sqlTransaction、SQL 仓库、openQuery、Editor、**RBAC/锁**  
 - 为 3.0 workflow 预留 `JobRegistry`、`PluginHost`、`Outbox`、`SearchProvider`、`CacheProvider`
 
@@ -104,6 +105,7 @@
 | **权限深化** | 数据范围/RLS 兜底（1.2 先做 RBAC + forcedParams 雏形） |
 | **外部插件** | afterAction + outbox/SPI，SQL 主路径、I/O 侧车 |
 | **SQL 仓库治理** | query/openQuery/options/action 都引用仓库；job 作为支线引用仓库；统计执行次数/耗时/错误；SQL/JSON 版本化 |
+| **Dashboard Lite** | 固定 row/column/section 容器，填充 table/chart/stat/image/text 组件；组件数据继续来自 SQL 仓库 |
 | **大文本/搜索** | SearchProvider 占位；PG 可实现，后续可接 Mongo/OpenSearch |
 | **索引/分区** | Advisor + Dialect Executor；先给建议，不自动改库 |
 

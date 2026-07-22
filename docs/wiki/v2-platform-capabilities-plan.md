@@ -238,6 +238,29 @@ Field/Editor:
 
 ---
 
+## 2.7 Dashboard Lite / 容器页面
+
+Dashboard 需求不应演变成自由拖拽页面设计器。2.0 可以提供轻量容器模板：固定分区、固定组件类型、数据仍来自 SQL 仓库。
+
+组件类型：
+
+| 类型 | 数据来源 | 说明 |
+|------|----------|------|
+| `statCard` | 单行 SQL | 指标卡、同比环比后续可由 hook/SQL 提供 |
+| `chart` | SQL 结果集 | line/bar/pie 等基础图形 |
+| `table` | queryCode | 复用智能表格只读能力 |
+| `image` | static asset / URL | 品牌图、流程图、静态说明 |
+| `staticText` / `markdown` | i18n / static content | 说明文字、帮助块 |
+
+边界：
+
+- 只支持 `rows/columns/sections/tabs` 这类稳定布局。
+- 不支持拖拽、任意定位、任意 CSS。
+- 不新增专用数据 API，组件统一走 QueryEngine / SQL Repo / CacheProvider。
+- 图表配置只描述映射关系，如 x/y/series，不承载业务计算。
+
+---
+
 ## 3. Tab 页加载性能：瓶颈与预加载
 
 ### 3.1 当前链路（每个 Tab 打开 PageLoader）
@@ -431,7 +454,7 @@ DialectExecutor.apply(changeSet)
 | **1.x 收尾** | DSL/SQL/字典命名约定；options 能 static 则 static；cache/hooks 字段可写进 wiki 与 JSON（可 ignore） | Redis、完整权限、插件市场 |
 | **2.0a 主从** | masterDetailTemplate + 复用 action/query | 复杂流程引擎 |
 | **2.0b 性能** | 元数据前端缓存、options batch、query cache 接口 | 上全量结果缓存 |
-| **2.0c 扩展** | 字典表、JS plugin loader、Groovy 埋点补全 | 任意脚本改核心 |
+| **2.0c 扩展** | 字典表、JS plugin loader、Groovy 埋点补全、Dashboard Lite | 任意脚本改核心、拖拽页面设计器 |
 | **2.0d 安全与集成** | AuthzGateway、租户 param、IoPlugin SPI + outbox | 每个外部系统 hardcode |
 | **支线 Job** | 单节点 scheduler + SQL 仓库 query/action 引用 | 阻塞 1.6-1.9 主线 |
 | **3.0 Workflow** | 指派、JobRegistry、outbox 联动、workflow audit | 把流程状态写死成 Java Domain |
