@@ -74,6 +74,8 @@
 - [docs/wiki/crud-boundaries.md](/root/easy_saas/docs/wiki/crud-boundaries.md) - CRUD 规则和限制
 - [docs/wiki/v1.5-modular-dsl-plan.md](/root/easy_saas/docs/wiki/v1.5-modular-dsl-plan.md) - v1.5 模块化 DSL 方案
 - [docs/wiki/loading-and-logging-dsl.md](/root/easy_saas/docs/wiki/loading-and-logging-dsl.md) - Loading & Logging DSL 规范
+- [docs/wiki/easy-saas-2.0-chain-salon-acceptance.md](/root/easy_saas/docs/wiki/easy-saas-2.0-chain-salon-acceptance.md) - 2.0 连锁门店收银承载目标与验收合同
+- [docs/superpowers/plans/2026-07-27-easy-saas-2.0-chain-salon-plan.md](/root/easy_saas/docs/superpowers/plans/2026-07-27-easy-saas-2.0-chain-salon-plan.md) - 2.0 里程碑实施计划
 - [docs/wiki/dev-wiki.md](/root/easy_saas/docs/wiki/dev-wiki.md) - 后续开发维护约定
 - [docs/wiki/roadmap.md](/root/easy_saas/docs/wiki/roadmap.md) - 分阶段路线
 - [docs/wiki/new-session-development-prompt.md](/root/easy_saas/docs/wiki/new-session-development-prompt.md) - 新会话开发提示词
