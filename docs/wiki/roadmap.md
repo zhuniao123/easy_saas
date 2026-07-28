@@ -85,15 +85,18 @@
 
 ## 阶段二 / 2.0
 
-主题：`主从模板 + 平台能力接驳（不挡业务配置）`
+主题：`四类模板 + SQL-first 平台能力，承载连锁门店收银闭环`
 
 ### 2.0 产品
 
 - `masterDetailTemplate`（owtb 头行模型）  
 - 详情页 / 可配置 `openPage` 弹出（完整 Page 运行时，优于仅 query 抽屉）  
-- `dashboardLiteTemplate`：固定容器网格 + SQL 驱动组件拼装，不做拖拽页面
+- `dashboardTemplate`：固定容器网格 + SQL 驱动 KPI/table/chart/pivot，不做拖拽页面
+- `workspaceTemplate`：Region + State + Event + Action，承载收银/审批类复合操作台
 - 复用 1.x：sqlTransaction、SQL 仓库、openQuery、Editor、**RBAC/锁**  
 - 为 3.0 workflow 预留 `JobRegistry`、`PluginHost`、`Outbox`、`SearchProvider`、`CacheProvider`
+- PostgreSQL 保持平台控制面的默认一站式底座；业务数据面必须支持 PG/MySQL 方言和运行时路由
+- 2.0 发布以连锁门店收银参考闭环验收，禁止通过行业 Java Domain 绕过平台能力
 
 ### 2.0 平台（规划文档已写）
 
@@ -109,10 +112,28 @@
 | **大文本/搜索** | SearchProvider 占位；PG 可实现，后续可接 Mongo/OpenSearch |
 | **索引/分区** | Advisor + Dialect Executor；先给建议，不自动改库 |
 
-分阶段：2.0a 主从 → 2.0b 性能/缓存 → 2.0c 脚本/字典 → 2.0d 插件  
+分阶段：2.0a 多库与运行时内核 → 2.0b 主从/看板 → 2.0c Workspace/事务 Hook → 2.0d 插件与参考验收
 
 完整说明：[v2-platform-capabilities-plan.md](./v2-platform-capabilities-plan.md)  
 索引/锁/多端/权限注入：[indexes-locks-mobile-authz.md](./indexes-locks-mobile-authz.md)
+发布验收：[easy-saas-2.0-chain-salon-acceptance.md](./easy-saas-2.0-chain-salon-acceptance.md)
+执行计划：[2026-07-27-easy-saas-2.0-chain-salon-plan.md](../superpowers/plans/2026-07-27-easy-saas-2.0-chain-salon-plan.md)
+
+## 2.1：单终端 Edge Runtime
+
+- Electron + `jlink` 精简 JVM + Spring Boot Edge + H2/SQLite 本地库
+- Server/Edge 复用 Query、Action、Dialect、Hook、权限和 Plugin Core
+- 签名 Runtime Bundle 下发、校验、原子激活和回滚
+- 本地登录、离线 Query/Action、打印、Outbox、备份与恢复
+- 全局 ID、幂等同步、总部资料下行和门店交易上行
+- 对跨店共享会员余额/次卡制定联网、预分配额度或待审核规则
+
+## 2.2：门店局域网 Edge Server
+
+- 一个门店部署一个 Spring Boot Edge + PG/MySQL，共享给多个终端
+- 多终端不直接共享 H2/SQLite 文件
+- 门店内并发一致性、中央同步、冲突审计、远程诊断和升级
+- 是否将 2.1 提升为 2.0 硬门槛，由产品明确决定；默认不阻塞 2.0 中央版验收
 
 ## 阶段三 / 3.0
 

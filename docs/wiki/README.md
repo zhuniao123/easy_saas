@@ -12,6 +12,8 @@
 - [小店多页面 Demo](../demos/shop_saas/README.md)
 - [2.0 平台能力规划（缓存/脚本/性能/权限插件）](./v2-platform-capabilities-plan.md)
 - [2.0 前基础版打磨与 3.0 SQL 流程规划](./v2-foundation-and-v3-workflow-plan.md)
+- [2.0 连锁门店收银系统承载目标与验收合同](./easy-saas-2.0-chain-salon-acceptance.md)
+- [2.0 连锁门店承载实施计划](../superpowers/plans/2026-07-27-easy-saas-2.0-chain-salon-plan.md)
 - [索引 · 锁 · 移动端/第三方 · 权限与 SQL 灵活性](./indexes-locks-mobile-authz.md)
 - [保存校验 · 字典 · 备份与错误日志](./validation-dict-backup.md)
 - [v1.2 RBAC + 锁粒度（DSL/Entity）](./v1.2-rbac-and-locks.md)
@@ -67,6 +69,13 @@
 - 平台当前优先用 PostgreSQL 实现
 - 缓存、大文本搜索、定时任务、外部联动都应通过 provider/plugin 接口预留
 - Redis、Mongo、OpenSearch、Quartz 等能力应作为可替换实现接入，不应污染页面 DSL
+
+### 7. 2.0 以连锁门店收银闭环作为承载验收
+
+- 不复制行业 UI，而是验证四类通用模板和 SQL-first 插件体系
+- 平台控制面继续以 PG 作为默认一站式底座
+- PG/MySQL 等业务库通过 DataSourceRegistry 和 Dialect 成为一等数据源
+- 验收样例不得新增美容美发领域 Java Controller/Service
 
 ## 文档更新原则
 

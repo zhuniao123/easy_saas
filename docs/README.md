@@ -10,9 +10,11 @@
 4. [v1.5 模块化 DSL 方案](./wiki/v1.5-modular-dsl-plan.md)
 5. [Loading & Logging DSL 规范](./wiki/loading-and-logging-dsl.md)
 6. [2.0 前基础版打磨与 3.0 SQL 流程规划](./wiki/v2-foundation-and-v3-workflow-plan.md)
-7. [Roadmap](./wiki/roadmap.md)
-8. [新会话开发提示词](./wiki/new-session-development-prompt.md)
-9. [需求与架构方案](../requirement.md)
+7. [2.0 连锁门店收银系统承载目标与验收合同](./wiki/easy-saas-2.0-chain-salon-acceptance.md)
+8. [2.0 连锁门店承载实施计划](./superpowers/plans/2026-07-27-easy-saas-2.0-chain-salon-plan.md)
+9. [Roadmap](./wiki/roadmap.md)
+10. [新会话开发提示词](./wiki/new-session-development-prompt.md)
+11. [需求与架构方案](../requirement.md)
 
 当前最重要的结论只有三条：
 
