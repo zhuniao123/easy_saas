@@ -170,7 +170,62 @@ Trigger
 
 这些是 Provider 的默认实现，不得成为 Page DSL 的数据库方言要求。
 
-## 6. 业务承载验收场景
+## 6. Spring Boot 与部署边界
+
+### 6.1 保留 Spring Boot
+
+Spring Boot 继续作为 easy_saas 的后端执行底座，其优势集中在动态 JDBC、多数据源连接池、事务、Groovy/JVM 互操作、安全、插件 SPI、Outbox 和 Job，而不是行业 Controller 数量。
+
+后端保持薄平台内核：
+
+```text
+Spring Boot Core
+├── Metadata Repository
+├── DataSource Registry / Dialect
+├── Query Engine
+├── Transaction Action Engine
+├── Authz Gateway
+├── Hook Runtime
+├── Plugin Host
+├── Outbox / Job
+└── Audit / Observability
+```
+
+禁止用 `MemberController`、`CashierService`、`SalonDomain` 等行业 Java 代码绕过 SQL/DSL。核心接口应尽量保持框架无关，由 Spring 负责装配和基础设施。
+
+### 6.2 三种部署模式
+
+| 模式 | 组成 | 适用范围 |
+|------|------|----------|
+| 中央 SaaS | Browser/Electron → 中央 Spring Boot → PG 控制面 + 业务库 | 默认 2.0 发布模式 |
+| 联网桌面端 | Electron 只负责打印、文件和本地设备，业务仍访问中央服务 | 2.0 Client Bridge |
+| 离线 Edge | Electron + 精简 JRE + Spring Boot Edge + 本地库 + Sync Agent | 2.1 目标 |
+
+一个门店多台终端时，应部署单个局域网 Edge Server 和共享数据库，终端访问 Edge；禁止多台终端各自维护无法实时协调的会员资产副本。
+
+### 6.3 单机 Edge 原则
+
+- Server 与 Edge 复用 DSL、Query/Action Engine、Dialect、权限和插件合同；
+- 中央将 Page/Entity/Action/SQL/Script/Plugin 发布成签名 Runtime Bundle；
+- Edge 校验、原子激活并保留上一版本回滚，断网继续使用已激活快照；
+- 单终端本地库候选为 H2/SQLite；门店局域网服务器优先 PG/MySQL；
+- 所有同步业务记录使用全局 UUID/ULID、门店号、终端号、版本和同步状态；
+- 总部资料原则上中央下发，订单流水原则上门店上行，尽量避免双向修改；
+- 本地 Outbox 保证断网期间事件不丢失，恢复后幂等同步；
+- 数据目录不得进入 Electron `asar`，升级不得覆盖业务数据；
+- 本地 API 只监听 loopback 并保持认证、备份、迁移和审计。
+
+会员余额、次卡等跨店共享资产在完全离线时无法保证全局实时一致性。产品必须选择明确规则：要求联网、仅允许本店预分配资产、设置离线额度，或进入待审核；不得把不可解的业务冲突伪装成普通同步问题。
+
+### 6.4 版本边界
+
+- `2.0`：中央服务器版、联网 Electron Client Bridge、四类模板和收银闭环；
+- `2.1`：单终端离线 Edge、Runtime Bundle、本地 Outbox 和中心同步；
+- `2.2`：门店局域网 Edge Server、多终端共享与更完整的冲突治理。
+
+如果产品决定“2.0 必须离线营业”，则把实施计划中的 E1 提升为 2.0 发布阻断里程碑，并将最终参考验收顺延；否则不让同步系统阻塞 2.0 复合页面主线。
+
+## 7. 业务承载验收场景
 
 ### A. 基础资料与 Smart Grid
 
@@ -220,7 +275,7 @@ Trigger
 - Job 可以引用 Query/Action 完成备份或归档样例；
 - Provider 可替换且不修改 Page DSL。
 
-## 7. 2.0 非目标
+## 8. 2.0 非目标
 
 - 复刻参考系统全部 UI 和每张报表；
 - 为某个行业增加 Java Domain；
@@ -230,8 +285,10 @@ Trigger
 - 第一版即引入 Redis、Mongo、OpenSearch、Kafka；
 - 拖拽式自由页面设计器；
 - 把任意前端 JS 或 Groovy 当作无限权限逃生舱。
+- 完全离线跨门店共享余额的强一致性；
+- 将完整 Spring Boot 和数据库强制安装到每个联网收银终端。
 
-## 8. 2.0 发布总门槛
+## 9. 2.0 发布总门槛
 
 只有同时满足以下条件，才能标记 2.0：
 

@@ -119,6 +119,22 @@
 发布验收：[easy-saas-2.0-chain-salon-acceptance.md](./easy-saas-2.0-chain-salon-acceptance.md)
 执行计划：[2026-07-27-easy-saas-2.0-chain-salon-plan.md](../superpowers/plans/2026-07-27-easy-saas-2.0-chain-salon-plan.md)
 
+## 2.1：单终端 Edge Runtime
+
+- Electron + `jlink` 精简 JVM + Spring Boot Edge + H2/SQLite 本地库
+- Server/Edge 复用 Query、Action、Dialect、Hook、权限和 Plugin Core
+- 签名 Runtime Bundle 下发、校验、原子激活和回滚
+- 本地登录、离线 Query/Action、打印、Outbox、备份与恢复
+- 全局 ID、幂等同步、总部资料下行和门店交易上行
+- 对跨店共享会员余额/次卡制定联网、预分配额度或待审核规则
+
+## 2.2：门店局域网 Edge Server
+
+- 一个门店部署一个 Spring Boot Edge + PG/MySQL，共享给多个终端
+- 多终端不直接共享 H2/SQLite 文件
+- 门店内并发一致性、中央同步、冲突审计、远程诊断和升级
+- 是否将 2.1 提升为 2.0 硬门槛，由产品明确决定；默认不阻塞 2.0 中央版验收
+
 ## 阶段三 / 3.0
 
 主题：`SQL-driven Workflow Platform`
