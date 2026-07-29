@@ -1,5 +1,7 @@
 # SQL-first 低代码开发 Demo 需求与架构技术方案报告
 
+> **文档状态：历史架构草案。** 本文保留最初的 MVP 设计与取舍，不代表当前实现进度。当前代码已经实现单表 CRUD、SQL 事务动作、RBAC、字典、日志和多数据源目录等能力；准确现状以 [README.md](./README.md)、[Roadmap](./docs/wiki/roadmap.md) 和 [1.5～2.0 汇总](./docs/wiki/v1.5-to-2.0-summary-and-todos.md) 为准。文中的 `cite...`/`filecite...` 是早期生成时遗留的引用标记，仅作历史记录。
+
 ## Executive Summary
 
 本方案建议把 **SQL-first 低代码 Demo** 定义为一个“**查询页运行器 + 元模型中心 + 受控 AI ChangeSet 编译器**”，而不是一开始就做完整的低代码平台。技术上，首版采用 **PostgreSQL 作为唯一权威状态源**、**React + Tailwind + TanStack Table** 作为前端底座、**后端存储 SQL Template 并且只暴露参数化执行接口**，可以在不引入 Redis、MongoDB、RabbitMQ 的前提下完成 MVP。PostgreSQL 官方文档已经覆盖了 `jsonb`、`statement_timeout`、`search_path`、advisory locks、`LISTEN/NOTIFY`、`FOR UPDATE SKIP LOCKED` 等能力，这足以支撑配置存储、轻量异步任务、缓存失效通知和执行安全；TanStack Table 则天然支持服务端分页和排序状态托管。citeturn2view0turn6view0turn6view2turn10view0turn10view1turn11view0turn6view3turn7view0

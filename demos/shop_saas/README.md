@@ -5,9 +5,11 @@
 ## 安装
 
 ```bash
-docker exec -i saas-demo-postgres psql -U lowcode -d lowcode \
-  < demos/shop_saas/install.sql
+docker compose -f docker-compose.preview.yml exec -T postgres \
+  psql -U lowcode -d lowcode < demos/shop_saas/install.sql
 ```
+
+如果 PostgreSQL 不是由仓库内 Compose 启动，也可以直接使用本机 `psql -f demos/shop_saas/install.sql`。
 
 刷新前端页面列表即可（侧栏按 `/shop/*` 归到 **Shop** 分组）。
 

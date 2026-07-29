@@ -1,4 +1,4 @@
-# 商品台账 Demo（Phase B）
+# 商品台账 Demo（已实现）
 
 用 **SQL + 元数据** 堆积木配置的单表商品台账，不写业务 Java。
 
@@ -18,7 +18,7 @@ psql -h 127.0.0.1 -U lowcode -d lowcode -f demos/product_ledger/install.sql
 3. 进价/售价以 **money** 展示；库存低于安全库存为 **danger** 色。
 4. `GET /api/v1/pages/product_ledger` 返回 `"writable": true`。
 5. 分类下拉来自 SQL options query。
-6. **Phase C 行按钮**：停用 / 启用 / 库存+1（SQL 在 `lc_action`，请求体**不含** SQL）。
+6. 行按钮：停用 / 启用 / 库存+1（SQL 在 `lc_action`，请求体**不含** SQL）。
 7. 停用商品后再点「库存+1」应失败（assert status=1）。
 
 ## 积木对照
@@ -35,7 +35,7 @@ psql -h 127.0.0.1 -U lowcode -d lowcode -f demos/product_ledger/install.sql
 
 SQL 配置规范见：`docs/wiki/sql-transaction-actions.md`、`docs/wiki/sql-repo-and-drilldown.md`
 
-## 非目标
+## 当前边界
 
 - 主从采购/销售单 → 2.0  
-- SQL 事务按钮 / CSV 导入 → Phase C/D  
+- SQL 事务按钮和当前页 CSV 导出已经实现；CSV 批量导入尚未实现。

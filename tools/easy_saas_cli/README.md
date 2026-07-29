@@ -7,13 +7,15 @@
 无额外依赖（Python 3.10+ 标准库）。
 
 ```bash
-cd /root/saas-demo
+cd easy_saas
 chmod +x tools/easy_saas_cli/easy_saas_cli.py
 
 export EASY_SAAS_URL=http://127.0.0.1:8081
 export EASY_SAAS_USER=owner
 export EASY_SAAS_PASSWORD=owner123
 ```
+
+默认账号仅用于本地演示。共享或生产环境请通过安全方式提供凭据，不要把密码写入仓库或 shell 脚本。
 
 可选软链：
 

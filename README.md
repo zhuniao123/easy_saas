@@ -1,6 +1,6 @@
 # easy_saas
 
-`easy_saas` 是一个 `SQL-first`、配置驱动的 SaaS 前端原型。
+`easy_saas` 是一个 `SQL-first`、配置驱动的 SaaS 原型，后端负责元数据、查询、动作和权限，前端负责配置态与运行态渲染。
 
 第一阶段目标已经收敛为一条很明确的链路：
 
@@ -14,26 +14,23 @@
 - `Raw SQL` 入口保留，用于建表、插入测试数据和远端调试
 - CRUD 不是“任意 SQL 默认可写”，而是“识别出稳定实体和主键后才启用”
 
-## Stage One Positioning
+## Current Baseline
 
-阶段一不是完整低代码平台，而是一个可展示的 web 版 SQL 客户端雏形，重点是：
+当前代码基线是 `1.5 可演示 + 1.6 多数据源目录预埋`，不是最初的 MVP 方案。已落地能力如下：
 
-- 只配置 SQL 就能先得到可用表格
-- 表格具备分页、排序、筛选等基础能力
-- 再通过配置逐步增强展示、动作和实体语义
-
-如果这条路径不成立，第一阶段就还没有真正达到“SQL-first Smart Grid”的目标。
-
-## Current Features
-
-1. `Runtime Mode`
-   运行态页面，负责表格展示、分页、排序、筛选和动作。
-2. `Config Mode`
-   配置态 studio，负责 SQL、PageModel、EntityModel 和 Raw SQL 的编辑。
-3. `SQL Introspect`
-   保存 SQL 后自动生成默认 `PageModel` 草案和 `EntityModel` 字段草案。
-4. `Smart Grid Preview`
-   配置态内可切换预览，不再让大表格挤压配置主视图。
+| 能力 | 代码状态 |
+|---|---|
+| Runtime / Config 模式 | 已实现 |
+| SQL 查询、服务端分页、排序、筛选 | 已实现 |
+| SQL introspect 与 Page/Entity 草案 | 已实现 |
+| `rawSql` 只读与 `singleTableTemplate` 受控 CRUD | 已实现 |
+| SQL 仓库、`sqlTransaction`、`openQuery` | 已实现 |
+| 字典、options/suggest、前端装饰器 | 已实现 |
+| Sa-Token 登录、页面/查询/动作/字段权限 | 已实现 |
+| 查询、动作、客户端及服务端错误日志 | 已实现，统一审计与 trace 尚未完成 |
+| 多数据源目录、AES-GCM 密码存储、管理台 | 已实现 |
+| Query/Action/CRUD 按数据源运行时路由 | 未实现，是下一开发切片 |
+| 主从表模板、工作流、异步任务 | 未实现，属于 2.0/3.0 规划 |
 
 ## Model Boundary
 
@@ -67,17 +64,14 @@
 
 ## Documentation
 
-- [docs/README.md](/root/easy_saas/docs/README.md) - 文档入口
-- [docs/wiki/README.md](/root/easy_saas/docs/wiki/README.md) - Wiki 首页
-- [docs/wiki/stage-one-acceptance.md](/root/easy_saas/docs/wiki/stage-one-acceptance.md) - 阶段一验收口径
-- [docs/wiki/model-boundaries.md](/root/easy_saas/docs/wiki/model-boundaries.md) - Query/Page/Entity 边界
-- [docs/wiki/crud-boundaries.md](/root/easy_saas/docs/wiki/crud-boundaries.md) - CRUD 规则和限制
-- [docs/wiki/v1.5-modular-dsl-plan.md](/root/easy_saas/docs/wiki/v1.5-modular-dsl-plan.md) - v1.5 模块化 DSL 方案
-- [docs/wiki/loading-and-logging-dsl.md](/root/easy_saas/docs/wiki/loading-and-logging-dsl.md) - Loading & Logging DSL 规范
-- [docs/wiki/dev-wiki.md](/root/easy_saas/docs/wiki/dev-wiki.md) - 后续开发维护约定
-- [docs/wiki/roadmap.md](/root/easy_saas/docs/wiki/roadmap.md) - 分阶段路线
-- [docs/wiki/new-session-development-prompt.md](/root/easy_saas/docs/wiki/new-session-development-prompt.md) - 新会话开发提示词
-- [requirement.md](/root/easy_saas/requirement.md) - 需求与架构草案
+- [docs/README.md](./docs/README.md) - 文档入口与现状说明
+- [docs/wiki/README.md](./docs/wiki/README.md) - Wiki 首页
+- [docs/wiki/stage-one-acceptance.md](./docs/wiki/stage-one-acceptance.md) - 阶段一验收口径
+- [docs/wiki/model-boundaries.md](./docs/wiki/model-boundaries.md) - Query/Page/Entity 边界
+- [docs/wiki/crud-boundaries.md](./docs/wiki/crud-boundaries.md) - CRUD 规则和限制
+- [docs/wiki/v1.6-multi-datasource.md](./docs/wiki/v1.6-multi-datasource.md) - 多数据源已实现和未实现边界
+- [docs/wiki/roadmap.md](./docs/wiki/roadmap.md) - 当前路线
+- [requirement.md](./requirement.md) - 早期需求与架构草案（历史参考，不代表当前状态）
 
 ## Tech Stack
 
@@ -89,16 +83,16 @@
 ### Prerequisites
 
 - Java 17 / Maven
-- Node.js 18+
+- Node.js 20.19+、22.13+ 或 24+
 - PostgreSQL 17
 
 ### 1. Database
 
-```sql
-CREATE DATABASE lowcode;
+```bash
+createdb -U postgres lowcode
 ```
 
-应用启动时会通过 `schema.sql` 初始化基础表。
+创建用户并授权，或直接使用与下面配置一致的 `lowcode/lowcode`。应用启动时会通过 `backend/src/main/resources/schema.sql` 初始化基础表。
 
 ### 2. Backend
 
@@ -116,3 +110,28 @@ npm run dev -- --port 5173
 ```
 
 浏览器打开 `http://localhost:5173`，前端会把 `/api` 代理到后端。
+
+### Docker Preview
+
+```bash
+docker compose -f docker-compose.preview.yml up --build
+```
+
+浏览器打开 `http://127.0.0.1:18080`。该编排会同时启动 PostgreSQL、后端和 Nginx 前端。
+
+## Verification
+
+后端测试是 PostgreSQL 集成测试；请先启动本地 `lowcode` 数据库或 Compose 中的 `postgres` 服务，并确保测试配置可连接数据库。
+
+```bash
+cd backend
+mvn test
+
+cd ../frontend
+npm ci
+npm run lint
+npm run build
+npm test -- --run
+```
+
+演示环境会自动创建 `owner/owner123` 和 `clerk/clerk123`。它们仅用于本地演示，公网或生产部署必须关闭、删除或更换这些账号。

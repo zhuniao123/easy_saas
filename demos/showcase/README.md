@@ -5,8 +5,8 @@
 ## 一键安装 / 复位
 
 ```bash
-# 需：postgres 容器 saas-demo-postgres、后端 8081、前端 5173
-bash /root/saas-demo/demos/showcase/install.sh
+# 需先用 docker-compose.preview.yml 启动数据库，并保证后端 API 可访问
+bash demos/showcase/install.sh
 ```
 
 会：
@@ -20,13 +20,12 @@ bash /root/saas-demo/demos/showcase/install.sh
 
 | 项 | 值 |
 |----|-----|
-| 公网 | https://lowcode.lazyoldlearner.win/ |
-| 备用 | https://tmp-5173.lazyoldlearner.win/ |
-| 本地 | http://127.0.0.1:5173/ |
+| Docker Preview | http://127.0.0.1:18080/ |
+| Vite 本地开发 | http://127.0.0.1:5173/ |
 | 老板 | `owner` / `owner123` |
 | 店员 | `clerk` / `clerk123` |
 
-改完权限后请 **重新登录** 再看侧栏变化。
+账号由后端启动时的 `AuthService.ensureSeedData()` 创建，仅用于本地演示；对外部署必须更换或移除。改完权限后请 **重新登录** 再看侧栏变化。
 
 ---
 

@@ -1,20 +1,26 @@
 # Documentation
 
-文档入口按“先验收、再架构、后路线”组织。
+文档入口按“先看代码现状、再看边界、最后看规划”组织。
 
 建议阅读顺序：
 
-1. [阶段一验收说明](./wiki/stage-one-acceptance.md)
-2. [模型边界](./wiki/model-boundaries.md)
-3. [CRUD 设计说明](./wiki/crud-boundaries.md)
-4. [v1.5 模块化 DSL 方案](./wiki/v1.5-modular-dsl-plan.md)
-5. [Loading & Logging DSL 规范](./wiki/loading-and-logging-dsl.md)
-6. [2.0 前基础版打磨与 3.0 SQL 流程规划](./wiki/v2-foundation-and-v3-workflow-plan.md)
+1. [根 README：当前代码基线](../README.md)
+2. [1.5 收官与 1.6～2.0 待办](./wiki/v1.5-to-2.0-summary-and-todos.md)
+3. [v1.6 多数据源：已实现/未实现边界](./wiki/v1.6-multi-datasource.md)
+4. [阶段一验收说明](./wiki/stage-one-acceptance.md)
+5. [模型边界](./wiki/model-boundaries.md)
+6. [CRUD 设计说明](./wiki/crud-boundaries.md)
 7. [Roadmap](./wiki/roadmap.md)
 8. [新会话开发提示词](./wiki/new-session-development-prompt.md)
-9. [需求与架构方案](../requirement.md)
+9. [早期需求与架构草案](../requirement.md)
 
-当前最重要的结论只有三条：
+## 文档状态约定
+
+- `README.md`、`docs/wiki/roadmap.md`、`docs/wiki/v1.5-to-2.0-summary-and-todos.md` 描述当前状态。
+- `docs/wiki/*-plan.md` 和 `docs/superpowers/plans|specs` 是设计与实施记录，不能单独作为“已经实现”的证据。
+- `requirement.md` 是早期方案快照，其中部分里程碑已被当前代码超越。
+
+当前最重要的结论：
 
 - 阶段一的主目标是 `SQL -> 智能表格`
 - `PageModel` 和 `EntityModel` 都应是增强层，不应成为第一个必填入口

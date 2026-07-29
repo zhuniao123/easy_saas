@@ -50,11 +50,11 @@ API：
 ## 4. 备份
 
 ```bash
-# 备份（默认 /root/saas-demo/backups，保留 14 份）
+# 备份（默认仓库根目录 backups/，保留 14 份）
 ./scripts/backup_db.sh
 
 # 恢复（需确认 YES）
 ./scripts/restore_db.sh backups/lowcode_YYYYMMDD_HHMMSS.sql.gz
 ```
 
-环境变量：`PG_CONTAINER`、`BACKUP_DIR`、`BACKUP_KEEP`。
+脚本默认使用 `docker-compose.preview.yml` 的 `postgres` 服务。环境变量：`PG_CONTAINER`（使用外部容器时设置）、`BACKUP_DIR`、`BACKUP_KEEP`、`PGUSER`、`PGDATABASE`。

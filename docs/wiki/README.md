@@ -9,7 +9,7 @@
 - [并行 Agent 分工](./AGENT_COORDINATION.md)
 - [SQL 事务动作配置（Phase C）](./sql-transaction-actions.md)
 - [SQL 仓库 + 关联钻取](./sql-repo-and-drilldown.md)
-- [小店多页面 Demo](../demos/shop_saas/README.md)
+- [小店多页面 Demo](../../demos/shop_saas/README.md)
 - [2.0 平台能力规划（缓存/脚本/性能/权限插件）](./v2-platform-capabilities-plan.md)
 - [2.0 前基础版打磨与 3.0 SQL 流程规划](./v2-foundation-and-v3-workflow-plan.md)
 - [索引 · 锁 · 移动端/第三方 · 权限与 SQL 灵活性](./indexes-locks-mobile-authz.md)

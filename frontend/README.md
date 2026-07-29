@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# easy_saas Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite 8 + Tailwind CSS v4 前端，包含业务运行态、配置态、SQL 仓库、权限和数据源管理界面。
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js 20.19+、22.13+ 或 24+
+- 后端默认运行在 `http://localhost:8081`
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm ci
+npm run dev -- --port 5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+打开 `http://localhost:5173`。Vite 会按 `vite.config.ts` 将 `/api` 代理到 `http://localhost:8081`。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint
+npm run build
+npm test -- --run
 ```
+
+当前前端测试集中在 `src/PageLoader.test.tsx`。`npm run build` 同时执行 TypeScript project build 和 Vite production build。
+
+## Main Modules
+
+| 文件/目录 | 职责 |
+|---|---|
+| `src/App.tsx` | 应用壳、导航、运行态/配置态入口 |
+| `src/PageLoader.tsx` | 页面加载、表格运行时和配置工作台 |
+| `src/pageDsl.ts` | Page DSL 类型与规范化 |
+| `src/actionRegistry.ts` | 页面动作、SQL 事务动作和 CSV 导出 |
+| `src/editors/` | 通用编辑器类型 |
+| `src/runtime/` | 权限、字段装饰器和钻取抽屉 |
+| `src/auth.ts` | 登录态和权限检查 |
+| `src/SqlRepoConsole.tsx` | SQL 仓库管理 |
+| `src/RbacAdminConsole.tsx` | RBAC 管理 |
+| `src/DataSourceConsole.tsx` | 多数据源目录管理 |
+
+## Production Preview
+
+仓库根目录运行：
+
+```bash
+docker compose -f docker-compose.preview.yml up --build
+```
+
+前端会构建为静态资源并由 Nginx 提供，访问 `http://127.0.0.1:18080`；Nginx 将 `/api` 转发到 Compose 中的后端服务。

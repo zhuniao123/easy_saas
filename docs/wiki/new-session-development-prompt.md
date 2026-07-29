@@ -3,7 +3,7 @@
 下面提示词用于新开会话继续做计划和逐步开发。
 
 ```text
-你是 Codex，请在 /root/easy_saas 仓库继续开发 easy_saas。
+你是 Codex，请先定位当前 easy_saas 仓库根目录，再继续开发。
 
 项目定位：
 easy_saas 是一个 SQL-first、配置驱动、以前端运行时为核心的 SaaS 原型。当前阶段目标不是完整低代码平台，而是先把 “SQL -> 智能表格 -> DSL 增强 -> 单表可控 CRUD” 做扎实。
@@ -20,24 +20,22 @@ easy_saas 是一个 SQL-first、配置驱动、以前端运行时为核心的 Sa
 - docs/wiki/roadmap.md
 
 核心方向：
-1. v1.5 要把 DSL、控件、数据源、过滤器、动作、插件做成独立公共模块。
+1. 当前基线是 1.5 可演示收官；DSL、控件、过滤器和动作已有公共模块，继续避免能力回流到单一模板。
 2. 当前单表页面只是众多模板中的第一个模板，不要把 runtime 绑定死在 singleTableTemplate 上。
 3. SQL 仍是第一入口：rawSql 默认只读，singleTableTemplate 支持稳定筛选、排序、分页和受控 CRUD。
 4. 编辑和删除必须依赖主键：只有 anchorEntity、primaryKey、结果集中包含主键、写回目标明确时才启用。
 5. 控件能力要独立于模板：text、select、autocomplete、date、datetime、number 都应通过 editor registry 复用。
 6. 下拉和自动补全数据源要支持 static/sql，后续预留 decorator、cache、preload。
 7. 过滤器不要靠前端拼 SQL 字符串，要由后端基于 QueryModel/PageModel/FilterModel 安全生成。
-8. JS 扩展在 v1.5 只作为前端 plugin 加载，用于自定义控件、字段行为和 action，不要提前做流程引擎。
-9. Groovy 和流程管理放到后续版本，只保留设计空间。
+8. JS 前端扩展和 Groovy 后端 hook 已有实现；继续保持受控加载，不要把它们演化成无约束流程引擎。
+9. 多数据源目录、加密存储和管理台已经实现，但 Query/Action/CRUD 的运行时路由尚未实现。
 
 建议开发顺序：
-1. 做一次代码结构 review，找出现有 PageLoader、QueryEngineService、PageService 中和 DSL/runtime/template 混在一起的部分。
-2. 先提交一份小步重构计划，不要直接大改。
-3. 第一批实现 rawSql/singleTableTemplate 的 mode 区分和单表模板查询生成。
-4. 第二批修复过滤器，让排序、分页、筛选统一由后端执行。
-5. 第三批补主键校验后的 edit/delete。
-6. 第四批抽 editor registry 和 options/suggest provider。
-7. 每一步都跑 frontend lint/build/test 和 backend test-compile 或相关测试。
+1. 先阅读 `v1.5-to-2.0-summary-and-todos.md` 与 `v1.6-multi-datasource.md`，确认本次切片。
+2. 做代码结构 review，定位 QueryEngineService、ActionService、PageService 的数据源执行入口。
+3. 优先完成 PostgreSQL 业务库的 DataSourceRegistry、resolveDs、安全校验和连接池生命周期。
+4. 明确禁止单个 Action 跨数据源事务，元数据读写始终走平台库。
+5. 每一步都跑 frontend lint/build/test 和 backend tests。
 
 约束：
 - 不要提交 backend/target 或前端构建产物。
