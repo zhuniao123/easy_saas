@@ -16,6 +16,7 @@ interface SqlAssetDetail {
   queryCode: string;
   anchorEntity?: string | null;
   sqlText: string;
+  countSqlText?: string | null;
   queryMode?: string;
   paramsJson?: string;
   paramNames?: string[];
@@ -40,6 +41,7 @@ export default function SqlRepoConsole() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [detail, setDetail] = useState<SqlAssetDetail | null>(null);
   const [sqlText, setSqlText] = useState('');
+  const [countSqlText, setCountSqlText] = useState('');
   const [queryMode, setQueryMode] = useState('rawSql');
   const [anchorEntity, setAnchorEntity] = useState('');
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
@@ -89,6 +91,7 @@ export default function SqlRepoConsole() {
       setDetail(data);
       setSelectedCode(code);
       setSqlText(data.sqlText || '');
+      setCountSqlText(data.countSqlText || '');
       setQueryMode(data.queryMode || 'rawSql');
       setAnchorEntity(data.anchorEntity || '');
       const nextParams: Record<string, string> = {};
@@ -119,6 +122,7 @@ export default function SqlRepoConsole() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sqlText,
+          countSqlText,
           queryMode,
           anchorEntity: anchorEntity || null,
           paramsJson: '[]',
@@ -351,6 +355,25 @@ export default function SqlRepoConsole() {
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-900 outline-none focus:border-cyan-400"
                   />
                 </label>
+
+                {queryMode !== 'dml' && (
+                  <label className="mt-4 block space-y-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      count_sql_text (optional)
+                    </span>
+                    <textarea
+                      value={countSqlText}
+                      onChange={(e) => setCountSqlText(e.target.value)}
+                      rows={4}
+                      spellCheck={false}
+                      placeholder="SELECT COUNT(*) FROM ..."
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-900 outline-none focus:border-cyan-400"
+                    />
+                    <span className="text-xs text-slate-500">
+                      Must return one number. Runtime filters fall back to automatic count for correctness.
+                    </span>
+                  </label>
+                )}
 
                 {paramNames.length > 0 && (
                   <div className="mt-4">

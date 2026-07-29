@@ -93,3 +93,12 @@ SQL 结果集可能来自：
 - `requires custom action`
 
 这样比单纯暴露三个 `create/edit/delete` 开关更稳。
+
+## Smart Grid 复杂查询边界
+
+- `rawSql` 支持普通 SELECT、JOIN、CTE、聚合、窗口函数和 UNION 的只读展示。
+- JOIN 查询中的结果列必须使用唯一 alias；重复列名会被拒绝，避免行对象字段互相覆盖。
+- 排序和运行时过滤只能引用真实结果列，不能传入表名、表达式或任意 SQL 片段。
+- 查询执行处于数据库只读事务中；即使 `WITH` 内包含数据修改 CTE，也不能写入。
+- `count_sql_text` 可为复杂查询提供显式计数；存在运行时 Grid 过滤时，为保证结果准确会回退到自动包裹计数。
+- JOIN、聚合等结果集即使包含名为 `id` 的列，也不会自动启用 CRUD；写入必须走显式 Action、Groovy 动态端点或专用后端能力。

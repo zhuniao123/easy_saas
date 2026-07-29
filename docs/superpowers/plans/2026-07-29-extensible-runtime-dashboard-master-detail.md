@@ -133,6 +133,8 @@ Groovy 通过受控 Context 使用平台能力：
 
 ### Slice 1：Smart Grid 只读复杂查询基线
 
+状态：代码与验收测试已实现；Java 17 `test-compile`、前端 lint/test/build 已通过。当前开发机未运行 PostgreSQL，新增后端集成测试需在数据库环境中执行后完成最终验收。
+
 工作项：
 
 - 为 JOIN、CTE、聚合、窗口函数、UNION 增加测试。
@@ -318,4 +320,3 @@ feat: add mrmf order and service line demo
 3. 先修正确性与只读门禁。
 4. 再决定显式 countSql 的最小模型变更。
 5. 测试通过后提交 Slice 1。
-

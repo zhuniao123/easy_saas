@@ -178,14 +178,11 @@ public class ConfigValidationService {
         String first = firstKeyword(sqlText);
         boolean selectLike = "select".equals(first) || "with".equals(first);
         boolean dmlLike = Set.of("insert", "update", "delete").contains(first);
-        if ("dml".equals(queryMode) && selectLike) {
+        if ("dml".equals(queryMode) && !dmlLike) {
             throw new IllegalArgumentException("queryMode=dml requires INSERT/UPDATE/DELETE SQL");
         }
-        if (("rawSql".equals(queryMode) || "singleTableTemplate".equals(queryMode)) && !selectLike && !dmlLike) {
-            // allow dml auto-coercion elsewhere; if explicit select modes, warn as error for non DML/select
-            if (!dmlLike) {
-                throw new IllegalArgumentException("SQL must start with SELECT/WITH/INSERT/UPDATE/DELETE");
-            }
+        if (("rawSql".equals(queryMode) || "singleTableTemplate".equals(queryMode)) && !selectLike) {
+            throw new IllegalArgumentException("queryMode=" + queryMode + " requires SELECT or WITH SQL");
         }
         if (!selectLike && !dmlLike) {
             throw new IllegalArgumentException("SQL must start with SELECT/WITH/INSERT/UPDATE/DELETE");
@@ -193,6 +190,19 @@ public class ConfigValidationService {
         // ban obvious DDL
         if (Set.of("alter", "drop", "create", "truncate", "grant", "revoke").contains(first)) {
             throw new IllegalArgumentException("DDL statements are not allowed in SQL repository");
+        }
+    }
+
+    public void validateCountSql(String countSqlText) {
+        if (countSqlText == null || countSqlText.isBlank()) {
+            return;
+        }
+        if (countSqlText.contains(";")) {
+            throw new IllegalArgumentException("Semicolons are not allowed in countSqlText");
+        }
+        String first = firstKeyword(countSqlText);
+        if (!"select".equals(first) && !"with".equals(first)) {
+            throw new IllegalArgumentException("countSqlText must start with SELECT or WITH");
         }
     }
 

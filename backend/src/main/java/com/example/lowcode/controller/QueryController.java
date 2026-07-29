@@ -29,7 +29,10 @@ public class QueryController {
             @PathVariable String queryCode,
             @RequestBody Map<String, Object> requestBody) {
         String sqlText = (String) requestBody.get("sqlText");
-        queryEngineService.updateQueryConfig(queryCode, sqlText);
+        String countSqlText = requestBody.get("countSqlText") == null
+                ? null
+                : String.valueOf(requestBody.get("countSqlText"));
+        queryEngineService.updateQueryConfig(queryCode, sqlText, countSqlText);
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;

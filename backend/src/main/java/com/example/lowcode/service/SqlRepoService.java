@@ -92,6 +92,7 @@ public class SqlRepoService {
                 SELECT query_code AS "queryCode",
                        anchor_entity AS "anchorEntity",
                        sql_text AS "sqlText",
+                       count_sql_text AS "countSqlText",
                        COALESCE(query_mode, 'rawSql') AS "queryMode",
                        COALESCE(params_json::text, '[]') AS "paramsJson",
                        timeout_ms AS "timeoutMs"
@@ -106,6 +107,7 @@ public class SqlRepoService {
                     map.put("queryCode", rs.getString("queryCode"));
                     map.put("anchorEntity", rs.getString("anchorEntity"));
                     map.put("sqlText", sqlText);
+                    map.put("countSqlText", rs.getString("countSqlText"));
                     map.put("queryMode", queryMode);
                     map.put("paramsJson", rs.getString("paramsJson"));
                     map.put("timeoutMs", rs.getObject("timeoutMs"));
@@ -159,6 +161,9 @@ public class SqlRepoService {
 
     public void saveAsset(String queryCode, Map<String, Object> body) {
         String sqlText = body.get("sqlText") == null ? null : String.valueOf(body.get("sqlText"));
+        String countSqlText = body.get("countSqlText") == null || String.valueOf(body.get("countSqlText")).isBlank()
+                ? null
+                : String.valueOf(body.get("countSqlText"));
         String queryMode = body.get("queryMode") == null || String.valueOf(body.get("queryMode")).isBlank()
                 ? null
                 : String.valueOf(body.get("queryMode"));
@@ -172,6 +177,7 @@ public class SqlRepoService {
             queryMode = "dml";
         }
         configValidationService.validateSqlAsset(queryCode, sqlText, queryMode);
+        configValidationService.validateCountSql(countSqlText);
         String anchorEntity = body.get("anchorEntity") == null || String.valueOf(body.get("anchorEntity")).isBlank()
                 ? null
                 : String.valueOf(body.get("anchorEntity"));
@@ -186,6 +192,7 @@ public class SqlRepoService {
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         params.put("sqlText", sqlText);
+        params.put("countSqlText", countSqlText);
         params.put("queryMode", queryMode);
         params.put("anchorEntity", anchorEntity);
         params.put("paramsJson", paramsJson);
@@ -201,6 +208,7 @@ public class SqlRepoService {
                     UPDATE lc_query_model
                     SET sql_text = :sqlText,
                         query_mode = :queryMode,
+                        count_sql_text = :countSqlText,
                         anchor_entity = :anchorEntity,
                         params_json = :paramsJson::jsonb
                     WHERE query_code = :queryCode
@@ -210,8 +218,8 @@ public class SqlRepoService {
         } else {
             jdbcTemplate.update(
                     """
-                    INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, query_mode, params_json)
-                    VALUES (:queryCode, :anchorEntity, :sqlText, :queryMode, :paramsJson::jsonb)
+                    INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, count_sql_text, query_mode, params_json)
+                    VALUES (:queryCode, :anchorEntity, :sqlText, :countSqlText, :queryMode, :paramsJson::jsonb)
                     """,
                     params
             );

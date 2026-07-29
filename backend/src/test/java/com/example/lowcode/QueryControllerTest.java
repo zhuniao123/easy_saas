@@ -190,4 +190,104 @@ public class QueryControllerTest {
                 .andExpect(jsonPath("$[0].label").value("China"))
                 .andExpect(jsonPath("$[0].value").value("C1"));
     }
+
+    @Test
+    public void testRawSqlSupportsJoinCteAggregateUnionAndRemainsReadOnly() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_page_model WHERE page_code = 'mrmf_readonly_report'");
+        jdbcTemplate.execute("DELETE FROM lc_query_model WHERE query_code = 'q_mrmf_readonly_report'");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_mrmf_item CASCADE");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_mrmf_member CASCADE");
+        jdbcTemplate.execute("CREATE TABLE test_mrmf_member (member_id BIGINT PRIMARY KEY, member_name VARCHAR(100))");
+        jdbcTemplate.execute("CREATE TABLE test_mrmf_item (item_id BIGINT PRIMARY KEY, member_id BIGINT REFERENCES test_mrmf_member(member_id), amount NUMERIC(12,2))");
+        jdbcTemplate.execute("INSERT INTO test_mrmf_member VALUES (1, 'Alice'), (2, 'Bob')");
+        jdbcTemplate.execute("INSERT INTO test_mrmf_item VALUES (10, 1, 100), (11, 1, 50), (12, 2, 80)");
+        jdbcTemplate.execute("""
+                INSERT INTO lc_query_model(query_code, sql_text, query_mode)
+                VALUES (
+                  'q_mrmf_readonly_report',
+                  'WITH member_totals AS (SELECT m.member_name, SUM(i.amount) AS revenue FROM test_mrmf_member m JOIN test_mrmf_item i ON i.member_id = m.member_id GROUP BY m.member_name) SELECT member_name, revenue FROM member_totals UNION ALL SELECT ''TOTAL'' AS member_name, SUM(revenue) AS revenue FROM member_totals',
+                  'rawSql'
+                )
+                """);
+        jdbcTemplate.execute("""
+                INSERT INTO lc_page_model(page_code, title, route_path, query_code, config_json)
+                VALUES ('mrmf_readonly_report', 'MRMF Report', '/test/mrmf-report', 'q_mrmf_readonly_report', '{}'::jsonb)
+                """);
+
+        mockMvc.perform(post("/api/v1/queries/q_mrmf_readonly_report/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{\"_page\":1,\"_pageSize\":2,\"_sortField\":\"revenue\",\"_sortOrder\":\"DESC\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.rows.length()").value(2))
+                .andExpect(jsonPath("$.rows[0].member_name").value("TOTAL"))
+                .andExpect(jsonPath("$.rows[0].revenue").value(230));
+
+        mockMvc.perform(post("/api/v1/queries/q_mrmf_readonly_report/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{},\"filters\":[{\"field\":\"member_name\",\"type\":\"text\",\"value\":\"Alice\"}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.rows[0].member_name").value("Alice"));
+
+        mockMvc.perform(get("/api/v1/pages/mrmf_readonly_report"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.writable").value(false));
+    }
+
+    @Test
+    public void testExplicitCountSqlAndResultFieldAllowList() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model WHERE query_code = 'q_explicit_count'");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_explicit_count CASCADE");
+        jdbcTemplate.execute("CREATE TABLE test_explicit_count (id BIGINT PRIMARY KEY, name VARCHAR(50))");
+        jdbcTemplate.execute("INSERT INTO test_explicit_count VALUES (1, 'A'), (2, 'B'), (3, 'C')");
+        jdbcTemplate.execute("INSERT INTO lc_query_model(query_code, sql_text, query_mode) VALUES ('q_explicit_count', 'SELECT id, name FROM test_explicit_count', 'rawSql')");
+
+        mockMvc.perform(post("/api/v1/queries/q_explicit_count/configure")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"sqlText\":\"SELECT id, name FROM test_explicit_count\",\"countSqlText\":\"SELECT 99\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/queries/q_explicit_count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.countSqlText").value("SELECT 99"));
+
+        mockMvc.perform(post("/api/v1/queries/q_explicit_count/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(99));
+
+        mockMvc.perform(post("/api/v1/queries/q_explicit_count/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{},\"filters\":[{\"field\":\"missing_field\",\"value\":\"x\"}]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testRawSqlExecutionCannotWriteThroughDataModifyingCte() throws Exception {
+        jdbcTemplate.execute("DELETE FROM lc_query_model WHERE query_code = 'q_readonly_cte_guard'");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS test_readonly_cte_guard CASCADE");
+        jdbcTemplate.execute("CREATE TABLE test_readonly_cte_guard (id BIGINT PRIMARY KEY)");
+        jdbcTemplate.execute("INSERT INTO test_readonly_cte_guard VALUES (1)");
+        jdbcTemplate.execute("""
+                INSERT INTO lc_query_model(query_code, sql_text, query_mode)
+                VALUES (
+                  'q_readonly_cte_guard',
+                  'WITH deleted AS (DELETE FROM test_readonly_cte_guard WHERE id = 1 RETURNING id) SELECT id FROM deleted',
+                  'rawSql'
+                )
+                """);
+
+        mockMvc.perform(post("/api/v1/queries/q_readonly_cte_guard/execute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"params\":{}}"))
+                .andExpect(status().is5xxServerError());
+
+        Integer remaining = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM test_readonly_cte_guard WHERE id = 1",
+                Integer.class
+        );
+        assertThat(remaining).isEqualTo(1);
+    }
 }

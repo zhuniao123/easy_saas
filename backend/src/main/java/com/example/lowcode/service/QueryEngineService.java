@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
@@ -23,7 +24,7 @@ import java.util.regex.Pattern;
 public class QueryEngineService {
     private static final int MAX_PAGE_SIZE = 200;
     private static final int RAW_SQL_TIMEOUT_SECONDS = 15;
-    private static final Pattern SAFE_RESULT_FIELD = Pattern.compile("^[a-zA-Z0-9_\\.]+$");
+    private static final Pattern SAFE_RESULT_FIELD = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
 
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
@@ -35,21 +36,26 @@ public class QueryEngineService {
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
+    @Autowired
+    private QueryLogService queryLogService;
 
+    @Transactional(readOnly = true, timeout = RAW_SQL_TIMEOUT_SECONDS)
     public Map<String, Object> executeSql(String queryCode, Map<String, Object> requestParams) {
         return executeSql(queryCode, requestParams, new ArrayList<>());
     }
 
+    @Transactional(readOnly = true, timeout = RAW_SQL_TIMEOUT_SECONDS)
     public Map<String, Object> executeSql(String queryCode, Map<String, Object> requestParams, List<Map<String, Object>> filters) {
         Map<String, Object> modelParams = new HashMap<>();
         modelParams.put("queryCode", queryCode);
         
         Map<String, Object> queryModel = jdbcTemplate.queryForMap(
-            "SELECT sql_text, groovy_script_code, anchor_entity FROM lc_query_model WHERE query_code = :queryCode",
+            "SELECT sql_text, count_sql_text, groovy_script_code, anchor_entity FROM lc_query_model WHERE query_code = :queryCode",
             modelParams
         );
         
         String sqlText = (String) queryModel.get("sql_text");
+        String countSqlText = (String) queryModel.get("count_sql_text");
         String groovyCode = (String) queryModel.get("groovy_script_code");
         String anchorEntity = (String) queryModel.get("anchor_entity");
 
@@ -101,22 +107,29 @@ public class QueryEngineService {
         String errMsg = null;
         Map<String, Object> result = null;
         try {
-            String filteredSql = applyFilters(sqlText, filters, sqlParams);
+            Map<String, String> resultFields = inspectResultFields(sqlText, sqlParams);
+            String filteredSql = applyFilters(sqlText, filters, sqlParams, resultFields);
 
             // 1. Get total records count first
-            String countSql = "SELECT COUNT(*) FROM (" + filteredSql + ") as count_query";
-            Integer total = jdbcTemplate.queryForObject(countSql, sqlParams, Integer.class);
+            Number totalValue;
+            if (countSqlText != null && !countSqlText.isBlank() && (filters == null || filters.isEmpty())) {
+                totalValue = jdbcTemplate.queryForObject(countSqlText, sqlParams, Number.class);
+            } else {
+                String countSql = "SELECT COUNT(*) FROM (" + filteredSql + ") as count_query";
+                totalValue = jdbcTemplate.queryForObject(countSql, sqlParams, Number.class);
+            }
+            long total = totalValue == null ? 0L : totalValue.longValue();
 
             // 2. Build sorted/paginated final SQL
             StringBuilder finalSql = new StringBuilder();
             finalSql.append("SELECT * FROM (").append(filteredSql).append(") as main_query");
             if (sortField != null && !sortField.trim().isEmpty()) {
-                finalSql.append(" ORDER BY ");
-                if (sortField.contains(".")) {
-                    finalSql.append(sortField);
-                } else {
-                    finalSql.append("\"").append(sortField).append("\"");
+                String resolvedSortField = resultFields.get(sortField.toLowerCase());
+                if (resolvedSortField == null || !SAFE_RESULT_FIELD.matcher(resolvedSortField).matches()) {
+                    throw new IllegalArgumentException("Sort field is not present in the query result: " + sortField);
                 }
+                finalSql.append(" ORDER BY ");
+                finalSql.append("\"").append(resolvedSortField).append("\"");
                 if (sortOrder != null) {
                     finalSql.append(" ").append(sortOrder);
                 }
@@ -170,15 +183,7 @@ public class QueryEngineService {
             throw e;
         } finally {
             long duration = System.currentTimeMillis() - start;
-            Map<String, Object> logParams = new HashMap<>();
-            logParams.put("queryCode", queryCode);
-            logParams.put("success", success);
-            logParams.put("duration", (int) duration);
-            logParams.put("errMsg", errMsg);
-            jdbcTemplate.update(
-                "INSERT INTO lc_query_log(query_code, success, duration_ms, error_message) VALUES (:queryCode, :success, :duration, :errMsg)",
-                logParams
-            );
+            queryLogService.record(queryCode, success, (int) duration, errMsg);
         }
 
         if (interceptor != null && result != null) {
@@ -190,7 +195,32 @@ public class QueryEngineService {
         return result;
     }
 
-    private String applyFilters(String sqlText, List<Map<String, Object>> filters, Map<String, Object> sqlParams) {
+    private Map<String, String> inspectResultFields(String sqlText, Map<String, Object> sqlParams) {
+        String inspectSql = "SELECT * FROM (" + sqlText + ") as result_field_probe LIMIT 0";
+        return jdbcTemplate.query(inspectSql, sqlParams, rs -> {
+            ResultSetMetaData metaData = rs.getMetaData();
+            Map<String, String> fields = new LinkedHashMap<>();
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                String label = metaData.getColumnLabel(i);
+                if (label != null) {
+                    String key = label.toLowerCase();
+                    if (fields.containsKey(key)) {
+                        throw new IllegalArgumentException(
+                                "Query result contains duplicate column label '" + label + "'; use unique SQL aliases"
+                        );
+                    }
+                    fields.put(key, label);
+                }
+            }
+            return fields;
+        });
+    }
+
+    private String applyFilters(
+            String sqlText,
+            List<Map<String, Object>> filters,
+            Map<String, Object> sqlParams,
+            Map<String, String> resultFields) {
         if (filters == null || filters.isEmpty()) {
             return sqlText;
         }
@@ -210,12 +240,17 @@ public class QueryEngineService {
 
             String field = String.valueOf(fieldObj).trim();
             String value = String.valueOf(valueObj).trim();
-            if (field.isEmpty() || value.isEmpty() || !SAFE_RESULT_FIELD.matcher(field).matches()) {
+            if (field.isEmpty() || value.isEmpty()) {
                 continue;
             }
 
+            String resolvedField = resultFields.get(field.toLowerCase());
+            if (resolvedField == null || !SAFE_RESULT_FIELD.matcher(resolvedField).matches()) {
+                throw new IllegalArgumentException("Filter field is not present in the query result: " + field);
+            }
+
             String filterType = filter.get("type") == null ? "text" : String.valueOf(filter.get("type")).trim().toLowerCase();
-            String safeField = field.contains(".") ? field : "\"" + field + "\"";
+            String safeField = "\"" + resolvedField + "\"";
             String paramKey = "__filter_" + filterIndex++;
 
             switch (filterType) {
@@ -373,13 +408,14 @@ public class QueryEngineService {
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         return jdbcTemplate.queryForObject(
-            "SELECT query_code as \"queryCode\", anchor_entity as \"anchorEntity\", sql_text as \"sqlText\", COALESCE(query_mode, 'rawSql') as \"queryMode\" FROM lc_query_model WHERE query_code = :queryCode",
+            "SELECT query_code as \"queryCode\", anchor_entity as \"anchorEntity\", sql_text as \"sqlText\", count_sql_text as \"countSqlText\", COALESCE(query_mode, 'rawSql') as \"queryMode\" FROM lc_query_model WHERE query_code = :queryCode",
             params,
             (rs, rowNum) -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("queryCode", rs.getString("queryCode"));
                 map.put("anchorEntity", rs.getString("anchorEntity"));
                 map.put("sqlText", rs.getString("sqlText"));
+                map.put("countSqlText", rs.getString("countSqlText"));
                 map.put("queryMode", rs.getString("queryMode"));
                 return map;
             }
@@ -387,12 +423,24 @@ public class QueryEngineService {
     }
 
     public void updateQueryConfig(String queryCode, String sqlText) {
-        configValidationService.validateSqlAsset(queryCode, sqlText, null);
+        updateQueryConfig(queryCode, sqlText, null);
+    }
+
+    public void updateQueryConfig(String queryCode, String sqlText, String countSqlText) {
+        Map<String, Object> existingParams = Map.of("queryCode", queryCode);
+        String queryMode = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(query_mode, 'rawSql') FROM lc_query_model WHERE query_code = :queryCode",
+                existingParams,
+                String.class
+        );
+        configValidationService.validateSqlAsset(queryCode, sqlText, queryMode);
+        configValidationService.validateCountSql(countSqlText);
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         params.put("sqlText", sqlText);
+        params.put("countSqlText", countSqlText == null || countSqlText.isBlank() ? null : countSqlText);
         jdbcTemplate.update(
-            "UPDATE lc_query_model SET sql_text = :sqlText WHERE query_code = :queryCode",
+            "UPDATE lc_query_model SET sql_text = :sqlText, count_sql_text = :countSqlText WHERE query_code = :queryCode",
             params
         );
     }

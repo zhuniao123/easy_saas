@@ -78,6 +78,7 @@ export default function PageLoader({
   const [queryCode, setQueryCode] = useState<string | null>(null);
   const [entityCode, setEntityCode] = useState<string | null>(null);
   const [sqlText, setSqlText] = useState('');
+  const [countSqlText, setCountSqlText] = useState('');
   const [pageConfigJsonStr, setPageConfigJsonStr] = useState('');
   const [fieldsJsonStr, setFieldsJsonStr] = useState('');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -373,9 +374,11 @@ export default function PageLoader({
       .then((queryConfig) => {
         if (!queryConfig) return;
         setSqlText(queryConfig.sqlText || '');
+        setCountSqlText(queryConfig.countSqlText || '');
       })
       .catch(() => {
         setSqlText('');
+        setCountSqlText('');
         setSaveStatus('Failed to load query SQL');
       });
   }, []);
@@ -783,7 +786,7 @@ export default function PageLoader({
       const saveResponse = await fetch(`/api/v1/queries/${queryCode}/configure`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sqlText }),
+        body: JSON.stringify({ sqlText, countSqlText }),
       });
       if (!saveResponse.ok) {
         throw new Error(await readApiError(saveResponse, t('error.failedToSaveSql')));
@@ -1108,6 +1111,21 @@ export default function PageLoader({
                       rows={18}
                       className="min-h-[28rem] w-full resize-y rounded-3xl border border-white/10 bg-slate-900 px-4 py-4 font-mono text-sm text-slate-100 outline-none focus:border-cyan-400/40"
                     />
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Count SQL (optional)
+                      </label>
+                      <p className="text-xs text-slate-500">
+                        Return one numeric value. Used when no runtime grid filters are active; filtered queries use automatic count.
+                      </p>
+                      <textarea
+                        value={countSqlText}
+                        onChange={(e) => setCountSqlText(e.target.value)}
+                        rows={4}
+                        placeholder="SELECT COUNT(*) FROM ..."
+                        className="w-full resize-y rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 outline-none focus:border-cyan-400/40"
+                      />
+                    </div>
                   </div>
                 )}
 
