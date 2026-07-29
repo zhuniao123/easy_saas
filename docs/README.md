@@ -7,12 +7,13 @@
 1. [根 README：当前代码基线](../README.md)
 2. [1.5 收官与 1.6～2.0 待办](./wiki/v1.5-to-2.0-summary-and-todos.md)
 3. [v1.6 多数据源：已实现/未实现边界](./wiki/v1.6-multi-datasource.md)
-4. [阶段一验收说明](./wiki/stage-one-acceptance.md)
-5. [模型边界](./wiki/model-boundaries.md)
-6. [CRUD 设计说明](./wiki/crud-boundaries.md)
-7. [Roadmap](./wiki/roadmap.md)
-8. [新会话开发提示词](./wiki/new-session-development-prompt.md)
-9. [早期需求与架构草案](../requirement.md)
+4. [可扩展运行时、Dashboard 与 MasterDetail 实施计划](./superpowers/plans/2026-07-29-extensible-runtime-dashboard-master-detail.md)
+5. [阶段一验收说明](./wiki/stage-one-acceptance.md)
+6. [模型边界](./wiki/model-boundaries.md)
+7. [CRUD 设计说明](./wiki/crud-boundaries.md)
+8. [Roadmap](./wiki/roadmap.md)
+9. [新会话开发提示词](./wiki/new-session-development-prompt.md)
+10. [早期需求与架构草案](../requirement.md)
 
 ## 文档状态约定
 

@@ -1,5 +1,7 @@
 # Roadmap
 
+> 当前实施主线见：[可扩展运行时、Dashboard 与 MasterDetail 实施计划](../superpowers/plans/2026-07-29-extensible-runtime-dashboard-master-detail.md)。该计划明确先完善注册式组件、JS/Groovy 运行时和 SQL 图表，再交付 Dashboard 与 MasterDetail。
+
 ## 阶段一 / 1.0
 
 主题：`SQL-first Smart Grid`

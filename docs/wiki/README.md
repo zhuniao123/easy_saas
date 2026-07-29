@@ -12,6 +12,7 @@
 - [小店多页面 Demo](../../demos/shop_saas/README.md)
 - [2.0 平台能力规划（缓存/脚本/性能/权限插件）](./v2-platform-capabilities-plan.md)
 - [2.0 前基础版打磨与 3.0 SQL 流程规划](./v2-foundation-and-v3-workflow-plan.md)
+- [可扩展运行时、Dashboard 与 MasterDetail 实施计划](../superpowers/plans/2026-07-29-extensible-runtime-dashboard-master-detail.md)
 - [索引 · 锁 · 移动端/第三方 · 权限与 SQL 灵活性](./indexes-locks-mobile-authz.md)
 - [保存校验 · 字典 · 备份与错误日志](./validation-dict-backup.md)
 - [v1.2 RBAC + 锁粒度（DSL/Entity）](./v1.2-rbac-and-locks.md)
