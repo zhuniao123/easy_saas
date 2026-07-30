@@ -183,21 +183,26 @@ fca4aee feat: harden smart grid complex query boundaries
 
 ### Slice 3：注册式组件运行时
 
+状态：**已完成并验收**（2026-07-30）
+
 工作项：
 
-- 建立 Component Registry。
-- 定义 ComponentSpec、ComponentHandle 和标准状态。
-- 支持 Loading、Empty、Error、Ready。
-- 将 Smart Grid 注册为第一个组件。
-- PageLoader 只负责布局和组件装配，不再持有每种组件的业务分支。
+- [x] 建立 Component Registry（`registerPageComponent` / `ComponentHost`）。
+- [x] 定义 ComponentSpec、ComponentHandle 和标准状态。
+- [x] 支持 Loading、Empty、Error、Ready（`resolveComponentStatus` + 状态壳）。
+- [x] 将 Smart Grid 注册为第一个组件（`type=smartGrid`，渲染下沉到 `runtime/components/SmartGrid.tsx`）。
+- [x] 验收探针组件 `type=probe`：无需改 PageLoader 类型分支即可注册。
+- [x] PageLoader 通过 `resolvePageComponentSpecs` + `ComponentHost` 装配；无 `components` 时默认单 smartGrid。
+- [x] 配置 Studio / CRUD 抽屉仍由 PageLoader 持有（页面级编排，非组件类型分支）。
 
 验收：可通过注册新增一个测试组件；Smart Grid 无功能回退。
 
-建议提交：
+**UI 回归注意（请人工点验）：** 运行态表格筛选/排序/分页、配置态 Preview、行编辑抽屉、action 按钮。
 
-```text
-refactor: introduce pluggable page component runtime
-```
+验证：
+
+- 前端：`npm run lint` / `npm test -- --run` / `npm run build`
+- 后端：本 Slice 无 Java 改动；可选择性跑 `mvn test`
 
 ### Slice 4：JS Page Controller
 
@@ -323,4 +328,5 @@ feat: add mrmf order and service line demo
 
 - Slice 1：**已完成**
 - Slice 2：**已完成**
-- 下一步：**Slice 3** — 注册式组件运行时（Component Registry）
+- Slice 3：**已完成**
+- 下一步：**Slice 4** — JS Page Controller

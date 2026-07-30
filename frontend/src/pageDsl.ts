@@ -1,4 +1,7 @@
 import type { ActionConfig, ColumnConfig, FilterConfig } from './actionRegistry';
+import type { ComponentSpec } from './runtime/componentTypes';
+
+export type { ComponentSpec };
 
 export interface PageDataSource {
   /**
@@ -60,9 +63,58 @@ export interface PageDslModel {
     filters: FilterConfig[];
     actions: ActionConfig[];
   };
+  /**
+   * Optional multi-component layout (Slice 3+).
+   * When omitted, runtime defaults to a single smartGrid bound to dataSource.queryCode.
+   */
+  components?: ComponentSpec[];
   features: Required<PageFeatures>;
   logging?: PageLoggingConfig;
 }
+
+const normalizeComponents = (raw: unknown): ComponentSpec[] | undefined => {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((item, index) => {
+      const dataSource =
+        item.dataSource && typeof item.dataSource === 'object'
+          ? (item.dataSource as Record<string, unknown>)
+          : undefined;
+      const bindings =
+        item.bindings && typeof item.bindings === 'object'
+          ? Object.fromEntries(
+              Object.entries(item.bindings as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
+            )
+          : undefined;
+      const properties =
+        item.properties && typeof item.properties === 'object'
+          ? (item.properties as Record<string, unknown>)
+          : undefined;
+      return {
+        componentCode: String(item.componentCode || item.code || `component_${index + 1}`),
+        type: String(item.type || 'smartGrid'),
+        dataSource: dataSource
+          ? {
+              type: String(dataSource.type || 'sql'),
+              queryCode: dataSource.queryCode != null ? String(dataSource.queryCode) : undefined,
+              cacheKey: dataSource.cacheKey != null ? String(dataSource.cacheKey) : undefined,
+              params:
+                dataSource.params && typeof dataSource.params === 'object'
+                  ? (dataSource.params as Record<string, unknown>)
+                  : undefined,
+              options:
+                dataSource.options && typeof dataSource.options === 'object'
+                  ? (dataSource.options as Record<string, unknown>)
+                  : undefined,
+            }
+          : undefined,
+        bindings,
+        properties,
+      } satisfies ComponentSpec;
+    })
+    .filter((c) => c.componentCode && c.type);
+};
 
 const normalizeColumns = (columns: unknown): ColumnConfig[] =>
   Array.isArray(columns)
@@ -286,6 +338,7 @@ export const normalizePageDsl = (
       filters: tableFilters.length > 0 ? tableFilters : legacyFilters,
       actions: tableActions.length > 0 ? tableActions : legacyActions,
     },
+    components: normalizeComponents(config.components),
     features: {
       pagination: features.pagination !== false,
       create: features.create === true,

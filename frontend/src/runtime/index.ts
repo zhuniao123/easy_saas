@@ -40,3 +40,34 @@ export {
   type DataSourceSpec,
   type DataSourceProvider,
 } from './dataSource';
+export {
+  registerPageComponent,
+  getPageComponent,
+  tryGetPageComponent,
+  registeredPageComponentTypes,
+  registerComponentHandle,
+  unregisterComponentHandle,
+  getComponentHandle,
+  listComponentHandles,
+  resolvePageComponentSpecs,
+  ensureDefaultPageComponents,
+} from './componentRegistry';
+export type {
+  ComponentStatus,
+  ComponentSpec,
+  ComponentEvent,
+  ComponentHandle,
+  ComponentRenderContext,
+  PageComponentDefinition,
+} from './componentTypes';
+export { resolveComponentStatus } from './componentTypes';
+export {
+  ComponentHost,
+  ComponentLoadingState,
+  ComponentErrorState,
+  ComponentEmptyState,
+  registerBuiltinPageComponents,
+  renderSmartGrid,
+  renderProbeComponent,
+} from './components';
+export type { ComponentHostItem, SmartGridPageContext, SmartGridColumn } from './components';

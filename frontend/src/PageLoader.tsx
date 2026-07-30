@@ -4,7 +4,6 @@ import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
 import { logEvent } from './logger';
 import { editorTypeFromFieldType, htmlInputTypeForEditor } from './editors';
-import { formatDecoratedValue, resolveTone, toneClassName } from './runtime/decorators';
 import {
   canConfig,
   filterActionsByPermission,
@@ -18,8 +17,17 @@ import {
   resolveDataSource,
   type DataTable,
 } from './runtime/dataSource';
+import {
+  ensureDefaultPageComponents,
+  resolvePageComponentSpecs,
+} from './runtime/componentRegistry';
+import { resolveComponentStatus } from './runtime/componentTypes';
+import { registerBuiltinPageComponents } from './runtime/components/registerBuiltins';
+import ComponentHost, { type ComponentHostItem } from './runtime/components/ComponentHost';
+import type { SmartGridPageContext } from './runtime/components/SmartGrid';
 
 ensureDefaultDataSourceProviders();
+ensureDefaultPageComponents(registerBuiltinPageComponents);
 
 interface PageConfig {
   pageCode: string;
@@ -222,12 +230,6 @@ export default function PageLoader({
   const filters = pageDsl.table.filters;
   const rowPaddingClass = pageDsl.features.density === 'compact' ? 'py-2.5' : 'py-4';
   const showConfigSidebar = mode === 'config';
-  const actionClassMap: Record<'primary' | 'secondary' | 'danger' | 'success', string> = {
-    primary: 'border border-slate-200 bg-slate-950 text-white hover:bg-slate-800',
-    secondary: 'border border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:text-cyan-700',
-    success: 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-    danger: 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100',
-  };
 
   const notify = (message: string) => {
     setToastMessage(message);
@@ -491,31 +493,6 @@ export default function PageLoader({
       return String(value) !== String(action.when.notEquals);
     }
     return true;
-  };
-
-  const toneClass = (tone?: string) => {
-    switch (tone) {
-      case 'muted':
-        return 'text-slate-500';
-      case 'accent':
-        return 'text-cyan-700';
-      case 'success':
-        return 'text-emerald-700';
-      case 'danger':
-        return 'text-rose-700';
-      default:
-        return 'text-slate-700';
-    }
-  };
-
-  const formatCellValue = (column: ColumnMeta, value: unknown, row?: Record<string, unknown>) => {
-    if (value === null || value === undefined || value === '') return '—';
-    return formatDecoratedValue(value, {
-      format: column.format || column.type,
-      type: column.type,
-      locale,
-      row,
-    });
   };
 
   useEffect(() => {
@@ -990,6 +967,122 @@ export default function PageLoader({
       .catch((err) => setExecuteStatus(err.message || t('error.rawSqlExecutionFailed')));
   };
 
+  const componentSpecs = useMemo(
+    () =>
+      resolvePageComponentSpecs({
+        components: pageDsl.components,
+        queryCode: queryCode || pageDsl.dataSource.queryCode,
+        pageCode,
+      }),
+    [pageDsl.components, pageDsl.dataSource.queryCode, queryCode, pageCode],
+  );
+
+  const smartGridStatus = resolveComponentStatus({
+    loading: loadingQuery,
+    error: queryError,
+    rowCount: queryResult?.rows?.length ?? null,
+    hasDataPayload: queryResult != null,
+  });
+
+  // Handlers are recreated each render (legacy PageLoader style); rebuilding context is intentional.
+  const smartGridPageContext: SmartGridPageContext = {
+    t,
+    locale,
+    // Keep panel subtitle as Smart Grid i18n label (not page presentation title).
+    title: undefined,
+    emptyState: pageDsl.presentation.emptyState,
+    filters,
+    filterValues,
+    setFilterValues,
+    dynamicFilterOptions,
+    autocompleteLabels,
+    autocompleteSuggestions,
+    autocompleteLoading,
+    autocompleteActiveField,
+    setAutocompleteActiveField,
+    handleAutocompleteChange,
+    selectAutocompleteOption,
+    handleFilterApply,
+    onResetFilters: () => {
+      setFilterValues({});
+      setAutocompleteLabels({});
+      setAutocompleteSuggestions({});
+      setPage(1);
+      if (queryCode) {
+        executeQuery(queryCode, 1, pageSize, sortField, sortOrder, {});
+      }
+    },
+    pageActions,
+    rowActions,
+    showActionColumn,
+    isPageWritable,
+    features: pageDsl.features,
+    openCreate,
+    openEdit,
+    handleDelete,
+    runAction,
+    shouldShowAction,
+    columns: runtimeColumns,
+    rows: queryResult?.rows || [],
+    total,
+    page,
+    pageSize,
+    sortField,
+    sortOrder,
+    pageSizeOptions: pageDsl.dataSource.pageSizeOptions,
+    handleSort,
+    handlePageChange,
+    handlePageSizeChange,
+    rowPaddingClass,
+    showConfigSidebar,
+  };
+
+  const componentHostItems: ComponentHostItem[] = componentSpecs.map((spec) => {
+    const type = (spec.type || 'smartGrid').toLowerCase();
+    if (type === 'smartgrid') {
+      const table: DataTable | null = queryResult
+        ? {
+            columns: queryResult.columns.map((c) => ({
+              field: c.field,
+              label: c.label,
+              type: c.type,
+              width: c.width,
+              align: c.align,
+              format: c.format,
+              tone: c.tone,
+            })),
+            rows: queryResult.rows,
+            total: queryResult.total,
+            metadata: queryResult.metadata,
+          }
+        : null;
+      return {
+        spec,
+        status: smartGridStatus,
+        error: queryError,
+        data: table,
+        properties: spec.properties,
+        pageContext: smartGridPageContext as unknown as Record<string, unknown>,
+        handle: {
+          refresh: () => {
+            if (queryCode) {
+              executeQuery(queryCode, page, pageSize, sortField, sortOrder, filterValues);
+            }
+          },
+          getData: () => table,
+        },
+      };
+    }
+    // Non-grid components (e.g. probe): ready unless page still bootstrapping.
+    return {
+      spec,
+      status: config ? 'ready' : 'loading',
+      error: null,
+      data: null,
+      properties: spec.properties || {},
+    };
+  });
+
   if (!config) {
     return <div className="p-8 text-center text-sm text-slate-400">{t('page.loadingWorkspace')}</div>;
   }
@@ -1276,377 +1369,7 @@ export default function PageLoader({
 
       {(!showConfigSidebar || showPreviewPanel) && (
       <section className="space-y-4">
-        <div className="rounded-[26px] border border-slate-200 bg-white/90 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{t('page.smartGrid')}</div>
-              <div className="mt-2 text-lg font-semibold text-slate-900">{t('page.smartGridTitle')}</div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {isPageWritable && pageDsl.features.create && (
-                <button
-                  onClick={() => openCreate()}
-                  className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500"
-                >
-                  {t('page.addRecord')}
-                </button>
-              )}
-              {pageActions.map((action) => (
-                <button
-                  key={action.code}
-                  onClick={() => {
-                    if (action.confirmText && !window.confirm(action.confirmText)) return;
-                    runAction(action);
-                  }}
-                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                    actionClassMap[action.variant || 'primary']
-                  }`}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {!showConfigSidebar && (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
-              {t('page.pageModelHiddenRuntime')}
-            </div>
-          )}
-
-          {filters.length > 0 && (
-            <div className="mt-5 grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
-              {filters.map((filter) => (
-                <label key={filter.field} className="space-y-1 text-xs font-medium text-slate-600">
-                  <span>{filter.label}</span>
-                  {filter.type === 'select' ? (
-                    <select
-                      value={filterValues[filter.field] || ''}
-                      onChange={(e) => setFilterValues((prev) => ({ ...prev, [filter.field]: e.target.value }))}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
-                    >
-                      <option value="">{t('page.all')}</option>
-                      {filter.options && !Array.isArray(filter.options) && 'source' in filter.options && filter.options.source === 'sql'
-                        ? (dynamicFilterOptions[filter.field] || []).map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))
-                        : (Array.isArray(filter.options) ? filter.options : (filter.options?.items || [])).map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                    </select>
-                  ) : filter.type === 'autocomplete' ? (
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={autocompleteLabels[filter.field] || ''}
-                        onFocus={() => setAutocompleteActiveField(filter.field)}
-                        onBlur={() => {
-                          // Allow click selection to complete
-                          setTimeout(() => setAutocompleteActiveField(null), 200);
-                        }}
-                        onChange={(e) => handleAutocompleteChange(filter.field, e.target.value, filter)}
-                        placeholder={filter.placeholder || t('page.filterBy', { label: filter.label })}
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
-                      />
-                      {autocompleteActiveField === filter.field && (
-                        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-lg">
-                          {autocompleteLoading[filter.field] && (
-                            <div className="px-4 py-2 text-xs text-slate-400">Loading...</div>
-                          )}
-                          {!autocompleteLoading[filter.field] && (autocompleteSuggestions[filter.field] || []).length === 0 && (
-                            <div className="px-4 py-2 text-xs text-slate-400">No suggestions</div>
-                          )}
-                          {!autocompleteLoading[filter.field] && (autocompleteSuggestions[filter.field] || []).map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => selectAutocompleteOption(filter.field, option)}
-                              className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-cyan-50"
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <input
-                      type={filter.type === 'date' ? 'date' : 'text'}
-                      value={filterValues[filter.field] || ''}
-                      onChange={(e) => setFilterValues((prev) => ({ ...prev, [filter.field]: e.target.value }))}
-                      placeholder={filter.placeholder || t('page.filterBy', { label: filter.label })}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
-                    />
-                  )}
-                </label>
-              ))}
-              <div className="flex items-end gap-2">
-                <button
-                  onClick={handleFilterApply}
-                  className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-400"
-                >
-                  {t('page.applyFilters')}
-                </button>
-                <button
-                  onClick={() => {
-                    setFilterValues({});
-                    setAutocompleteLabels({});
-                    setAutocompleteSuggestions({});
-                    setPage(1);
-                    refreshData(1, pageSize, sortField, sortOrder, {});
-                  }}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700"
-                >
-                  {t('page.reset')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {queryError && (
-            <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {queryError}
-            </div>
-          )}
-
-          {/* Query Loading State */}
-          {loadingQuery && pageDsl.features.loading?.enabled !== false && pageDsl.features.loading?.showDefault !== false && (
-            <>
-              {pageDsl.features.loading?.style === 'skeleton' && (
-                <div className="mt-6 overflow-hidden rounded-[26px] border border-slate-200/60 bg-white/50 dark:bg-slate-900/50 p-6 space-y-4">
-                  <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-3">
-                    {runtimeColumns.map((c, i) => (
-                      <div key={i} className="h-4 bg-slate-200 dark:bg-slate-700/60 rounded animate-pulse" style={{ width: c.width ? `${c.width}px` : '120px' }}></div>
-                    ))}
-                  </div>
-                  {[1, 2, 3, 4, 5].map((rowIdx) => (
-                    <div key={rowIdx} className="flex gap-4 py-2 border-b border-slate-50 dark:border-slate-800/40 last:border-0">
-                      {runtimeColumns.map((c, i) => (
-                        <div key={i} className="h-6 bg-slate-100 dark:bg-slate-800/30 rounded animate-pulse" style={{ width: c.width ? `${c.width}px` : '100px' }}></div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {pageDsl.features.loading?.style === 'glow' && (
-                <div className="mt-6 relative overflow-hidden rounded-[26px] border border-cyan-500/20 bg-slate-950/80 p-8 shadow-[0_0_50px_rgba(6,182,212,0.15)] text-center py-20">
-                  <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-cyan-500/10 blur-[50px] animate-pulse"></div>
-                  <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-fuchsia-500/10 blur-[50px] animate-pulse"></div>
-                  <div className="relative space-y-4">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-400/30 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
-                      <svg className="h-6 w-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <div className="text-sm font-bold uppercase tracking-[0.28em] text-cyan-400 animate-pulse">
-                      Streaming Data Engine
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Executing server raw SQL transaction log sequence...</p>
-                  </div>
-                </div>
-              )}
-
-              {(pageDsl.features.loading?.style === 'spinner' || !pageDsl.features.loading?.style) && (
-                <div className="mt-6 flex flex-col items-center justify-center rounded-[26px] border border-slate-200/60 bg-white/50 dark:bg-slate-900/50 py-16">
-                  <div className="relative h-12 w-12">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-20"></span>
-                    <span className="relative flex h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-500"></span>
-                  </div>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400 animate-pulse">
-                    {t('page.streaming')}
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
-          {(!loadingQuery || pageDsl.features.loading?.enabled === false || pageDsl.features.loading?.showDefault === false) && queryResult && (
-            <div className="mt-6 overflow-hidden rounded-[26px] border border-slate-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-left">
-                  <thead className="bg-slate-950 text-[11px] uppercase tracking-[0.24em] text-slate-300">
-                    <tr>
-                      {runtimeColumns.map((column) => (
-                        <th
-                          key={column.field}
-                          onClick={() => handleSort(column.field)}
-                          className="cursor-pointer px-5 py-4 font-semibold transition hover:bg-slate-900"
-                          style={column.width ? { width: `${column.width}px` } : undefined}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{column.label}</span>
-                            <span className="text-cyan-300">
-                              {sortField === column.field ? (sortOrder === 'ASC' ? '▲' : sortOrder === 'DESC' ? '▼' : '•') : '⇅'}
-                            </span>
-                          </div>
-                        </th>
-                      ))}
-                      {showActionColumn && (
-                        <th className="px-5 py-4 text-right font-semibold">{t('page.tableActions')}</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white text-sm text-slate-700">
-                    {queryResult.rows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={runtimeColumns.length + (showActionColumn ? 1 : 0)}
-                          className="px-6 py-14 text-center text-sm text-slate-400"
-                        >
-                          {pageDsl.presentation.emptyState}
-                        </td>
-                      </tr>
-                    ) : (
-                      queryResult.rows.map((row, index) => (
-                        <tr
-                          key={index}
-                          className="cursor-pointer transition hover:bg-cyan-50/50"
-                          onDoubleClick={() => {
-                            if (isPageWritable && pageDsl.features.edit) {
-                              openEdit(row);
-                            }
-                          }}
-                        >
-                          {runtimeColumns.map((column) => {
-                            const value = row[column.field];
-                            const formattedValue = formatCellValue(column, value, row);
-                            const effectiveTone = resolveTone(value, column.tone, column.toneRules, row);
-                            const alignClass =
-                              column.align === 'right'
-                                ? 'text-right'
-                                : column.align === 'center'
-                                  ? 'text-center'
-                                  : 'text-left';
-                            return (
-                              <td
-                                key={column.field}
-                                className={`px-5 ${rowPaddingClass} align-top ${alignClass}`}
-                                style={column.width ? { width: `${column.width}px` } : undefined}
-                              >
-                                {column.format === 'badge' ? (
-                                  <span
-                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${toneClassName(effectiveTone)}`}
-                                  >
-                                    {formattedValue}
-                                  </span>
-                                ) : column.type === 'boolean' || column.format === 'boolean' ? (
-                                  <span
-                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                      value
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-slate-100 text-slate-600'
-                                    }`}
-                                  >
-                                    {value ? t('page.true') : t('page.false')}
-                                  </span>
-                                ) : column.format === 'money' ||
-                                  column.type === 'integer' ||
-                                  column.type === 'number' ||
-                                  column.format === 'number' ? (
-                                  <span className={`font-mono ${toneClass(effectiveTone)}`}>{formattedValue}</span>
-                                ) : (
-                                  <span className={toneClass(effectiveTone)}>{formattedValue}</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          {showActionColumn && (
-                            <td className={`space-x-2 px-5 ${rowPaddingClass} text-right`}>
-                              {rowActions.filter((action) => shouldShowAction(action, row)).map((action) => (
-                                <button
-                                  key={action.code}
-                                  onClick={() => {
-                                    if (action.confirmText && !window.confirm(action.confirmText)) return;
-                                    runAction(action, row);
-                                  }}
-                                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                                    actionClassMap[action.variant || 'secondary']
-                                  }`}
-                                >
-                                  {action.label}
-                                </button>
-                              ))}
-                              {isPageWritable && (pageDsl.features.edit || pageDsl.features.delete) && (
-                                <>
-                                  {pageDsl.features.edit && (
-                                    <button
-                                      onClick={() => openEdit(row)}
-                                      className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
-                                    >
-                                      {t('page.edit')}
-                                    </button>
-                                  )}
-                                  {pageDsl.features.delete && (
-                                    <button
-                                      onClick={() => handleDelete(row)}
-                                      className="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-200"
-                                    >
-                                      {t('page.delete')}
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex flex-col gap-4 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xs font-medium text-slate-500">
-                  {t('page.showing')} <span className="font-semibold text-slate-900">{total === 0 ? 0 : (page - 1) * pageSize + 1}</span>{' '}
-                  {t('page.to')} <span className="font-semibold text-slate-900">{Math.min(page * pageSize, total)}</span>{' '}
-                  {t('page.of')} <span className="font-semibold text-slate-900">{total}</span> {t('page.rowsLabel')}
-                </div>
-                {pageDsl.features.pagination ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select
-                      value={pageSize}
-                      onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
-                    >
-                      {(pageDsl.dataSource.pageSizeOptions && pageDsl.dataSource.pageSizeOptions.length > 0
-                        ? pageDsl.dataSource.pageSizeOptions
-                        : [10, 20, 50, 100]
-                      ).map((size) => (
-                        <option key={size} value={size}>
-                          {t('page.perPage', { size })}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      disabled={page === 1}
-                      onClick={() => handlePageChange(page - 1)}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-40"
-                    >
-                      {t('page.previous')}
-                    </button>
-                    <button
-                      disabled={page * pageSize >= total}
-                      onClick={() => handlePageChange(page + 1)}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-40"
-                    >
-                      {t('page.next')}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    {t('page.paginationDisabled')}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
+        <ComponentHost items={componentHostItems} />
       </section>
       )}
 
