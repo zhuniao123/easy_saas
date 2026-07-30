@@ -220,24 +220,35 @@ public class QueryEngineService {
     }
 
     private Map<String, String> inspectResultFields(String sqlText, Map<String, Object> sqlParams) {
-        String inspectSql = "SELECT * FROM (" + sqlText + ") as result_field_probe LIMIT 0";
-        return jdbcTemplate.query(inspectSql, sqlParams, rs -> {
-            ResultSetMetaData metaData = rs.getMetaData();
-            Map<String, String> fields = new LinkedHashMap<>();
-            for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                String label = metaData.getColumnLabel(i);
-                if (label != null) {
-                    String key = label.toLowerCase();
-                    if (fields.containsKey(key)) {
-                        throw new IllegalArgumentException(
-                                "Query result contains duplicate column label '" + label + "'; use unique SQL aliases"
-                        );
+        // Probe result columns without fetching rows. Fail with a clearer message if SQL is invalid.
+        String inspectSql = "SELECT * FROM (" + sqlText + ") AS result_field_probe LIMIT 0";
+        try {
+            return jdbcTemplate.query(inspectSql, sqlParams, rs -> {
+                ResultSetMetaData metaData = rs.getMetaData();
+                Map<String, String> fields = new LinkedHashMap<>();
+                for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                    String label = metaData.getColumnLabel(i);
+                    if (label != null) {
+                        String key = label.toLowerCase();
+                        if (fields.containsKey(key)) {
+                            throw new IllegalArgumentException(
+                                    "Query result contains duplicate column label '" + label + "'; use unique SQL aliases"
+                            );
+                        }
+                        fields.put(key, label);
                     }
-                    fields.put(key, label);
                 }
-            }
-            return fields;
-        });
+                return fields;
+            });
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            String detail = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+            throw new IllegalArgumentException(
+                    "Query SQL failed column inspection (check table/column names): " + detail,
+                    ex
+            );
+        }
     }
 
     private String applyFilters(
