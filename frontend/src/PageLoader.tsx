@@ -21,8 +21,11 @@ import {
   ensureDefaultPageComponents,
   resolvePageComponentSpecs,
 } from './runtime/componentRegistry';
-import { resolveComponentStatus } from './runtime/componentTypes';
-import { registerBuiltinPageComponents } from './runtime/components/registerBuiltins';
+import { resolveComponentStatus, type ComponentStatus } from './runtime/componentTypes';
+import {
+  registerBuiltinPageComponents,
+  INDEPENDENT_DATA_COMPONENT_TYPES,
+} from './runtime/components/registerBuiltins';
 import ComponentHost, { type ComponentHostItem } from './runtime/components/ComponentHost';
 import type { SmartGridPageContext } from './runtime/components/SmartGrid';
 import {
@@ -167,6 +170,11 @@ export default function PageLoader({
   const [autocompleteActiveField, setAutocompleteActiveField] = useState<string | null>(null);
   const [autocompleteLabels, setAutocompleteLabels] = useState<Record<string, string>>({});
   const controllerRef = useRef<PageControllerRuntime | null>(null);
+  /** Independent component slots (charts/stat/text) loaded via DataSource registry. */
+  const [slotStates, setSlotStates] = useState<
+    Record<string, { status: ComponentStatus; error?: string | null; data?: DataTable | null }>
+  >({});
+  const slotRefreshRef = useRef<Record<string, () => void>>({});
 
   const pageDsl = useMemo(
     () => normalizePageDsl(config?.config, config?.title || pageCode, config?.queryCode),
@@ -1034,6 +1042,92 @@ export default function PageLoader({
     [pageDsl.components, pageDsl.dataSource.queryCode, queryCode, pageCode],
   );
 
+  // Load DataTable for registered non-grid components (charts/stat/text/probe with dataSource).
+  useEffect(() => {
+    let cancelled = false;
+    const independent = componentSpecs.filter((spec) =>
+      INDEPENDENT_DATA_COMPONENT_TYPES.has((spec.type || '').toLowerCase()),
+    );
+
+    const loadOne = async (spec: (typeof independent)[number]) => {
+      const code = spec.componentCode;
+      const ds = spec.dataSource;
+      const type = (spec.type || '').toLowerCase();
+
+      // text/probe without dataSource: ready with empty payload (static content from properties)
+      if (!ds || (!ds.queryCode && ds.type !== 'static' && !(ds.options && (ds.options as { rows?: unknown }).rows))) {
+        if (type === 'text' || type === 'probe') {
+          setSlotStates((prev) => ({
+            ...prev,
+            [code]: { status: 'ready', data: null, error: null },
+          }));
+          return;
+        }
+        setSlotStates((prev) => ({
+          ...prev,
+          [code]: { status: 'empty', data: null, error: null },
+        }));
+        return;
+      }
+
+      setSlotStates((prev) => ({
+        ...prev,
+        [code]: { status: 'loading', data: prev[code]?.data ?? null, error: null },
+      }));
+
+      try {
+        const table = await resolveDataSource({
+          type: ds.type || 'sql',
+          queryCode: ds.queryCode,
+          cacheKey: ds.cacheKey,
+          params: {
+            ...(ds.params || {}),
+            // share page filter context lightly for dashboard linkage
+            ...Object.fromEntries(
+              Object.entries(filterValues).filter(([, v]) => String(v || '').trim().length > 0),
+            ),
+          },
+          options: ds.options,
+        });
+        if (cancelled) return;
+        setSlotStates((prev) => ({
+          ...prev,
+          [code]: {
+            status: resolveComponentStatus({
+              hasDataPayload: true,
+              rowCount: table.rows?.length ?? 0,
+            }),
+            data: table,
+            error: null,
+          },
+        }));
+      } catch (err) {
+        if (cancelled) return;
+        setSlotStates((prev) => ({
+          ...prev,
+          [code]: {
+            status: 'error',
+            data: null,
+            error: err instanceof Error ? err.message : 'Failed to load component data',
+          },
+        }));
+      }
+    };
+
+    const refreshMap: Record<string, () => void> = {};
+    for (const spec of independent) {
+      refreshMap[spec.componentCode] = () => {
+        void loadOne(spec);
+      };
+    }
+    slotRefreshRef.current = refreshMap;
+
+    void Promise.all(independent.map((spec) => loadOne(spec)));
+    return () => {
+      cancelled = true;
+    };
+  }, [componentSpecs, filterValues]);
+
   const smartGridStatus = resolveComponentStatus({
     loading: loadingQuery,
     error: queryError,
@@ -1133,13 +1227,18 @@ export default function PageLoader({
         },
       };
     }
-    // Non-grid components (e.g. probe): ready unless page still bootstrapping.
+
+    const slot = slotStates[spec.componentCode];
     return {
       spec,
-      status: config ? 'ready' : 'loading',
-      error: null,
-      data: null,
+      status: slot?.status || (config ? 'loading' : 'loading'),
+      error: slot?.error ?? null,
+      data: slot?.data ?? null,
       properties: spec.properties || {},
+      handle: {
+        refresh: () => slotRefreshRef.current[spec.componentCode]?.(),
+        getData: () => slot?.data ?? null,
+      },
     };
   });
 

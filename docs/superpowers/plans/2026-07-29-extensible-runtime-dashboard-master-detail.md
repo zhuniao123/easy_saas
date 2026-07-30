@@ -257,21 +257,47 @@ Page DSL：
 
 ### Slice 6：SQL 驱动基础图表
 
+状态：**已完成并验收**（2026-07-30）
+
 工作项：
 
-- 增加 `stat`、`barChart`、`lineChart`、`pieChart`、`text`。
-- 图表只依赖 DataTable 和列名 bindings。
-- 使用图表 Adapter 隔离具体图表库，第一版可接 ECharts。
-- 支持标题、图例、格式化、空态和错误态。
-- 图表点击只发标准组件事件，联动由 JS Controller 处理。
+- [x] 注册 `stat`、`barChart`、`lineChart`、`pieChart`、`text`。
+- [x] 图表只依赖 DataTable + 列名 `bindings`（`category`/`value`/`text`）。
+- [x] Chart Adapter 隔离模型构建；ECharts option 映射独立（`chartModelToEchartsOption`）。
+- [x] 标题、图例、格式化、空态、错误态、loading。
+- [x] 点击发 `itemClick` 标准事件（payload 含 name/value/row）；PageLoader 转发到 Page Controller。
+- [x] 非 grid 组件按各自 `dataSource` 独立加载（可替换 queryCode 复用绑定）。
 
-验收：只替换 queryCode 和字段绑定即可复用图表；图表点击能驱动 Smart Grid 刷新。
+Page DSL 示例：
 
-建议提交：
-
-```text
-feat: add sql-driven chart component registry
+```json
+{
+  "components": [
+    {
+      "componentCode": "kpi",
+      "type": "stat",
+      "dataSource": { "type": "sql", "queryCode": "q_today_revenue" },
+      "bindings": { "value": "total" },
+      "properties": { "title": "今日营收", "format": "money" }
+    },
+    {
+      "componentCode": "by_day",
+      "type": "barChart",
+      "dataSource": { "type": "sql", "queryCode": "q_rev_by_day" },
+      "bindings": { "category": "day", "value": "amount" },
+      "properties": { "title": "按日", "legend": true }
+    },
+    { "componentCode": "grid", "type": "smartGrid" }
+  ]
+}
 ```
+
+**UI 回归注意：** 含 charts 的页面需人工点验渲染与点击；默认单 grid 页面应无回归。
+
+验证：
+
+- 前端：`npm run lint` / `npm test -- --run` / `npm run build`
+- 依赖：`echarts@5`
 
 ### Slice 7：DashboardTemplate
 
@@ -335,9 +361,6 @@ feat: add mrmf order and service line demo
 
 ## 7. 当前执行顺序
 
-- Slice 1：**已完成**
-- Slice 2：**已完成**
-- Slice 3：**已完成**
-- Slice 4：**已完成**
-- Slice 5：**已完成**
-- 下一步：**Slice 6** — SQL 驱动基础图表
+- Slice 1–5：**已完成**
+- Slice 6：**已完成**
+- 下一步：**Slice 7** — DashboardTemplate

@@ -22,9 +22,12 @@ beforeEach(() => {
 describe('component registry', () => {
   test('registers smartGrid and probe by default', () => {
     // Registry keys are normalized to lowercase.
-    expect(registeredPageComponentTypes()).toEqual(expect.arrayContaining(['probe', 'smartgrid']));
+    expect(registeredPageComponentTypes()).toEqual(
+      expect.arrayContaining(['probe', 'smartgrid', 'stat', 'barchart', 'linechart', 'piechart', 'text']),
+    );
     expect(getPageComponent('smartGrid').displayName).toBe('Smart Grid');
     expect(getPageComponent('probe').type).toBe('probe');
+    expect(getPageComponent('barChart').displayName).toBe('Bar Chart');
   });
 
   test('default page without components gets a single smartGrid slot', () => {

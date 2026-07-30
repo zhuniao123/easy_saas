@@ -9,4 +9,8 @@ export {
 export { renderSmartGrid } from './SmartGrid';
 export type { SmartGridPageContext, SmartGridColumn } from './SmartGrid';
 export { renderProbeComponent } from './ProbeComponent';
-export { registerBuiltinPageComponents } from './registerBuiltins';
+export {
+  registerBuiltinPageComponents,
+  INDEPENDENT_DATA_COMPONENT_TYPES,
+} from './registerBuiltins';
+export { createChartRenderer } from './charts';

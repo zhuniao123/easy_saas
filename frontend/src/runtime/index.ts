@@ -80,3 +80,13 @@ export {
   type PageControllerModule,
   type PageControllerRuntime,
 } from './pageController';
+export {
+  getChartAdapter,
+  setChartAdapter,
+  buildChartModel,
+  dataTableToPoints,
+  chartModelToEchartsOption,
+  type ChartKind,
+  type ChartModel,
+  type ChartBindings,
+} from './charts';
