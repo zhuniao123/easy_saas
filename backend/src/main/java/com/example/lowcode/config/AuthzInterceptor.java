@@ -122,6 +122,11 @@ public class AuthzInterceptor implements HandlerInterceptor {
             return null;
         }
 
+        // DataSource resolve: login required; sql queryCode permission checked in service when auth on.
+        if (path.startsWith("/api/v1/datasources")) {
+            return null;
+        }
+
         return null;
     }
 }

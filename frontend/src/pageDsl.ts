@@ -1,13 +1,21 @@
 import type { ActionConfig, ColumnConfig, FilterConfig } from './actionRegistry';
 
 export interface PageDataSource {
+  /**
+   * Provider type registered in the DataSource registry.
+   * Default `sql` when queryCode is set. `static` / `cache` reserved for Slice 2+.
+   */
+  type?: string;
   queryCode?: string;
+  cacheKey?: string;
   pageSize?: number;
   pageSizeOptions?: number[];
   defaultSort?: {
     field: string;
     order: 'ASC' | 'DESC';
   };
+  /** Provider options (e.g. static rows). Not used by default Smart Grid sql path. */
+  options?: Record<string, unknown>;
 }
 
 export interface PagePresentation {

@@ -12,6 +12,14 @@ import {
   getFieldDenySet,
 } from './runtime/permissions';
 import DrillDownDrawer from './runtime/DrillDownDrawer';
+import {
+  buildSqlDataSourceSpec,
+  ensureDefaultDataSourceProviders,
+  resolveDataSource,
+  type DataTable,
+} from './runtime/dataSource';
+
+ensureDefaultDataSourceProviders();
 
 interface PageConfig {
   pageCode: string;
@@ -41,11 +49,45 @@ interface ColumnMeta {
   toneRules?: Array<{ when?: string; tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger' }>;
 }
 
+/** Smart Grid grid payload — DataTable contract (columns/rows/total/metadata). */
 interface QueryResult {
   columns: ColumnMeta[];
   rows: Array<Record<string, unknown>>;
   total?: number;
+  metadata?: Record<string, unknown>;
 }
+
+const toQueryResult = (table: DataTable): QueryResult => ({
+  columns: (table.columns || []).map((col) => ({
+    field: String(col.field || ''),
+    label: String(col.label || col.field || ''),
+    type: String(col.type || 'string'),
+    width: typeof col.width === 'number' ? col.width : undefined,
+    align: col.align === 'left' || col.align === 'center' || col.align === 'right' ? col.align : undefined,
+    format:
+      col.format === 'text' ||
+      col.format === 'number' ||
+      col.format === 'boolean' ||
+      col.format === 'datetime' ||
+      col.format === 'date' ||
+      col.format === 'badge' ||
+      col.format === 'money' ||
+      col.format === 'percent'
+        ? col.format
+        : undefined,
+    tone:
+      col.tone === 'default' ||
+      col.tone === 'muted' ||
+      col.tone === 'accent' ||
+      col.tone === 'success' ||
+      col.tone === 'danger'
+        ? col.tone
+        : undefined,
+  })),
+  rows: table.rows || [],
+  total: table.total,
+  metadata: table.metadata,
+});
 
 type EditorMode = 'create' | 'edit' | null;
 type StudioPanel = 'sql' | 'page' | 'entity' | 'raw';
@@ -295,34 +337,30 @@ export default function PageLoader({
       { params: normalizedParams, filters: nextActiveFilters }
     );
 
-    fetch(`/api/v1/queries/${queryCodeValue}/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        params: {
-          ...normalizedParams,
-          _page: nextPage,
-          _pageSize: nextPageSize,
-          _sortField: nextSortField,
-          _sortOrder: nextSortOrder,
-        },
-        filters: nextActiveFilters,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(t('error.queryExecutionFailed'));
-        return res.json();
-      })
+    const spec = buildSqlDataSourceSpec(
+      queryCodeValue,
+      {
+        ...normalizedParams,
+        _page: nextPage,
+        _pageSize: nextPageSize,
+        _sortField: nextSortField,
+        _sortOrder: nextSortOrder,
+      },
+      nextActiveFilters,
+    );
+
+    resolveDataSource(spec)
       .then((data) => {
-        setQueryResult(data);
-        setTotal(data.total || 0);
+        const result = toQueryResult(data);
+        setQueryResult(result);
+        setTotal(result.total || 0);
         logEvent(
           pageCode,
           pageDsl.logging,
           'query',
           queryCodeValue,
-          `Successfully fetched data query: ${data.rows?.length || 0} rows retrieved`,
-          { count: data.rows?.length || 0, total: data.total || 0 }
+          `Successfully fetched data query: ${result.rows?.length || 0} rows retrieved`,
+          { count: result.rows?.length || 0, total: result.total || 0 }
         );
       })
       .catch((err: Error) => {

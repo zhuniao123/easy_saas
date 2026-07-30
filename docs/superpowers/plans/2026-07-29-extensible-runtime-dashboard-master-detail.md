@@ -163,22 +163,23 @@ fca4aee feat: harden smart grid complex query boundaries
 
 ### Slice 2：统一 DataTable 与注册式数据源
 
+状态：**已完成并验收**（2026-07-30，ut1 / PostgreSQL 17）
+
 工作项：
 
-- 后端查询响应和前端类型统一为 DataTable。
-- 增加 DataSource Provider 注册表。
-- 实现 `sql`、`static` Provider。
-- 将现有 Smart Grid 接入统一数据源接口。
-- 为后续 `cache` Provider 保留接口和 metadata，不实现缓存中间件。
+- [x] 后端查询响应和前端类型统一为 DataTable（`columns` / `rows` / `total` / `metadata`）。
+- [x] 增加 DataSource Provider 注册表（后端 `DataSourceProviderRegistry`，前端 `registerDataSourceProvider`）。
+- [x] 实现 `sql`、`static` Provider；`cache` 仅契约（抛出 not implemented + reserved metadata）。
+- [x] Smart Grid（PageLoader）经 `resolveDataSource` 取数，默认 `type=sql`。
+- [x] 新增 `POST /api/v1/datasources/resolve` 与 `GET /api/v1/datasources/types`；保留 `/queries/{code}/execute`。
+- [x] 新增数据源类型只需注册 Provider，不必改 Smart Grid 组件。
 
 验收：Smart Grid 行为不回退；新增数据源类型不需要修改组件代码。
 
-建议提交：
+验证：
 
-```text
-refactor: introduce shared data table contract
-feat: add pluggable component data source providers
-```
+- 后端：`mvn test`（含 DataSourceProviderTest）
+- 前端：`npm run lint` / `npm test -- --run` / `npm run build`
 
 ### Slice 3：注册式组件运行时
 
@@ -320,13 +321,6 @@ feat: add mrmf order and service line demo
 
 ## 7. 当前执行顺序
 
-- Slice 1：**已完成**（见上）
-- 下一步：**Slice 2** — 统一 DataTable 与注册式 DataSource Provider
-
-Slice 2 顺序：
-
-1. 定义后端/前端 DataTable 与 DataSourceSpec 契约。
-2. 建立 DataSource Provider 注册表；实现 `sql`、`static`。
-3. 将 Smart Grid 接入统一接口，保证行为不回退。
-4. `cache` 仅保留契约与 metadata 占位。
-5. 测试通过后提交。
+- Slice 1：**已完成**
+- Slice 2：**已完成**
+- 下一步：**Slice 3** — 注册式组件运行时（Component Registry）
