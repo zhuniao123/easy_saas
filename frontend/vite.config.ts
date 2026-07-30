@@ -15,6 +15,19 @@ export default defineConfig({
       }
     }
   },
+  // Public tunnel points at vite preview :4173 — must proxy API there too.
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+    strictPort: true,
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+      }
+    }
+  },
   test: {
     globals: true,
     environment: 'jsdom',
