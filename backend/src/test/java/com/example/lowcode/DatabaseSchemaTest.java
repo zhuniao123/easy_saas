@@ -19,4 +19,14 @@ public class DatabaseSchemaTest {
         );
         assertThat(count).isEqualTo(4);
     }
+
+    @Test
+    public void testQueryModelHasCountSqlTextColumn() {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM information_schema.columns " +
+                "WHERE table_name = 'lc_query_model' AND column_name = 'count_sql_text'",
+            Integer.class
+        );
+        assertThat(count).isEqualTo(1);
+    }
 }

@@ -133,25 +133,32 @@ Groovy 通过受控 Context 使用平台能力：
 
 ### Slice 1：Smart Grid 只读复杂查询基线
 
-状态：代码与验收测试已实现；Java 17 `test-compile`、前端 lint/test/build 已通过。当前开发机未运行 PostgreSQL，新增后端集成测试需在数据库环境中执行后完成最终验收。
+状态：**已完成并验收**（2026-07-30，ut1 / PostgreSQL 17）
+
+验证：
+
+- 基线：`fca4aee feat: harden smart grid complex query boundaries`
+- 后端：Java 17 `mvn test` 全量通过（33 tests）
+- 前端：`npm run lint` / `npm test -- --run` / `npm run build` 通过
+- 部署机反馈：公开入口仅有扫描器噪音（非法 HTTP method），无用户功能缺陷报告
+- 注意：已有库需执行 `schema.sql` 中的 `ALTER TABLE ... count_sql_text`（`CREATE TABLE IF NOT EXISTS` 不会补列）；应用以 `spring.sql.init.mode=always` 启动后会自动补齐
 
 工作项：
 
-- 为 JOIN、CTE、聚合、窗口函数、UNION 增加测试。
-- 明确 `rawSql` 永远默认只读。
-- 只有稳定单实体、主键和写回表成立才生成 CRUD 能力。
-- 结果列 alias 作为过滤和排序白名单。
-- 支持可选显式 `countSql`，保留自动 count 回退。
-- 检查 SQL 内置排序和子查询包装兼容性。
-- 增加只读查询超时和最大页大小验收。
+- [x] 为 JOIN、CTE、聚合、窗口函数、UNION 增加测试。
+- [x] 明确 `rawSql` 永远默认只读。
+- [x] 只有稳定单实体、主键和写回表成立才生成 CRUD 能力。
+- [x] 结果列 alias 作为过滤和排序白名单。
+- [x] 支持可选显式 `countSql`，保留自动 count 回退。
+- [x] 检查 SQL 内置排序和子查询包装兼容性。
+- [x] 增加只读查询超时和最大页大小验收。
 
 验收：多表 MRFM 查询可直接生成只读 Smart Grid，分页、排序、过滤正常，不能自动编辑。
 
-建议提交：
+已落地提交：
 
 ```text
-test: define smart grid read-only query boundaries
-feat: support explicit count sql for complex queries
+fca4aee feat: harden smart grid complex query boundaries
 ```
 
 ### Slice 2：统一 DataTable 与注册式数据源
@@ -313,10 +320,13 @@ feat: add mrmf order and service line demo
 
 ## 7. 当前执行顺序
 
-下一步从 Slice 1 开始：
+- Slice 1：**已完成**（见上）
+- 下一步：**Slice 2** — 统一 DataTable 与注册式 DataSource Provider
 
-1. 建立复杂查询测试夹具。
-2. 验证当前实现对 JOIN/CTE/聚合/UNION 的真实行为。
-3. 先修正确性与只读门禁。
-4. 再决定显式 countSql 的最小模型变更。
-5. 测试通过后提交 Slice 1。
+Slice 2 顺序：
+
+1. 定义后端/前端 DataTable 与 DataSourceSpec 契约。
+2. 建立 DataSource Provider 注册表；实现 `sql`、`static`。
+3. 将 Smart Grid 接入统一接口，保证行为不回退。
+4. `cache` 仅保留契约与 metadata 占位。
+5. 测试通过后提交。
