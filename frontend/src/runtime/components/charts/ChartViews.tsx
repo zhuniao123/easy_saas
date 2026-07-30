@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as echarts from 'echarts/core';
 import type { EChartsType } from 'echarts/core';
 import { BarChart, LineChart, PieChart } from 'echarts/charts';
@@ -116,39 +116,95 @@ function EChartsView({
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<EChartsType | null>(null);
+  const modelRef = useRef(model);
+  const onClickRef = useRef(onPointClick);
 
   useEffect(() => {
-    if (!ref.current) return;
-    const chart = echarts.init(ref.current, undefined, { renderer: 'canvas' });
-    chartRef.current = chart;
-    const option = chartModelToEchartsOption(model);
-    chart.setOption(option, true);
-    chart.off('click');
-    chart.on('click', (params: unknown) => {
-      const p = params as { name?: string; value?: number | { value?: number }; dataIndex?: number };
-      const dataIndex = typeof p.dataIndex === 'number' ? p.dataIndex : 0;
-      const point = model.points[dataIndex] || model.points.find((x) => x.name === p.name);
-      if (!point) return;
-      onPointClick?.({
-        name: point.name,
-        value: point.value,
-        dataIndex: point.dataIndex,
-        row: point.row,
+    modelRef.current = model;
+    onClickRef.current = onPointClick;
+  }, [model, onPointClick]);
+
+  // Only re-bind chart when series data actually changes (avoid dispose/init storms).
+  const modelKey = useMemo(
+    () =>
+      JSON.stringify({
+        kind: model.kind,
+        title: model.title,
+        height: model.height,
+        legend: model.legend,
+        format: model.format,
+        color: model.color,
+        points: model.points.map((p) => [p.name, p.value]),
+      }),
+    [model],
+  );
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let chart = chartRef.current;
+    try {
+      if (!chart) {
+        chart = echarts.init(el, undefined, { renderer: 'canvas' });
+        chartRef.current = chart;
+      }
+      const current = modelRef.current;
+      chart.setOption(chartModelToEchartsOption(current), true);
+      chart.off('click');
+      chart.on('click', (params: unknown) => {
+        const p = params as { name?: string; dataIndex?: number };
+        const dataIndex = typeof p.dataIndex === 'number' ? p.dataIndex : 0;
+        const m = modelRef.current;
+        const point = m.points[dataIndex] || m.points.find((x) => x.name === p.name);
+        if (!point) return;
+        onClickRef.current?.({
+          name: point.name,
+          value: point.value,
+          dataIndex: point.dataIndex,
+          row: point.row,
+        });
       });
-    });
-    const onResize = () => chart.resize();
+      requestAnimationFrame(() => {
+        try {
+          chart?.resize();
+        } catch {
+          /* ignore */
+        }
+      });
+    } catch (err) {
+      console.error('[chart] echarts render failed', err);
+    }
+
+    const onResize = () => {
+      try {
+        chartRef.current?.resize();
+      } catch {
+        /* ignore */
+      }
+    };
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
-      chart.dispose();
+    };
+  }, [modelKey]);
+
+  // Dispose once when leaving the page/component.
+  useEffect(() => {
+    return () => {
+      try {
+        chartRef.current?.dispose();
+      } catch {
+        /* ignore */
+      }
       chartRef.current = null;
     };
-  }, [model, onPointClick]);
+  }, []);
 
   return (
     <div
       ref={ref}
-      style={{ height: model.height, width: '100%' }}
+      style={{ height: model.height, width: '100%', minHeight: 120 }}
       data-testid={`chart-${model.kind}`}
       role="img"
       aria-label={model.title || model.kind}

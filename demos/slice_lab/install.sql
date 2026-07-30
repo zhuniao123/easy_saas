@@ -67,12 +67,13 @@ VALUES (
   'rawSql'
 );
 
--- Revenue by day
+-- Revenue by day (deterministic — no random(), safer under concurrent chart loads)
 INSERT INTO lc_query_model (query_code, sql_text, query_mode)
 VALUES (
   'q_slice_rev_day',
   $sql$
-SELECT d::text AS day, (800 + (EXTRACT(DOW FROM d)::int * 170) + (random()*80)::int)::numeric AS amount
+SELECT d::date::text AS day,
+       (800 + (EXTRACT(DOW FROM d)::int * 170) + (EXTRACT(DAY FROM d)::int % 7) * 11)::numeric AS amount
 FROM generate_series(CURRENT_DATE - 6, CURRENT_DATE, '1 day'::interval) AS d
 ORDER BY d
 $sql$,
@@ -100,7 +101,7 @@ VALUES (
   'q_slice_trend',
   $sql$
 SELECT to_char(d, 'MM-DD') AS day,
-       (50 + EXTRACT(DOY FROM d)::int % 20 + (random()*10)::int)::numeric AS amount
+       (50 + EXTRACT(DOY FROM d)::int % 20 + (EXTRACT(DAY FROM d)::int % 5))::numeric AS amount
 FROM generate_series(CURRENT_DATE - 11, CURRENT_DATE, '1 day'::interval) AS d
 ORDER BY d
 $sql$,
@@ -372,8 +373,8 @@ VALUES (
   $js$
 export default {
   async onReady(ctx) {
+    // Avoid toast on every open (felt like "service hung" when multi-chart page loads).
     ctx.ui.log('info', 'slice lab controller ready', { page: ctx.pageCode, v: ctx.version });
-    ctx.ui.toast('Controller ready · ' + ctx.pageCode);
   },
   async onEvent(event, ctx) {
     if (event.type === 'rowClick' || event.type === 'itemClick') {
@@ -391,13 +392,9 @@ export default {
       ctx.ui.toast(event.type + ': ' + name + (value != null ? ' = ' + value : ''));
       ctx.ui.log('info', 'event', event);
     }
-    if (event.type === 'ready') {
-      ctx.ui.log('info', 'page ready event', event.payload);
-    }
   },
   async onError(err, ctx) {
     ctx.ui.log('error', 'controller error', err);
-    ctx.ui.toast('Controller error: ' + (err && err.message ? err.message : String(err)));
   },
   async onDispose(ctx) {
     ctx.ui.log('info', 'controller disposed', { page: ctx.pageCode });

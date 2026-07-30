@@ -1043,6 +1043,7 @@ export default function PageLoader({
   );
 
   // Load DataTable for registered non-grid components (charts/stat/text/probe with dataSource).
+  // Batch state updates once so multi-chart pages don't thrash ECharts with N re-renders.
   useEffect(() => {
     let cancelled = false;
     const independent = componentSpecs.filter((spec) =>
@@ -1054,26 +1055,12 @@ export default function PageLoader({
       const ds = spec.dataSource;
       const type = (spec.type || '').toLowerCase();
 
-      // text/probe without dataSource: ready with empty payload (static content from properties)
       if (!ds || (!ds.queryCode && ds.type !== 'static' && !(ds.options && (ds.options as { rows?: unknown }).rows))) {
         if (type === 'text' || type === 'probe') {
-          setSlotStates((prev) => ({
-            ...prev,
-            [code]: { status: 'ready', data: null, error: null },
-          }));
-          return;
+          return { code, status: 'ready' as const, data: null, error: null };
         }
-        setSlotStates((prev) => ({
-          ...prev,
-          [code]: { status: 'empty', data: null, error: null },
-        }));
-        return;
+        return { code, status: 'empty' as const, data: null, error: null };
       }
-
-      setSlotStates((prev) => ({
-        ...prev,
-        [code]: { status: 'loading', data: prev[code]?.data ?? null, error: null },
-      }));
 
       try {
         const table = await resolveDataSource({
@@ -1082,47 +1069,67 @@ export default function PageLoader({
           cacheKey: ds.cacheKey,
           params: {
             ...(ds.params || {}),
-            // share page filter context lightly for dashboard linkage
             ...Object.fromEntries(
               Object.entries(filterValues).filter(([, v]) => String(v || '').trim().length > 0),
             ),
           },
           options: ds.options,
         });
-        if (cancelled) return;
-        setSlotStates((prev) => ({
-          ...prev,
-          [code]: {
-            status: resolveComponentStatus({
-              hasDataPayload: true,
-              rowCount: table.rows?.length ?? 0,
-            }),
-            data: table,
-            error: null,
-          },
-        }));
+        return {
+          code,
+          status: resolveComponentStatus({
+            hasDataPayload: true,
+            rowCount: table.rows?.length ?? 0,
+          }),
+          data: table,
+          error: null as string | null,
+        };
       } catch (err) {
-        if (cancelled) return;
-        setSlotStates((prev) => ({
-          ...prev,
-          [code]: {
-            status: 'error',
-            data: null,
-            error: err instanceof Error ? err.message : 'Failed to load component data',
-          },
-        }));
+        return {
+          code,
+          status: 'error' as const,
+          data: null,
+          error: err instanceof Error ? err.message : 'Failed to load component data',
+        };
       }
     };
 
     const refreshMap: Record<string, () => void> = {};
+    const reloadAll = () => {
+      // optimistic loading flags
+      setSlotStates((prev) => {
+        const next = { ...prev };
+        for (const spec of independent) {
+          const code = spec.componentCode;
+          next[code] = { status: 'loading', data: prev[code]?.data ?? null, error: null };
+        }
+        return next;
+      });
+      void Promise.all(independent.map((spec) => loadOne(spec))).then((results) => {
+        if (cancelled) return;
+        setSlotStates((prev) => {
+          const next = { ...prev };
+          for (const r of results) {
+            next[r.code] = { status: r.status, data: r.data, error: r.error };
+          }
+          return next;
+        });
+      });
+    };
+
     for (const spec of independent) {
       refreshMap[spec.componentCode] = () => {
-        void loadOne(spec);
+        void loadOne(spec).then((r) => {
+          if (cancelled) return;
+          setSlotStates((prev) => ({
+            ...prev,
+            [r.code]: { status: r.status, data: r.data, error: r.error },
+          }));
+        });
       };
     }
     slotRefreshRef.current = refreshMap;
-
-    void Promise.all(independent.map((spec) => loadOne(spec)));
+    reloadAll();
     return () => {
       cancelled = true;
     };

@@ -3,7 +3,11 @@ import type { ChartKind } from '../../charts/types';
 import { getChartAdapter } from '../../charts/ChartAdapter';
 import { ChartShell } from './ChartViews';
 
-/** Shared renderer factory for registered chart component types. */
+/**
+ * Shared renderer factory for registered chart component types.
+ * NOTE: returned function is invoked as render(ctx), not mounted as <Component/>,
+ * so it must NOT use React hooks.
+ */
 export function createChartRenderer(kind: ChartKind) {
   return function renderChartComponent(ctx: ComponentRenderContext) {
     const adapter = getChartAdapter();

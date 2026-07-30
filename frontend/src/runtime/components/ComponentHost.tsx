@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ComponentEvent, ComponentHandle, ComponentSpec, ComponentStatus } from '../componentTypes';
 import {
   registerComponentHandle,
@@ -26,10 +26,23 @@ export default function ComponentHost({
   items: ComponentHostItem[];
   onEvent?: (event: ComponentEvent) => void;
 }) {
-  // Register / refresh handles when items change.
+  const itemsRef = useRef(items);
+
   useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const codesKey = items.map((i) => `${i.spec.componentCode}:${i.spec.type}`).join('|');
+  const statusKey = items.map((i) => `${i.spec.componentCode}:${i.status}:${i.error || ''}`).join('|');
+  const dataKey = items
+    .map((i) => `${i.spec.componentCode}:${i.data?.rows?.length ?? 'x'}:${i.data?.total ?? ''}`)
+    .join('|');
+
+  // Register handles when component slot identity changes (not every parent render).
+  useEffect(() => {
+    const snapshot = itemsRef.current;
     const codes: string[] = [];
-    for (const item of items) {
+    for (const item of snapshot) {
       const code = item.spec.componentCode;
       codes.push(code);
       const properties = item.properties || item.spec.properties || {};
@@ -37,13 +50,26 @@ export default function ComponentHost({
       const handle: ComponentHandle = {
         componentCode: code,
         type: item.spec.type,
-        getStatus: () => item.status,
-        refresh: () => item.handle?.refresh?.(),
-        getData: () => item.handle?.getData?.() ?? item.data ?? null,
-        getProperties: () => item.handle?.getProperties?.() ?? mutableProps,
+        getStatus: () => {
+          const live = itemsRef.current.find((x) => x.spec.componentCode === code);
+          return live?.status || 'loading';
+        },
+        refresh: () => {
+          const live = itemsRef.current.find((x) => x.spec.componentCode === code);
+          live?.handle?.refresh?.();
+        },
+        getData: () => {
+          const live = itemsRef.current.find((x) => x.spec.componentCode === code);
+          return live?.handle?.getData?.() ?? live?.data ?? null;
+        },
+        getProperties: () => {
+          const live = itemsRef.current.find((x) => x.spec.componentCode === code);
+          return live?.handle?.getProperties?.() ?? live?.properties ?? mutableProps;
+        },
         setProperties: (props) => {
           mutableProps = { ...mutableProps, ...props };
-          item.handle?.setProperties?.(mutableProps);
+          const live = itemsRef.current.find((x) => x.spec.componentCode === code);
+          live?.handle?.setProperties?.(mutableProps);
         },
       };
       registerComponentHandle(handle);
@@ -51,7 +77,7 @@ export default function ComponentHost({
     return () => {
       codes.forEach((code) => unregisterComponentHandle(code));
     };
-  }, [items]);
+  }, [codesKey]);
 
   const nodes = useMemo(
     () =>
@@ -85,7 +111,9 @@ export default function ComponentHost({
           </div>
         );
       }),
-    [items, onEvent],
+    // Fingerprints avoid thrashing when parent rebuilds item object identities.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [codesKey, statusKey, dataKey, onEvent, items],
   );
 
   return <div className="space-y-4" data-component-host="true">{nodes}</div>;
