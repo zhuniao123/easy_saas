@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type ActionConfig, type FilterConfig, type DrillDownRequest, resolveActionHandler } from './actionRegistry';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
@@ -25,6 +25,10 @@ import { resolveComponentStatus } from './runtime/componentTypes';
 import { registerBuiltinPageComponents } from './runtime/components/registerBuiltins';
 import ComponentHost, { type ComponentHostItem } from './runtime/components/ComponentHost';
 import type { SmartGridPageContext } from './runtime/components/SmartGrid';
+import {
+  mountPageController,
+  type PageControllerRuntime,
+} from './runtime/pageController';
 
 ensureDefaultDataSourceProviders();
 ensureDefaultPageComponents(registerBuiltinPageComponents);
@@ -162,6 +166,7 @@ export default function PageLoader({
   const [autocompleteLoading, setAutocompleteLoading] = useState<Record<string, boolean>>({});
   const [autocompleteActiveField, setAutocompleteActiveField] = useState<string | null>(null);
   const [autocompleteLabels, setAutocompleteLabels] = useState<Record<string, string>>({});
+  const controllerRef = useRef<PageControllerRuntime | null>(null);
 
   const pageDsl = useMemo(
     () => normalizePageDsl(config?.config, config?.title || pageCode, config?.queryCode),
@@ -235,6 +240,58 @@ export default function PageLoader({
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 2500);
   };
+
+  const emitControllerEvent = useCallback(
+    (type: string, componentCode?: string, payload?: Record<string, unknown>) => {
+      try {
+        controllerRef.current?.dispatch({ type, componentCode, payload });
+      } catch (err) {
+        console.error('[PageController] dispatch failed', err);
+      }
+    },
+    [],
+  );
+
+  // Mount published page controller when page DSL binds controller.scriptCode.
+  useEffect(() => {
+    let cancelled = false;
+    const scriptCode = pageDsl.controller?.enabled === false ? null : pageDsl.controller?.scriptCode;
+    if (!scriptCode || !config) {
+      void controllerRef.current?.dispose();
+      controllerRef.current = null;
+      return;
+    }
+
+    void (async () => {
+      await controllerRef.current?.dispose();
+      if (cancelled) return;
+      const runtime = await mountPageController({
+        pageCode,
+        scriptCode,
+        notify,
+        openPage: (next) => {
+          // Soft signal for shell integration; full SPA navigation is host-owned.
+          notify(`openPage: ${next}`);
+        },
+      });
+      if (cancelled) {
+        await runtime?.dispose();
+        return;
+      }
+      controllerRef.current = runtime;
+      if (runtime) {
+        runtime.dispatch({ type: 'ready', payload: { scriptCode, version: runtime.version } });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      void controllerRef.current?.dispose();
+      controllerRef.current = null;
+    };
+    // notify is intentionally not listed — remount only when controller binding or page changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageCode, pageDsl.controller?.scriptCode, pageDsl.controller?.enabled, config?.pageCode]);
 
   const normalizeRequestParams = (params: Record<string, string>) =>
     Object.fromEntries(Object.entries(params).map(([key, value]) => [key, value.trim() === '' ? null : value]));
@@ -991,6 +1048,9 @@ export default function PageLoader({
     // Keep panel subtitle as Smart Grid i18n label (not page presentation title).
     title: undefined,
     emptyState: pageDsl.presentation.emptyState,
+    componentCode: pageCode ? `${pageCode}__grid` : 'mainGrid',
+    onComponentEvent: (type, payload) =>
+      emitControllerEvent(type, pageCode ? `${pageCode}__grid` : 'mainGrid', payload),
     filters,
     filterValues,
     setFilterValues,
@@ -1369,7 +1429,10 @@ export default function PageLoader({
 
       {(!showConfigSidebar || showPreviewPanel) && (
       <section className="space-y-4">
-        <ComponentHost items={componentHostItems} />
+        <ComponentHost
+          items={componentHostItems}
+          onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
+        />
       </section>
       )}
 

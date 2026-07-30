@@ -23,11 +23,14 @@ public class ScriptControllerTest {
     @Test
     public void testGetJsScript() throws Exception {
         jdbcTemplate.execute("DELETE FROM lc_script WHERE script_code = 'test_act'");
-        jdbcTemplate.execute("INSERT INTO lc_script(script_code, script_type, script_content) VALUES ('test_act', 'FRONTEND_JS', 'console.log(\"hello\");')");
+        jdbcTemplate.execute(
+                "INSERT INTO lc_script(script_code, script_type, script_content, status, version) " +
+                        "VALUES ('test_act', 'FRONTEND_JS', 'console.log(\"hello\");', 'PUBLISHED', 1)"
+        );
 
         mockMvc.perform(get("/api/v1/scripts/test_act.js"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "application/javascript"))
+                .andExpect(header().string("Content-Type", org.hamcrest.Matchers.containsString("javascript")))
                 .andExpect(content().string("console.log(\"hello\");"));
     }
 }

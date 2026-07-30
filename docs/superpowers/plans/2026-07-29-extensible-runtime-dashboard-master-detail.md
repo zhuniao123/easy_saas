@@ -206,24 +206,32 @@ fca4aee feat: harden smart grid complex query boundaries
 
 ### Slice 4：JS Page Controller
 
+状态：**已完成并验收**（2026-07-30）
+
 工作项：
 
-- 实现发布版本的 ES Module 脚本加载。
-- 支持 `onInit/onReady/onEvent/onDispose/onError`。
-- 提供 state、components、query、action、endpoint、navigation、ui API。
-- 统一 `change/selectionChange/itemClick/rowClick/submit` 事件信封。
-- 页面卸载时清理订阅。
-- 脚本失败时隔离错误，不导致整页白屏。
-- 增加脚本 DRAFT/PUBLISHED/DISABLED 和版本字段。
+- [x] 实现发布版本的 ES Module 脚本加载（blob `import()` + `/api/v1/scripts/{code}/runtime`）。
+- [x] 支持 `onInit/onReady/onEvent/onDispose/onError`。
+- [x] 提供 state、components、query、action、endpoint（占位）、navigation、ui API。
+- [x] 统一事件信封（rowClick/itemClick 等）；ComponentHost 与 Smart Grid 转发。
+- [x] 页面卸载时 `onDispose` + 清理 runtime。
+- [x] 脚本失败隔离（hook try/catch，不白屏）。
+- [x] 脚本 `DRAFT/PUBLISHED/DISABLED` + `version` 字段；仅 PUBLISHED 可被运行态加载。
 
-验收：JS 能监听一个组件并刷新另一个组件，能调用 Query/Action，异常有日志。
+Page DSL：
 
-建议提交：
-
-```text
-feat: add versioned javascript page controllers
-feat: expose component handles and page event runtime
+```json
+"controller": { "scriptCode": "ctrl_demo", "enabled": true }
 ```
+
+验收：JS 能监听组件事件并刷新 handle、调用 Query/Action；异常有日志。
+
+**人工验证：** 绑定并 publish 一个 PAGE_CONTROLLER，确认 rowClick 不白屏、toast 可用。
+
+验证：
+
+- 后端：`mvn test`（含 PageControllerScriptTest）
+- 前端：`npm run lint` / `npm test -- --run` / `npm run build`
 
 ### Slice 5：Groovy ScriptRuntime 与动态端点
 
@@ -329,4 +337,5 @@ feat: add mrmf order and service line demo
 - Slice 1：**已完成**
 - Slice 2：**已完成**
 - Slice 3：**已完成**
-- 下一步：**Slice 4** — JS Page Controller
+- Slice 4：**已完成**
+- 下一步：**Slice 5** — Groovy ScriptRuntime 与动态端点

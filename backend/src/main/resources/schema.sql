@@ -70,8 +70,20 @@ CREATE TABLE IF NOT EXISTS lc_script (
     script_code        VARCHAR(100) PRIMARY KEY,
     script_type        VARCHAR(50) NOT NULL,
     script_content     TEXT NOT NULL,
-    created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    status             VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED',
+    version            INTEGER NOT NULL DEFAULT 1,
+    page_code          VARCHAR(100),
+    remark             VARCHAR(500),
+    created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+
+-- Slice 4: page controller governance (existing DBs)
+ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED';
+ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS page_code VARCHAR(100);
+ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS remark VARCHAR(500);
+ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now();
 
 CREATE TABLE IF NOT EXISTS lc_query_log (
     id                 BIGSERIAL PRIMARY KEY,

@@ -20,6 +20,9 @@ export interface SmartGridPageContext {
   locale?: string;
   title?: string;
   emptyState?: string;
+  componentCode?: string;
+  /** Emit standard component events to page controller (Slice 4). */
+  onComponentEvent?: (type: string, payload?: Record<string, unknown>) => void;
   filters: FilterConfig[];
   filterValues: Record<string, string>;
   setFilterValues: Dispatch<SetStateAction<Record<string, string>>>;
@@ -314,7 +317,12 @@ export function renderSmartGrid(ctx: ComponentRenderContext) {
                     <tr
                       key={index}
                       className="cursor-pointer transition hover:bg-cyan-50/50"
+                      onClick={() => {
+                        grid.onComponentEvent?.('rowClick', { row, index });
+                        grid.onComponentEvent?.('itemClick', { row, index });
+                      }}
                       onDoubleClick={() => {
+                        grid.onComponentEvent?.('rowDblClick', { row, index });
                         if (grid.isPageWritable && grid.features.edit) {
                           grid.openEdit(row);
                         }

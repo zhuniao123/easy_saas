@@ -65,7 +65,18 @@ public class AuthzInterceptor implements HandlerInterceptor {
                 || ("POST".equalsIgnoreCase(method) && path.equals("/api/v1/pages"))
                 || ("DELETE".equalsIgnoreCase(method) && path.matches("/api/v1/pages/[^/]+$"))
                 || ("PUT".equalsIgnoreCase(method) && path.matches("/api/v1/actions/[^/]+$"))
-                || path.startsWith("/api/v1/scripts")) {
+                || (path.startsWith("/api/v1/scripts")
+                    && !path.endsWith(".js")
+                    && !path.endsWith("/runtime")
+                    && !"GET".equalsIgnoreCase(method))) {
+            // Script admin mutations need config; published runtime GET is login-only (below).
+            return "perm:config";
+        }
+        if (path.startsWith("/api/v1/scripts") && "GET".equalsIgnoreCase(method)
+                && (path.endsWith(".js") || path.endsWith("/runtime"))) {
+            return null; // logged-in page runtime may load published controllers
+        }
+        if (path.startsWith("/api/v1/scripts") && "GET".equalsIgnoreCase(method)) {
             return "perm:config";
         }
 

@@ -51,6 +51,13 @@ export interface PageLoggingConfig {
   events?: ('click' | 'query' | 'create' | 'edit' | 'delete' | 'filter')[];
 }
 
+/** Slice 4: optional published page controller binding. */
+export interface PageControllerConfig {
+  scriptCode?: string;
+  /** When false, controller is not mounted even if scriptCode is set. Default true. */
+  enabled?: boolean;
+}
+
 export interface PageDslModel {
   i18n: {
     locale?: string;
@@ -68,6 +75,8 @@ export interface PageDslModel {
    * When omitted, runtime defaults to a single smartGrid bound to dataSource.queryCode.
    */
   components?: ComponentSpec[];
+  /** Optional JS page controller (published script only). */
+  controller?: PageControllerConfig;
   features: Required<PageFeatures>;
   logging?: PageLoggingConfig;
 }
@@ -339,6 +348,25 @@ export const normalizePageDsl = (
       actions: tableActions.length > 0 ? tableActions : legacyActions,
     },
     components: normalizeComponents(config.components),
+    controller: (() => {
+      const raw =
+        config.controller && typeof config.controller === 'object'
+          ? (config.controller as Record<string, unknown>)
+          : null;
+      if (!raw) {
+        // Legacy shortcut: controllerScriptCode at root
+        if (config.controllerScriptCode) {
+          return { scriptCode: String(config.controllerScriptCode), enabled: true };
+        }
+        return undefined;
+      }
+      const scriptCode = raw.scriptCode ? String(raw.scriptCode) : undefined;
+      if (!scriptCode) return undefined;
+      return {
+        scriptCode,
+        enabled: raw.enabled !== false,
+      };
+    })(),
     features: {
       pagination: features.pagination !== false,
       create: features.create === true,

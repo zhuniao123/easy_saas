@@ -71,3 +71,12 @@ export {
   renderProbeComponent,
 } from './components';
 export type { ComponentHostItem, SmartGridPageContext, SmartGridColumn } from './components';
+export {
+  mountPageController,
+  loadPageControllerModule,
+  toControllerEvent,
+  type PageControllerContext,
+  type PageControllerEvent,
+  type PageControllerModule,
+  type PageControllerRuntime,
+} from './pageController';
