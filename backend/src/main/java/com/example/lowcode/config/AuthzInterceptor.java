@@ -138,6 +138,15 @@ public class AuthzInterceptor implements HandlerInterceptor {
             return null;
         }
 
+        // Dynamic endpoints: invoke is login + optional perm_code (checked in service).
+        // Admin CRUD requires perm:config.
+        if (path.startsWith("/api/v1/dynamic")) {
+            if ("POST".equalsIgnoreCase(method) && path.matches("/api/v1/dynamic/[^/]+$")) {
+                return null;
+            }
+            return "perm:config";
+        }
+
         return null;
     }
 }

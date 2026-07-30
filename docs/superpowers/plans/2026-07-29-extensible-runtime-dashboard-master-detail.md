@@ -235,24 +235,25 @@ Page DSL：
 
 ### Slice 5：Groovy ScriptRuntime 与动态端点
 
+状态：**已完成并验收**（2026-07-30）
+
 工作项：
 
-- 将现有 Query Hook 迁入统一 ScriptRuntime。
-- 增加 `before/after query`、`before/after action` 和错误 Hook。
-- 增加脚本版本、编译校验、缓存失效和执行日志。
-- 定义受控 DynamicContext。
-- 新增统一入口 `POST /api/v1/dynamic/{endpointCode}`。
-- 增加请求/响应 Schema、权限码、事务模式、数据源和超时配置。
-- 明确单次动态端点事务只能使用一个数据源。
+- [x] 将现有 Query Hook 迁入统一 `ScriptRuntimeService`（`GroovyScriptService` 为门面）。
+- [x] `before/after query`、`before/after action`、`onError`（接口默认方法，兼容旧脚本）。
+- [x] 脚本版本缓存键 `code@version`、发布前编译校验、保存/发布/禁用失效、`lc_script_exec_log`。
+- [x] 受控 `DynamicContext`（query/action/require/log；无 ApplicationContext/密钥/文件系统）。
+- [x] `POST /api/v1/dynamic/{endpointCode}` + 管理 API（save/publish/disable/list/get）。
+- [x] `lc_dynamic_endpoint`：request/response schema、perm_code、tx_mode（NONE/READ_ONLY/REQUIRED）、timeout、status。
+- [x] 单数据源边界：本 Slice 仅平台库（`dataSourceCode` 空或 `default`）。
+- [x] 前端 `ctx.endpoint.call` 接入动态端点。
 
-验收：Groovy 可实现一个有权限、有事务、有输入输出校验的 MRFM 动态接口。
+验收：Groovy 可实现有 schema 校验与事务模式的动态接口（见 `DynamicEndpointTest`）。
 
-建议提交：
+验证：
 
-```text
-refactor: unify groovy script execution runtime
-feat: add governed dynamic groovy endpoints
-```
+- 后端：`mvn test`（含 DynamicEndpointTest）
+- 前端：`npm run lint` / `npm test -- --run` / `npm run build`
 
 ### Slice 6：SQL 驱动基础图表
 
@@ -338,4 +339,5 @@ feat: add mrmf order and service line demo
 - Slice 2：**已完成**
 - Slice 3：**已完成**
 - Slice 4：**已完成**
-- 下一步：**Slice 5** — Groovy ScriptRuntime 与动态端点
+- Slice 5：**已完成**
+- 下一步：**Slice 6** — SQL 驱动基础图表

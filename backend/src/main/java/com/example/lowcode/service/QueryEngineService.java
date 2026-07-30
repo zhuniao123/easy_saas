@@ -59,10 +59,20 @@ public class QueryEngineService {
         String groovyCode = (String) queryModel.get("groovy_script_code");
         String anchorEntity = (String) queryModel.get("anchor_entity");
 
-        IGroovyActionInterceptor interceptor = groovyScriptService.getInterceptor(groovyCode);
-        
-        if (interceptor != null) {
-            interceptor.beforeQuery(requestParams);
+        IGroovyActionInterceptor interceptor = null;
+        try {
+            interceptor = groovyScriptService.getInterceptor(groovyCode);
+            if (interceptor != null) {
+                interceptor.beforeQuery(requestParams);
+            }
+        } catch (Exception hookEx) {
+            if (interceptor != null) {
+                try {
+                    interceptor.onError("beforeQuery", hookEx,
+                            Map.of("queryCode", queryCode));
+                } catch (Exception ignored) { /* isolation */ }
+            }
+            throw hookEx instanceof RuntimeException re ? re : new IllegalStateException(hookEx.getMessage(), hookEx);
         }
 
         // Extract pagination and sorting parameters
@@ -180,6 +190,12 @@ public class QueryEngineService {
             success = true;
         } catch (Exception e) {
             errMsg = e.getMessage();
+            if (interceptor != null) {
+                try {
+                    interceptor.onError("query", e,
+                            Map.of("queryCode", queryCode));
+                } catch (Exception ignored) { /* isolation */ }
+            }
             throw e;
         } finally {
             long duration = System.currentTimeMillis() - start;
@@ -187,9 +203,17 @@ public class QueryEngineService {
         }
 
         if (interceptor != null && result != null) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> processedRows = interceptor.afterQuery((List<Map<String, Object>>) result.get("rows"));
-            result.put("rows", processedRows);
+            try {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> processedRows = interceptor.afterQuery((List<Map<String, Object>>) result.get("rows"));
+                result.put("rows", processedRows);
+            } catch (Exception hookEx) {
+                try {
+                    interceptor.onError("afterQuery", hookEx,
+                            Map.of("queryCode", queryCode));
+                } catch (Exception ignored) { /* isolation */ }
+                throw hookEx instanceof RuntimeException re ? re : new IllegalStateException(hookEx.getMessage(), hookEx);
+            }
         }
 
         return result;

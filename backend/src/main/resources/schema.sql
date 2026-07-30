@@ -85,6 +85,36 @@ ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS page_code VARCHAR(100);
 ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS remark VARCHAR(500);
 ALTER TABLE lc_script ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now();
 
+-- Slice 5: Groovy ScriptRuntime execution log + governed dynamic endpoints
+CREATE TABLE IF NOT EXISTS lc_script_exec_log (
+    id                 BIGSERIAL PRIMARY KEY,
+    script_code        VARCHAR(100),
+    endpoint_code      VARCHAR(100),
+    phase              VARCHAR(50) NOT NULL,
+    success            BOOLEAN NOT NULL,
+    duration_ms        INTEGER,
+    error_message      TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_lc_script_exec_log_created
+    ON lc_script_exec_log (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS lc_dynamic_endpoint (
+    endpoint_code          VARCHAR(100) PRIMARY KEY,
+    script_code            VARCHAR(100) NOT NULL,
+    perm_code              VARCHAR(200),
+    request_schema_json    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    response_schema_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
+    tx_mode                VARCHAR(20) NOT NULL DEFAULT 'REQUIRED',
+    data_source_code       VARCHAR(100),
+    timeout_ms             INTEGER NOT NULL DEFAULT 10000,
+    enabled                BOOLEAN NOT NULL DEFAULT true,
+    status                 VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    remark                 VARCHAR(500),
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS lc_query_log (
     id                 BIGSERIAL PRIMARY KEY,
     query_code         VARCHAR(100) NOT NULL,

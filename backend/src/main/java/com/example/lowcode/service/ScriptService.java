@@ -1,5 +1,6 @@
 package com.example.lowcode.service;
 
+import com.example.lowcode.script.ScriptRuntimeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -35,9 +36,11 @@ public class ScriptService {
     private static final Set<String> RUNTIME_TYPES = Set.of(TYPE_FRONTEND_JS, TYPE_PAGE_CONTROLLER);
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final ScriptRuntimeService scriptRuntimeService;
 
-    public ScriptService(NamedParameterJdbcTemplate jdbcTemplate) {
+    public ScriptService(NamedParameterJdbcTemplate jdbcTemplate, ScriptRuntimeService scriptRuntimeService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.scriptRuntimeService = scriptRuntimeService;
     }
 
     public List<Map<String, Object>> list(String typeFilter) {
@@ -231,11 +234,20 @@ public class ScriptService {
                 );
             }
         }
+        scriptRuntimeService.invalidate(scriptCode);
         return get(scriptCode, true);
     }
 
     public Map<String, Object> publish(String scriptCode) {
-        get(scriptCode, false);
+        Map<String, Object> existing = get(scriptCode, true);
+        // compile-check for backend groovy before publish
+        if (TYPE_BACKEND_GROOVY.equalsIgnoreCase(String.valueOf(existing.get("scriptType")))) {
+            String content = String.valueOf(existing.get("scriptContent"));
+            ScriptRuntimeService.CompileResult compile = scriptRuntimeService.compileCheck(content);
+            if (!compile.ok()) {
+                throw new IllegalArgumentException("Groovy compile failed: " + compile.error());
+            }
+        }
         jdbcTemplate.update(
                 """
                 UPDATE lc_script
@@ -246,6 +258,7 @@ public class ScriptService {
                 """,
                 Map.of("code", scriptCode)
         );
+        scriptRuntimeService.invalidate(scriptCode);
         return get(scriptCode, true);
     }
 
@@ -260,6 +273,7 @@ public class ScriptService {
                 """,
                 Map.of("code", scriptCode)
         );
+        scriptRuntimeService.invalidate(scriptCode);
         return get(scriptCode, false);
     }
 
@@ -271,6 +285,7 @@ public class ScriptService {
         if (n == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Script not found: " + scriptCode);
         }
+        scriptRuntimeService.invalidate(scriptCode);
     }
 
     private static Map<String, Object> rowMeta(java.sql.ResultSet rs) throws java.sql.SQLException {

@@ -347,10 +347,23 @@ export async function mountPageController(
       },
     },
     endpoint: {
-      call: async (endpointCode) => {
-        throw new Error(
-          `Dynamic endpoints are not implemented yet (Slice 5). Requested: ${endpointCode}`,
-        );
+      call: async (endpointCode, body = {}) => {
+        const res = await fetchImpl(`/api/v1/dynamic/${encodeURIComponent(endpointCode)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {}),
+        });
+        if (!res.ok) {
+          let message = `Dynamic endpoint failed (${res.status})`;
+          try {
+            const errBody = await res.json();
+            message = String(errBody.message || errBody.error || message);
+          } catch {
+            /* ignore */
+          }
+          throw new Error(message);
+        }
+        return res.json();
       },
     },
     navigation: {

@@ -1,5 +1,6 @@
 package com.example.lowcode.service;
 
+import com.example.lowcode.interceptor.IGroovyActionInterceptor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,8 @@ public class ActionService {
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
+    @Autowired
+    private GroovyScriptService groovyScriptService;
 
     public void saveAction(String actionCode, Map<String, Object> body) {
         String label = body.get("label") == null ? actionCode : String.valueOf(body.get("label"));
@@ -143,6 +146,23 @@ public class ActionService {
             timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
         }
 
+        String groovyScriptCode = stringOrNull(txConfig.get("groovyScriptCode"));
+        if (groovyScriptCode == null) {
+            groovyScriptCode = stringOrNull(definition.get("groovyScriptCode"));
+        }
+        IGroovyActionInterceptor interceptor = groovyScriptService.getInterceptor(groovyScriptCode);
+        if (interceptor != null) {
+            try {
+                interceptor.beforeAction(actionCode, boundParams);
+            } catch (Exception hookEx) {
+                try {
+                    interceptor.onError("beforeAction", hookEx,
+                            Map.of("actionCode", actionCode));
+                } catch (Exception ignored) { /* isolation */ }
+                throw hookEx instanceof RuntimeException re ? re : new IllegalStateException(hookEx.getMessage(), hookEx);
+            }
+        }
+
         long start = System.currentTimeMillis();
         boolean success = false;
         String errMsg = null;
@@ -185,6 +205,11 @@ public class ActionService {
             success = true;
         } catch (RuntimeException ex) {
             errMsg = ex.getMessage();
+            if (interceptor != null) {
+                try {
+                    interceptor.onError("action", ex, Map.of("actionCode", actionCode));
+                } catch (Exception ignored) { /* isolation */ }
+            }
             throw ex;
         } finally {
             long duration = System.currentTimeMillis() - start;
@@ -198,6 +223,17 @@ public class ActionService {
                 : "Action completed");
         response.put("refresh", txConfig.get("refresh") == null || Boolean.TRUE.equals(txConfig.get("refresh")));
         response.put("rowsAffected", rowsAffected);
+        if (interceptor != null) {
+            try {
+                response = interceptor.afterAction(actionCode, response);
+            } catch (Exception hookEx) {
+                try {
+                    interceptor.onError("afterAction", hookEx,
+                            Map.of("actionCode", actionCode));
+                } catch (Exception ignored) { /* isolation */ }
+                throw hookEx instanceof RuntimeException re ? re : new IllegalStateException(hookEx.getMessage(), hookEx);
+            }
+        }
         return response;
     }
 
