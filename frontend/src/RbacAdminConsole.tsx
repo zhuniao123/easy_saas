@@ -263,14 +263,14 @@ export default function RbacAdminConsole() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 py-8 lg:px-8">
-      <section className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(167,139,250,0.25),_transparent_28%),linear-gradient(160deg,rgba(15,23,42,0.95),rgba(2,6,23,0.96))] p-6 text-white shadow-[0_30px_90px_rgba(2,6,23,0.42)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.32em] text-violet-200">
+      <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(160deg,rgba(15,23,42,0.92),rgba(2,6,23,0.95))] p-7 text-white shadow-[0_16px_52px_rgba(2,6,23,0.28)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
               System · RBAC
             </div>
-            <h2 className="text-3xl font-semibold tracking-[-0.04em]">权限与用户管理</h2>
-            <p className="text-sm leading-7 text-slate-300">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em]">权限与用户管理</h2>
+            <p className="text-sm leading-8 text-slate-300">
               仅 <code className="text-violet-200">perm:config</code> / owner 可见。配置角色的页面权限、用户与角色绑定。
               数据范围隔离暂不启用。同步目录会发现新页面权限并赋给 owner，不会覆盖 clerk 已改矩阵。
             </p>

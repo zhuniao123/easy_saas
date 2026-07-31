@@ -1261,17 +1261,17 @@ export default function PageLoader({
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.16),_transparent_22%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))] p-6 text-white shadow-[0_30px_80px_rgba(2,6,23,0.38)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-100">
+      <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.96))] p-7 text-white shadow-[0_16px_48px_rgba(2,6,23,0.26)] lg:p-8">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200">
               {pageDsl.presentation.badge || t('page.sqlFirstWorkspace')}
             </div>
-            <div className="space-y-3">
-              <h1 className="text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
+            <div className="space-y-4">
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">
                 {pageDsl.presentation.title || config.title}
               </h1>
-              <p className="max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              <p className="max-w-2xl text-sm leading-8 text-slate-300 sm:text-base">
                 {pageDsl.presentation.description || t('page.runtimeDescription')}
               </p>
             </div>
@@ -1282,30 +1282,30 @@ export default function PageLoader({
               <button
                 type="button"
                 onClick={onOpenConfig}
-                className="rounded-full border border-amber-300/40 bg-amber-400 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.16em] text-slate-950 shadow-[0_0_24px_rgba(251,191,36,0.35)] transition hover:bg-amber-300"
+                className="rounded-full border border-amber-300/30 bg-amber-300 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 shadow-[0_0_16px_rgba(251,191,36,0.2)] transition hover:bg-amber-200"
               >
                 {t('app.openConfig')}
               </button>
             )}
             {mode === 'config' && (
-              <div className="rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+              <div className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-200">
                 {t('page.configMode')}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 text-left text-xs text-slate-200 sm:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <div className="grid grid-cols-2 gap-3.5 text-left text-xs text-slate-200 sm:grid-cols-4">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.rows')}</div>
                 <div className="mt-2 text-2xl font-semibold text-white">{total}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.columns')}</div>
                 <div className="mt-2 text-2xl font-semibold text-white">{runtimeColumns.length}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.filters')}</div>
                 <div className="mt-2 text-2xl font-semibold text-white">{filters.length}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{t('page.actions')}</div>
                 <div className="mt-2 text-2xl font-semibold text-white">{pageActions.length + rowActions.length}</div>
               </div>

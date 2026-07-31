@@ -143,22 +143,22 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-4 px-4 py-4 lg:px-6">
       {/* Compact header */}
-      <section className="shrink-0 rounded-2xl border border-white/10 bg-[linear-gradient(120deg,#0f172a,#020617)] px-5 py-4 text-white shadow-lg">
+      <section className="shrink-0 rounded-2xl border border-slate-200 bg-[linear-gradient(120deg,#f8fafc,#f1f5f9)] px-5 py-5 text-slate-900 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300">{t('app.factoryBadge')}</div>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight">{t('app.factoryTitle')}</h2>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-400">{t('app.factoryDescription')}</p>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">{t('app.factoryBadge')}</div>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{t('app.factoryTitle')}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{t('app.factoryDescription')}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">{t('app.pages')}</div>
-              <div className="text-xl font-semibold">{pages.length}</div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">{t('app.pages')}</div>
+              <div className="text-lg font-semibold text-slate-900">{pages.length}</div>
             </div>
             <button
               type="button"
               onClick={() => setShowCreate((v) => !v)}
-              className="rounded-full border border-cyan-400/40 bg-cyan-400/15 px-4 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/25"
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50"
             >
               {showCreate ? t('app.hideCreateForm') : t('app.showCreateForm')}
             </button>
@@ -746,7 +746,7 @@ function App() {
           )}
         </button>
 
-        <div className={`border-b py-7 transition-all duration-300 ${
+        <div className={`border-b py-4 transition-all duration-300 ${
           isThemeDark ? 'border-white/10' : 'border-slate-900/10'
         } ${
           isCollapsed ? 'px-4 flex justify-center' : 'px-7'
@@ -767,17 +767,17 @@ function App() {
             )}
           </div>
           {!isCollapsed && (
-            <p className={`mt-5 text-sm leading-7 ${s.textMuted}`}>
+            <p className={`mt-2 text-xs leading-5 line-clamp-2 ${s.textMuted}`}>
               {t('app.sidebarDescription')}
             </p>
           )}
           {!isCollapsed && authed && (
-            <div className={`mt-4 flex items-center justify-between gap-2 text-xs ${s.textMuted}`}>
+            <div className={`mt-3 flex items-center justify-between gap-2 text-xs ${s.textMuted}`}>
               <span className="truncate">{displayName || getProfile()?.loginName || 'user'}</span>
               {authEnabled && (
                 <button
                   type="button"
-                  className="rounded-full border border-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-white/10"
+                  className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] hover:bg-white/10"
                   onClick={async () => {
                     await logout();
                     setAuthed(false);
@@ -795,7 +795,7 @@ function App() {
 
         {/* Search positioning box */}
         {!isCollapsed && (
-          <div className="px-6 pt-5 pb-1">
+          <div className="px-6 pt-3 pb-1">
             <div className="relative flex items-center gap-2">
               <div className="relative flex-1">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -808,7 +808,7 @@ function App() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search pages..."
-                  className={`w-full rounded-xl border py-2 pl-9 pr-8 text-xs focus:outline-none transition-all ${s.inputSearch}`}
+                  className={`w-full rounded-xl border py-1.5 pl-9 pr-8 text-xs focus:outline-none transition-all ${s.inputSearch}`}
                 />
                 {searchQuery && (
                   <button
@@ -821,7 +821,7 @@ function App() {
               </div>
               <button
                 onClick={locateActiveItem}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition ${
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border transition ${
                   isThemeDark
                     ? 'border-white/10 bg-white/5 text-slate-400 hover:border-cyan-400/40 hover:text-white'
                     : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-teal-500/50 hover:text-teal-700'
@@ -837,7 +837,7 @@ function App() {
           </div>
         )}
 
-        <div className={`sidebar-scroll sidebar-scroll-auto-hide flex-1 overflow-y-auto py-4 transition-all duration-300 ${
+        <div className={`sidebar-scroll sidebar-scroll-auto-hide min-h-0 flex-1 overflow-y-auto py-3 transition-all duration-300 ${
           isCollapsed ? 'px-3' : 'px-6'
         }`}>
           {isCollapsed ? (
@@ -960,8 +960,8 @@ function App() {
               })}
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <div className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${s.textMuted}`}>{t('app.workspaceTabs')}</div>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   {showRbac && (
@@ -1033,7 +1033,7 @@ function App() {
                 Object.entries(groupedPages).map(([category, items]) => {
                   const isExpanded = expandedFolders[category] !== false;
                   return (
-                    <div key={category} className="space-y-2">
+                    <div key={category} className="space-y-1.5">
                       <button
                         onClick={() =>
                           setExpandedFolders((prev) => ({
@@ -1041,7 +1041,7 @@ function App() {
                             [category]: !isExpanded,
                           }))
                         }
-                        className={`flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-xs font-semibold transition ${
+                        className={`flex w-full items-center justify-between rounded-xl px-2 py-1 text-xs font-semibold transition ${
                           isThemeDark ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
                         }`}
                       >
@@ -1065,14 +1065,14 @@ function App() {
                       </button>
 
                       {isExpanded && (
-                        <div className={`ml-2 pl-3 border-l space-y-1.5 ${isThemeDark ? 'border-white/5' : 'border-slate-900/5'}`}>
+                        <div className={`ml-2 pl-3 border-l space-y-1 ${isThemeDark ? 'border-white/5' : 'border-slate-900/5'}`}>
                           {items.map((page) => {
                             const isActive = activeTabId?.startsWith(`${page.pageCode}-`);
                             return (
                               <div
                                 key={page.pageCode}
                                 id={`nav-item-${page.pageCode}`}
-                                className={`group relative flex items-center justify-between rounded-xl border px-3 py-2 transition-all duration-300 ${
+                                className={`group relative flex items-center justify-between rounded-xl border px-3 py-1.5 transition-all duration-300 ${
                                   isActive
                                     ? s.navItemActive
                                     : s.navItemInactive
@@ -1085,11 +1085,6 @@ function App() {
                                   <div className="truncate text-xs font-semibold">
                                     {page.title}
                                   </div>
-                                  <div className={`mt-0.5 truncate text-[10px] font-medium ${
-                                    isThemeDark ? 'text-slate-500' : 'text-slate-500/80'
-                                  }`}>
-                                    {page.routePath}
-                                  </div>
                                 </div>
 
                                 <div className="flex shrink-0 items-center gap-1">
@@ -1099,7 +1094,7 @@ function App() {
                                       e.stopPropagation();
                                       openTab(page.pageCode, page.title, 'runtime');
                                     }}
-                                    className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400 hover:text-slate-950"
+                                    className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400 hover:text-slate-950"
                                     title={t('app.launchRuntime')}
                                   >
                                     Run
@@ -1111,7 +1106,7 @@ function App() {
                                         e.stopPropagation();
                                         openTab(page.pageCode, page.title, 'config');
                                       }}
-                                      className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-100 hover:bg-amber-300 hover:text-slate-950"
+                                      className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-100 hover:bg-amber-300 hover:text-slate-950"
                                       title={t('app.openConfig')}
                                     >
                                       Config
@@ -1132,69 +1127,7 @@ function App() {
         </div>
 
         {/* Theme & Language Selectors */}
-        {!isCollapsed && (
-          <div className={`border-t px-6 py-4 space-y-3.5 transition-all ${isThemeDark ? 'border-white/10' : 'border-slate-900/10'}`}>
-            {/* Language Selector */}
-            <div className="space-y-1.5">
-              <label className={`text-[10px] font-bold uppercase tracking-[0.2em] block ${isThemeDark ? 'text-slate-500' : 'text-slate-500/80'}`}>
-                {t('locale.switch')}
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleLocaleChange('zh-CN')}
-                  className={`flex-1 rounded-xl border py-1 text-xs font-semibold transition ${
-                    locale === 'zh-CN'
-                      ? isThemeDark
-                        ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
-                        : 'border-teal-600 bg-teal-600/10 text-teal-800 shadow-[0_0_10px_rgba(20,110,120,0.1)]'
-                      : isThemeDark
-                        ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/15 hover:text-white'
-                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-900'
-                  }`}
-                >
-                  中文
-                </button>
-                <button
-                  onClick={() => handleLocaleChange('en-US')}
-                  className={`flex-1 rounded-xl border py-1 text-xs font-semibold transition ${
-                    locale === 'en-US'
-                      ? isThemeDark
-                        ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
-                        : 'border-teal-600 bg-teal-600/10 text-teal-800 shadow-[0_0_10px_rgba(20,110,120,0.1)]'
-                      : isThemeDark
-                        ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/15 hover:text-white'
-                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-900'
-                  }`}
-                >
-                  EN
-                </button>
-              </div>
-            </div>
-
-            {/* Theme Selector */}
-            <div className="space-y-1.5">
-              <label className={`text-[10px] font-bold uppercase tracking-[0.2em] block ${isThemeDark ? 'text-slate-500' : 'text-slate-500/80'}`}>
-                {t('theme.switch')}
-              </label>
-              <select
-                value={theme}
-                onChange={(e) => handleThemeChange(e.target.value as ThemeCode)}
-                className={`w-full rounded-xl border px-3 py-1.5 text-xs font-medium focus:outline-none transition-all cursor-pointer ${
-                  isThemeDark
-                    ? 'border-white/10 bg-slate-900 text-slate-300 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/30'
-                    : 'border-slate-200 bg-white text-slate-800 focus:border-teal-600/40 focus:ring-1 focus:ring-teal-600/30'
-                }`}
-              >
-                <option value="ocean-dark">{t('theme.ocean-dark')}</option>
-                <option value="cyberpunk">{t('theme.cyberpunk')}</option>
-                <option value="solarized">{t('theme.solarized')}</option>
-                <option value="emerald">{t('theme.emerald')}</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        <div className={`border-t py-5 transition-all duration-300 ${
+        <div className={`border-t py-3 transition-all duration-300 ${
           isThemeDark ? 'border-white/10' : 'border-slate-900/10'
         } ${
           isCollapsed ? 'px-4 flex justify-center' : 'px-6'
@@ -1205,13 +1138,66 @@ function App() {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </div>
           ) : (
-            <div className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-xs ${
-              isThemeDark
-                ? 'border-emerald-400/20 bg-emerald-400/10'
-                : 'border-emerald-500/20 bg-emerald-50/50'
-            }`}>
-              <span className={`font-semibold uppercase tracking-[0.22em] ${isThemeDark ? 'text-emerald-200' : 'text-emerald-800'}`}>Engine state</span>
-              <span className={`rounded-full px-2 py-1 font-semibold ${isThemeDark ? 'bg-emerald-300/20 text-emerald-100' : 'bg-emerald-100 text-emerald-800'}`}>Connected</span>
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => handleLocaleChange('zh-CN')}
+                    className={`flex-1 rounded-lg border py-1 text-[11px] font-semibold transition ${
+                      locale === 'zh-CN'
+                        ? isThemeDark
+                          ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200'
+                          : 'border-teal-600 bg-teal-600/10 text-teal-800'
+                        : isThemeDark
+                          ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/15 hover:text-white'
+                          : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                    title={t('locale.switch')}
+                  >
+                    中
+                  </button>
+                  <button
+                    onClick={() => handleLocaleChange('en-US')}
+                    className={`flex-1 rounded-lg border py-1 text-[11px] font-semibold transition ${
+                      locale === 'en-US'
+                        ? isThemeDark
+                          ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200'
+                          : 'border-teal-600 bg-teal-600/10 text-teal-800'
+                        : isThemeDark
+                          ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/15 hover:text-white'
+                          : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                    title={t('locale.switch')}
+                  >
+                    EN
+                  </button>
+                </div>
+
+                <select
+                  value={theme}
+                  onChange={(e) => handleThemeChange(e.target.value as ThemeCode)}
+                  className={`w-full rounded-lg border px-2 py-1 text-[11px] font-medium focus:outline-none transition-all cursor-pointer ${
+                    isThemeDark
+                      ? 'border-white/10 bg-slate-900 text-slate-300 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/30'
+                      : 'border-slate-200 bg-white text-slate-800 focus:border-teal-600/40 focus:ring-1 focus:ring-teal-600/30'
+                  }`}
+                  title={t('theme.switch')}
+                >
+                  <option value="ocean-dark">{t('theme.ocean-dark')}</option>
+                  <option value="cyberpunk">{t('theme.cyberpunk')}</option>
+                  <option value="solarized">{t('theme.solarized')}</option>
+                  <option value="emerald">{t('theme.emerald')}</option>
+                </select>
+              </div>
+
+              <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-[11px] ${
+                isThemeDark
+                  ? 'border-emerald-400/20 bg-emerald-400/10'
+                  : 'border-emerald-500/20 bg-emerald-50/50'
+              }`}>
+                <span className={`font-semibold uppercase tracking-[0.15em] ${isThemeDark ? 'text-emerald-200' : 'text-emerald-800'}`}>Engine</span>
+                <span className={`rounded-full px-2 py-0.5 font-semibold ${isThemeDark ? 'bg-emerald-300/20 text-emerald-100' : 'bg-emerald-100 text-emerald-800'}`}>Connected</span>
+              </div>
             </div>
           )}
         </div>
@@ -1302,31 +1288,49 @@ function App() {
             )
           ) : (
             <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-              <section className="overflow-hidden rounded-[36px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.28),_transparent_24%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.18),_transparent_20%),linear-gradient(150deg,#020617,#0f172a_48%,#111827)] p-8 text-white shadow-[0_40px_120px_rgba(2,6,23,0.36)] md:p-10">
-                <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-                  <div className="space-y-6">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.32em] text-cyan-100">
+              <section className={`overflow-hidden rounded-[36px] border p-9 md:p-11 shadow-sm ${
+                isThemeDark
+                  ? 'border-white/10 bg-[linear-gradient(155deg,#0b1220,#111827)] text-white'
+                  : 'border-slate-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] text-slate-900'
+              }`}>
+                <div className="grid gap-10 xl:grid-cols-[1.2fr_0.8fr]">
+                  <div className="space-y-7">
+                    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${
+                      isThemeDark
+                        ? 'border-white/20 bg-white/5 text-slate-200'
+                        : 'border-slate-300 bg-slate-100 text-slate-600'
+                    }`}>
                       {t('app.stageOneShowcase')}
                     </div>
-                    <div className="space-y-4">
-                      <h1 className="max-w-4xl text-5xl font-semibold tracking-[-0.06em] text-white md:text-6xl">
+                    <div className="space-y-5">
+                      <h1 className={`max-w-4xl text-4xl font-semibold tracking-[-0.03em] md:text-5xl ${
+                        isThemeDark ? 'text-white' : 'text-slate-900'
+                      }`}>
                         {t('app.heroTitle')}
                       </h1>
-                      <p className="max-w-2xl text-base leading-8 text-slate-300">
+                      <p className={`max-w-2xl text-base leading-8 ${isThemeDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {t('app.heroDescription')}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={() => openTab('sys-page-manager', 'Factory', 'manager')}
-                        className={`rounded-full px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] transition ${s.btnAccent}`}
+                        className={`rounded-full border px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] transition ${
+                          isThemeDark
+                            ? 'border-white/20 bg-white/10 text-white hover:bg-white/15'
+                            : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
+                        }`}
                       >
                         {t('app.openPageFactory')}
                       </button>
                       {pages[0] && (
                         <button
                           onClick={() => openTab(pages[0].pageCode, pages[0].title, 'runtime')}
-                          className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:border-cyan-300/40 hover:bg-white/20"
+                          className={`rounded-full border px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] transition ${
+                            isThemeDark
+                              ? 'border-white/20 bg-transparent text-slate-200 hover:bg-white/10'
+                              : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-white'
+                          }`}
                         >
                           {t('app.launchFirstRuntime')}
                         </button>
@@ -1336,17 +1340,23 @@ function App() {
 
                   <div className="grid gap-4">
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{t('app.pages')}</div>
-                        <div className="mt-2 text-3xl font-semibold text-white">{pages.length}</div>
+                      <div className={`rounded-[24px] border p-4 ${
+                        isThemeDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'
+                      }`}>
+                        <div className={`text-[11px] uppercase tracking-[0.2em] ${isThemeDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('app.pages')}</div>
+                        <div className={`mt-2 text-2xl font-semibold ${isThemeDark ? 'text-white' : 'text-slate-900'}`}>{pages.length}</div>
                       </div>
-                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{t('app.openTabs')}</div>
-                        <div className="mt-2 text-3xl font-semibold text-white">{tabs.length}</div>
+                      <div className={`rounded-[24px] border p-4 ${
+                        isThemeDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'
+                      }`}>
+                        <div className={`text-[11px] uppercase tracking-[0.2em] ${isThemeDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('app.openTabs')}</div>
+                        <div className={`mt-2 text-2xl font-semibold ${isThemeDark ? 'text-white' : 'text-slate-900'}`}>{tabs.length}</div>
                       </div>
-                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{t('app.theme')}</div>
-                        <div className="mt-2 text-sm font-semibold text-amber-200">{t('theme.' + theme)}</div>
+                      <div className={`rounded-[24px] border p-4 ${
+                        isThemeDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'
+                      }`}>
+                        <div className={`text-[11px] uppercase tracking-[0.2em] ${isThemeDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('app.theme')}</div>
+                        <div className={`mt-2 text-sm font-semibold ${isThemeDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('theme.' + theme)}</div>
                       </div>
                     </div>
                   </div>
