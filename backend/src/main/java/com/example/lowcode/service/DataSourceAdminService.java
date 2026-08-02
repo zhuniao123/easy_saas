@@ -18,6 +18,8 @@ public class DataSourceAdminService {
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
     private DataSourceCryptoService cryptoService;
+    @Autowired
+    private JdbcDataSourceRegistry jdbcDataSourceRegistry;
 
     @Value("${spring.datasource.url:}")
     private String platformUrl;
@@ -176,6 +178,7 @@ public class DataSourceAdminService {
                 """,
                 p
         );
+        jdbcDataSourceRegistry.invalidate(dsCode);
         return get(dsCode);
     }
 
@@ -196,6 +199,7 @@ public class DataSourceAdminService {
         jdbcTemplate.update("UPDATE lc_page_model SET data_source_code = NULL WHERE data_source_code = :code", p);
         jdbcTemplate.update("UPDATE lc_query_model SET data_source_code = NULL WHERE data_source_code = :code", p);
         jdbcTemplate.update("DELETE FROM lc_data_source WHERE ds_code = :code", p);
+        jdbcDataSourceRegistry.invalidate(dsCode);
     }
 
     public Map<String, Object> testConnection(String dsCode, Map<String, Object> body) {

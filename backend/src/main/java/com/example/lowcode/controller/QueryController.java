@@ -16,7 +16,11 @@ public class QueryController {
     public Map<String, Object> execute(@PathVariable String queryCode, @RequestBody Map<String, Object> requestBody) {
         Map<String, Object> params = (Map<String, Object>) requestBody.get("params");
         List<Map<String, Object>> filters = (List<Map<String, Object>>) requestBody.get("filters");
-        return queryEngineService.executeSql(queryCode, params, filters);
+        String pageCode = requestBody.get("pageCode") == null ? null : String.valueOf(requestBody.get("pageCode"));
+        if (pageCode != null && (pageCode.isBlank() || "null".equalsIgnoreCase(pageCode))) {
+            pageCode = null;
+        }
+        return queryEngineService.executeSql(queryCode, params, filters, pageCode);
     }
 
     @GetMapping("/{queryCode}")

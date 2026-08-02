@@ -29,15 +29,23 @@ public class SqlDataSourceProvider implements DataSourceProvider {
             throw new IllegalArgumentException("sql data source requires queryCode");
         }
         Map<String, Object> params = new HashMap<>(spec.getParams());
+        Object pageCodeObj = spec.getOptions().get("pageCode");
+        String pageCode = pageCodeObj == null || String.valueOf(pageCodeObj).isBlank()
+                ? null
+                : String.valueOf(pageCodeObj);
         Map<String, Object> raw = queryEngineService.executeSql(
                 spec.getQueryCode(),
                 params,
-                spec.filters()
+                spec.filters(),
+                pageCode
         );
         DataTable table = DataTable.fromMap(raw);
         Map<String, Object> meta = new HashMap<>(table.getMetadata());
         meta.put("provider", "sql");
         meta.put("queryCode", spec.getQueryCode());
+        if (raw.get("dataSourceCode") != null) {
+            meta.put("dataSourceCode", raw.get("dataSourceCode"));
+        }
         return table.withMetadata(meta);
     }
 }

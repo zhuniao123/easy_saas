@@ -10,6 +10,7 @@ interface SqlAssetSummary {
   actionRefCount?: number;
   kind?: string;
   tryRunAllowed?: boolean;
+  dataSourceCode?: string | null;
 }
 
 interface SqlAssetDetail {
@@ -22,8 +23,16 @@ interface SqlAssetDetail {
   paramNames?: string[];
   kind?: string;
   tryRunAllowed?: boolean;
+  dataSourceCode?: string | null;
   pageRefs?: Array<{ pageCode: string; title: string; routePath: string }>;
   actionRefs?: Array<{ actionCode: string; label: string; actionType: string }>;
+}
+
+interface DsOption {
+  dsCode: string;
+  name: string;
+  enabled?: boolean;
+  platform?: boolean;
 }
 
 interface TryResult {
@@ -44,6 +53,8 @@ export default function SqlRepoConsole() {
   const [countSqlText, setCountSqlText] = useState('');
   const [queryMode, setQueryMode] = useState('rawSql');
   const [anchorEntity, setAnchorEntity] = useState('');
+  const [dataSourceCode, setDataSourceCode] = useState('');
+  const [dataSources, setDataSources] = useState<DsOption[]>([]);
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const [tryResult, setTryResult] = useState<TryResult | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -80,6 +91,13 @@ export default function SqlRepoConsole() {
     setAssets(data || []);
   }, []);
 
+  const loadDataSources = useCallback(async () => {
+    const res = await fetch('/api/v1/admin/data-sources');
+    if (!res.ok) return;
+    const data = (await res.json()) as DsOption[];
+    setDataSources(Array.isArray(data) ? data : []);
+  }, []);
+
   const loadAsset = useCallback(async (code: string) => {
     setLoading(true);
     setError(null);
@@ -94,6 +112,7 @@ export default function SqlRepoConsole() {
       setCountSqlText(data.countSqlText || '');
       setQueryMode(data.queryMode || 'rawSql');
       setAnchorEntity(data.anchorEntity || '');
+      setDataSourceCode(data.dataSourceCode || '');
       const nextParams: Record<string, string> = {};
       (data.paramNames || []).forEach((name) => {
         nextParams[name] = '';
@@ -109,8 +128,9 @@ export default function SqlRepoConsole() {
   useEffect(() => {
     queueMicrotask(() => {
       void loadList().catch((e) => setError(e instanceof Error ? e.message : 'Load failed'));
+      void loadDataSources();
     });
-  }, [loadList]);
+  }, [loadList, loadDataSources]);
 
   const handleSave = async () => {
     if (!selectedCode) return;
@@ -125,6 +145,7 @@ export default function SqlRepoConsole() {
           countSqlText,
           queryMode,
           anchorEntity: anchorEntity || null,
+          dataSourceCode: dataSourceCode.trim() || null,
           paramsJson: '[]',
         }),
       });
@@ -321,7 +342,7 @@ export default function SqlRepoConsole() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
                   <label className="block space-y-1 text-sm">
                     <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">queryMode</span>
                     <select
@@ -342,6 +363,30 @@ export default function SqlRepoConsole() {
                       placeholder="optional entity_code"
                       className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     />
+                  </label>
+                  <label className="block space-y-1 text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      dataSourceCode
+                    </span>
+                    <select
+                      value={dataSourceCode}
+                      onChange={(e) => setDataSourceCode(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    >
+                      <option value="">default（平台库）</option>
+                      {dataSources
+                        .filter((d) => d.dsCode !== 'default')
+                        .map((d) => (
+                          <option key={d.dsCode} value={d.dsCode} disabled={d.enabled === false}>
+                            {d.dsCode}
+                            {d.name ? ` · ${d.name}` : ''}
+                            {d.enabled === false ? ' (disabled)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <span className="text-[11px] text-slate-500">
+                      解析：page.data_source_code &gt; query 绑定 &gt; default
+                    </span>
                   </label>
                 </div>
 

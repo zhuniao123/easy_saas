@@ -124,6 +124,8 @@ CREATE TABLE IF NOT EXISTS lc_query_log (
     error_message      TEXT,
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+-- 1.6 multi-ds: which business pool served the query (nullable = legacy)
+ALTER TABLE lc_query_log ADD COLUMN IF NOT EXISTS ds_code VARCHAR(100);
 
 -- Phase C: reusable SQL transaction actions (execution catalog)
 CREATE TABLE IF NOT EXISTS lc_action (
@@ -146,6 +148,7 @@ CREATE TABLE IF NOT EXISTS lc_action_log (
     duration_ms        INTEGER,
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+ALTER TABLE lc_action_log ADD COLUMN IF NOT EXISTS ds_code VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_lc_action_log_action_created
     ON lc_action_log (action_code, created_at DESC);
 

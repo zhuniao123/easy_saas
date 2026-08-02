@@ -65,11 +65,12 @@ async function resolveSqlViaApi(spec: DataSourceSpec): Promise<DataTable> {
   const params = { ...(spec.params || {}) };
   const filters = Array.isArray(spec.options?.filters) ? spec.options!.filters : [];
 
+  const options: Record<string, unknown> = { ...(spec.options || {}), filters };
   const resolveBody = {
     type: 'sql',
     queryCode,
     params,
-    options: { ...(spec.options || {}), filters },
+    options,
   };
 
   const resolved = await tryResolveEndpoint(resolveBody);
@@ -77,10 +78,16 @@ async function resolveSqlViaApi(spec: DataSourceSpec): Promise<DataTable> {
     return resolved;
   }
 
+  const pageCodeRaw = options.pageCode;
+  const pageCode =
+    typeof pageCodeRaw === 'string' && pageCodeRaw.trim()
+      ? pageCodeRaw.trim()
+      : undefined;
+
   const legacy = await fetch(`/api/v1/queries/${encodeURIComponent(queryCode)}/execute`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ params, filters }),
+    body: JSON.stringify({ params, filters, pageCode }),
   });
   if (!legacy.ok) {
     throw new Error(await readErrorMessage(legacy, 'Query execution failed'));
@@ -206,12 +213,16 @@ export function buildSqlDataSourceSpec(
   queryCode: string,
   params: Record<string, unknown>,
   filters: unknown[],
+  pageCode?: string,
 ): DataSourceSpec {
   return {
     type: 'sql',
     queryCode,
     params,
-    options: { filters },
+    options: {
+      filters,
+      ...(pageCode ? { pageCode } : {}),
+    },
   };
 }
 

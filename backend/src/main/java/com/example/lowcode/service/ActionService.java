@@ -36,6 +36,8 @@ public class ActionService {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
+    private JdbcDataSourceRegistry jdbcDataSourceRegistry;
+    @Autowired
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
@@ -163,12 +165,17 @@ public class ActionService {
             }
         }
 
+        // Resolve business DS: page override > first sqlAsset query ds > default.
+        // Metadata (lc_action / assets) always platform; all statements in one action share one DS (no cross-ds TX).
+        String dsCode = resolveActionDsCode(pageCode, statements);
+        NamedParameterJdbcTemplate bizJdbc = jdbcDataSourceRegistry.getTemplate(dsCode);
+
         long start = System.currentTimeMillis();
         boolean success = false;
         String errMsg = null;
         List<Integer> rowsAffected = new ArrayList<>();
         try {
-            rowsAffected = jdbcTemplate.getJdbcOperations().execute((ConnectionCallback<List<Integer>>) connection -> {
+            rowsAffected = bizJdbc.getJdbcOperations().execute((ConnectionCallback<List<Integer>>) connection -> {
                 boolean previousAutoCommit = connection.getAutoCommit();
                 connection.setAutoCommit(false);
                 List<Integer> affected = new ArrayList<>();
@@ -213,7 +220,7 @@ public class ActionService {
             throw ex;
         } finally {
             long duration = System.currentTimeMillis() - start;
-            writeLog(actionCode, pageCode, boundParams, success, errMsg, (int) duration);
+            writeLog(actionCode, pageCode, dsCode, boundParams, success, errMsg, (int) duration);
         }
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -223,6 +230,7 @@ public class ActionService {
                 : "Action completed");
         response.put("refresh", txConfig.get("refresh") == null || Boolean.TRUE.equals(txConfig.get("refresh")));
         response.put("rowsAffected", rowsAffected);
+        response.put("dataSourceCode", dsCode);
         if (interceptor != null) {
             try {
                 response = interceptor.afterAction(actionCode, response);
@@ -561,6 +569,7 @@ public class ActionService {
     private void writeLog(
             String actionCode,
             String pageCode,
+            String dsCode,
             Map<String, Object> params,
             boolean success,
             String errMsg,
@@ -571,20 +580,59 @@ public class ActionService {
             Map<String, Object> logParams = new HashMap<>();
             logParams.put("actionCode", actionCode);
             logParams.put("pageCode", pageCode);
+            logParams.put("dsCode", dsCode);
             logParams.put("paramsJson", paramsJson);
             logParams.put("success", success);
             logParams.put("errMsg", errMsg);
             logParams.put("duration", durationMs);
-            jdbcTemplate.update(
-                    """
-                    INSERT INTO lc_action_log(action_code, page_code, params_json, success, error_message, duration_ms)
-                    VALUES (:actionCode, :pageCode, :paramsJson::jsonb, :success, :errMsg, :duration)
-                    """,
-                    logParams
-            );
+            try {
+                jdbcTemplate.update(
+                        """
+                        INSERT INTO lc_action_log(action_code, page_code, ds_code, params_json, success, error_message, duration_ms)
+                        VALUES (:actionCode, :pageCode, :dsCode, :paramsJson::jsonb, :success, :errMsg, :duration)
+                        """,
+                        logParams
+                );
+            } catch (Exception fallback) {
+                jdbcTemplate.update(
+                        """
+                        INSERT INTO lc_action_log(action_code, page_code, params_json, success, error_message, duration_ms)
+                        VALUES (:actionCode, :pageCode, :paramsJson::jsonb, :success, :errMsg, :duration)
+                        """,
+                        logParams
+                );
+            }
         } catch (Exception ignore) {
             // logging must not break primary flow after commit; before commit failure still rethrows
         }
+    }
+
+    private String resolveActionDsCode(String pageCode, List<Map<String, Object>> statements) {
+        if (pageCode != null && !pageCode.isBlank()) {
+            try {
+                List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                        "SELECT query_code FROM lc_page_model WHERE page_code = :code",
+                        Map.of("code", pageCode)
+                );
+                String queryCode = null;
+                if (!rows.isEmpty() && rows.get(0).get("query_code") != null) {
+                    queryCode = String.valueOf(rows.get(0).get("query_code"));
+                }
+                return jdbcDataSourceRegistry.resolveDsCode(pageCode, queryCode);
+            } catch (Exception ignore) {
+                /* fall through to assets */
+            }
+        }
+        for (Map<String, Object> statementDef : statements) {
+            String assetCode = stringOrNull(statementDef.get("sqlAssetCode"));
+            if (assetCode == null || assetCode.isBlank()) {
+                assetCode = stringOrNull(statementDef.get("sql_asset_code"));
+            }
+            if (assetCode != null && !assetCode.isBlank()) {
+                return jdbcDataSourceRegistry.resolveDsCode(null, assetCode);
+            }
+        }
+        return JdbcDataSourceRegistry.DEFAULT_DS;
     }
 
     private String stringOrNull(Object value) {

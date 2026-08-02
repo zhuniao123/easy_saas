@@ -32,6 +32,8 @@ public class SqlRepoService {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
+    private JdbcDataSourceRegistry jdbcDataSourceRegistry;
+    @Autowired
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
@@ -46,6 +48,7 @@ public class SqlRepoService {
                        LEFT(sql_text, 160) AS "sqlPreview",
                        LENGTH(sql_text) AS "sqlLength",
                        COALESCE(params_json::text, '[]') AS "paramsJson",
+                       data_source_code AS "dataSourceCode",
                        (SELECT COUNT(*) FROM lc_page_model p WHERE p.query_code = q.query_code) AS "pageRefCount"
                 FROM lc_query_model q
                 ORDER BY query_code
@@ -62,6 +65,7 @@ public class SqlRepoService {
                     map.put("sqlPreview", rs.getString("sqlPreview"));
                     map.put("sqlLength", rs.getInt("sqlLength"));
                     map.put("paramsJson", rs.getString("paramsJson"));
+                    map.put("dataSourceCode", rs.getString("dataSourceCode"));
                     map.put("pageRefCount", rs.getInt("pageRefCount"));
                     map.put("actionRefCount", countActionRefs(code));
                     map.put("kind", inferAssetKind(queryMode, sqlText));
@@ -95,7 +99,8 @@ public class SqlRepoService {
                        count_sql_text AS "countSqlText",
                        COALESCE(query_mode, 'rawSql') AS "queryMode",
                        COALESCE(params_json::text, '[]') AS "paramsJson",
-                       timeout_ms AS "timeoutMs"
+                       timeout_ms AS "timeoutMs",
+                       data_source_code AS "dataSourceCode"
                 FROM lc_query_model
                 WHERE query_code = :queryCode
                 """,
@@ -111,6 +116,7 @@ public class SqlRepoService {
                     map.put("queryMode", queryMode);
                     map.put("paramsJson", rs.getString("paramsJson"));
                     map.put("timeoutMs", rs.getObject("timeoutMs"));
+                    map.put("dataSourceCode", rs.getString("dataSourceCode"));
                     map.put("kind", inferAssetKind(queryMode, sqlText));
                     map.put("tryRunAllowed", isSelectLike(sqlText));
                     map.put("paramNames", extractParamNames(sqlText));
@@ -189,6 +195,24 @@ public class SqlRepoService {
             throw new IllegalArgumentException("paramsJson must be a JSON array");
         }
 
+        String dataSourceCode = null;
+        if (body.containsKey("dataSourceCode")) {
+            Object rawDs = body.get("dataSourceCode");
+            if (rawDs != null && !String.valueOf(rawDs).isBlank() && !"null".equalsIgnoreCase(String.valueOf(rawDs))) {
+                dataSourceCode = String.valueOf(rawDs).trim();
+                if (!JdbcDataSourceRegistry.DEFAULT_DS.equalsIgnoreCase(dataSourceCode)) {
+                    Integer n = jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM lc_data_source WHERE ds_code = :code",
+                            Map.of("code", dataSourceCode),
+                            Integer.class
+                    );
+                    if (n == null || n == 0) {
+                        throw new IllegalArgumentException("Unknown data source: " + dataSourceCode);
+                    }
+                }
+            }
+        }
+
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         params.put("sqlText", sqlText);
@@ -196,6 +220,7 @@ public class SqlRepoService {
         params.put("queryMode", queryMode);
         params.put("anchorEntity", anchorEntity);
         params.put("paramsJson", paramsJson);
+        params.put("dataSourceCode", dataSourceCode);
 
         Integer exists = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM lc_query_model WHERE query_code = :queryCode",
@@ -203,23 +228,39 @@ public class SqlRepoService {
                 Integer.class
         );
         if (exists != null && exists > 0) {
-            jdbcTemplate.update(
-                    """
-                    UPDATE lc_query_model
-                    SET sql_text = :sqlText,
-                        query_mode = :queryMode,
-                        count_sql_text = :countSqlText,
-                        anchor_entity = :anchorEntity,
-                        params_json = :paramsJson::jsonb
-                    WHERE query_code = :queryCode
-                    """,
-                    params
-            );
+            if (body.containsKey("dataSourceCode")) {
+                jdbcTemplate.update(
+                        """
+                        UPDATE lc_query_model
+                        SET sql_text = :sqlText,
+                            query_mode = :queryMode,
+                            count_sql_text = :countSqlText,
+                            anchor_entity = :anchorEntity,
+                            params_json = :paramsJson::jsonb,
+                            data_source_code = :dataSourceCode
+                        WHERE query_code = :queryCode
+                        """,
+                        params
+                );
+            } else {
+                jdbcTemplate.update(
+                        """
+                        UPDATE lc_query_model
+                        SET sql_text = :sqlText,
+                            query_mode = :queryMode,
+                            count_sql_text = :countSqlText,
+                            anchor_entity = :anchorEntity,
+                            params_json = :paramsJson::jsonb
+                        WHERE query_code = :queryCode
+                        """,
+                        params
+                );
+            }
         } else {
             jdbcTemplate.update(
                     """
-                    INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, count_sql_text, query_mode, params_json)
-                    VALUES (:queryCode, :anchorEntity, :sqlText, :countSqlText, :queryMode, :paramsJson::jsonb)
+                    INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, count_sql_text, query_mode, params_json, data_source_code)
+                    VALUES (:queryCode, :anchorEntity, :sqlText, :countSqlText, :queryMode, :paramsJson::jsonb, :dataSourceCode)
                     """,
                     params
             );
@@ -257,9 +298,12 @@ public class SqlRepoService {
         }
 
         String wrapped = "SELECT * FROM (" + sqlText + ") AS sql_repo_try LIMIT " + maxRows;
+        String dsCode = jdbcDataSourceRegistry.resolveDsCode(null, queryCode);
+        // Unsaved buffer try-run may override sql; still use asset's bound DS for connection.
+        NamedParameterJdbcTemplate bizJdbc = jdbcDataSourceRegistry.getTemplate(dsCode);
         long start = System.currentTimeMillis();
         try {
-            Map<String, Object> result = jdbcTemplate.query(wrapped, inputParams, rs -> {
+            Map<String, Object> result = bizJdbc.query(wrapped, inputParams, rs -> {
                 ResultSetMetaData meta = rs.getMetaData();
                 int count = meta.getColumnCount();
                 List<Map<String, Object>> columns = new ArrayList<>();
@@ -288,6 +332,7 @@ public class SqlRepoService {
             result.put("durationMs", duration);
             result.put("truncated", result.get("rowCount") != null && ((Integer) result.get("rowCount")) >= maxRows);
             result.put("maxRows", maxRows);
+            result.put("dataSourceCode", dsCode);
             result.put("status", "success");
             return result;
         } catch (Exception ex) {

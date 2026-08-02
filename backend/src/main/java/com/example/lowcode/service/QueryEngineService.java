@@ -29,6 +29,8 @@ public class QueryEngineService {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
+    private JdbcDataSourceRegistry jdbcDataSourceRegistry;
+    @Autowired
     private GroovyScriptService groovyScriptService;
     @Autowired
     private PageService pageService;
@@ -41,18 +43,34 @@ public class QueryEngineService {
 
     @Transactional(readOnly = true, timeout = RAW_SQL_TIMEOUT_SECONDS)
     public Map<String, Object> executeSql(String queryCode, Map<String, Object> requestParams) {
-        return executeSql(queryCode, requestParams, new ArrayList<>());
+        return executeSql(queryCode, requestParams, new ArrayList<>(), null);
     }
 
     @Transactional(readOnly = true, timeout = RAW_SQL_TIMEOUT_SECONDS)
     public Map<String, Object> executeSql(String queryCode, Map<String, Object> requestParams, List<Map<String, Object>> filters) {
+        return executeSql(queryCode, requestParams, filters, null);
+    }
+
+    /**
+     * @param pageCode optional; when set, page.data_source_code overrides query binding
+     */
+    @Transactional(readOnly = true, timeout = RAW_SQL_TIMEOUT_SECONDS)
+    public Map<String, Object> executeSql(
+            String queryCode,
+            Map<String, Object> requestParams,
+            List<Map<String, Object>> filters,
+            String pageCode
+    ) {
         Map<String, Object> modelParams = new HashMap<>();
         modelParams.put("queryCode", queryCode);
-        
+
+        // Metadata always from platform DS
         Map<String, Object> queryModel = jdbcTemplate.queryForMap(
             "SELECT sql_text, count_sql_text, groovy_script_code, anchor_entity FROM lc_query_model WHERE query_code = :queryCode",
             modelParams
         );
+        String dsCode = jdbcDataSourceRegistry.resolveDsCode(pageCode, queryCode);
+        NamedParameterJdbcTemplate bizJdbc = jdbcDataSourceRegistry.getTemplate(dsCode);
         
         String sqlText = (String) queryModel.get("sql_text");
         String countSqlText = (String) queryModel.get("count_sql_text");
@@ -117,16 +135,16 @@ public class QueryEngineService {
         String errMsg = null;
         Map<String, Object> result = null;
         try {
-            Map<String, String> resultFields = inspectResultFields(sqlText, sqlParams);
+            Map<String, String> resultFields = inspectResultFields(bizJdbc, sqlText, sqlParams);
             String filteredSql = applyFilters(sqlText, filters, sqlParams, resultFields);
 
             // 1. Get total records count first
             Number totalValue;
             if (countSqlText != null && !countSqlText.isBlank() && (filters == null || filters.isEmpty())) {
-                totalValue = jdbcTemplate.queryForObject(countSqlText, sqlParams, Number.class);
+                totalValue = bizJdbc.queryForObject(countSqlText, sqlParams, Number.class);
             } else {
                 String countSql = "SELECT COUNT(*) FROM (" + filteredSql + ") as count_query";
-                totalValue = jdbcTemplate.queryForObject(countSql, sqlParams, Number.class);
+                totalValue = bizJdbc.queryForObject(countSql, sqlParams, Number.class);
             }
             long total = totalValue == null ? 0L : totalValue.longValue();
 
@@ -152,7 +170,7 @@ public class QueryEngineService {
                 }
             }
 
-            result = jdbcTemplate.query(finalSql.toString(), sqlParams, rs -> {
+            result = bizJdbc.query(finalSql.toString(), sqlParams, rs -> {
                 ResultSetMetaData metaData = rs.getMetaData();
                 int count = metaData.getColumnCount();
                 
@@ -199,7 +217,11 @@ public class QueryEngineService {
             throw e;
         } finally {
             long duration = System.currentTimeMillis() - start;
-            queryLogService.record(queryCode, success, (int) duration, errMsg);
+            queryLogService.record(queryCode, dsCode, success, (int) duration, errMsg);
+        }
+
+        if (result != null) {
+            result.put("dataSourceCode", dsCode);
         }
 
         if (interceptor != null && result != null) {
@@ -219,11 +241,15 @@ public class QueryEngineService {
         return result;
     }
 
-    private Map<String, String> inspectResultFields(String sqlText, Map<String, Object> sqlParams) {
+    private Map<String, String> inspectResultFields(
+            NamedParameterJdbcTemplate bizJdbc,
+            String sqlText,
+            Map<String, Object> sqlParams
+    ) {
         // Probe result columns without fetching rows. Fail with a clearer message if SQL is invalid.
         String inspectSql = "SELECT * FROM (" + sqlText + ") AS result_field_probe LIMIT 0";
         try {
-            return jdbcTemplate.query(inspectSql, sqlParams, rs -> {
+            return bizJdbc.query(inspectSql, sqlParams, rs -> {
                 ResultSetMetaData metaData = rs.getMetaData();
                 Map<String, String> fields = new LinkedHashMap<>();
                 for (int i = 1; i <= metaData.getColumnCount(); i++) {
@@ -443,7 +469,15 @@ public class QueryEngineService {
         Map<String, Object> params = new HashMap<>();
         params.put("queryCode", queryCode);
         return jdbcTemplate.queryForObject(
-            "SELECT query_code as \"queryCode\", anchor_entity as \"anchorEntity\", sql_text as \"sqlText\", count_sql_text as \"countSqlText\", COALESCE(query_mode, 'rawSql') as \"queryMode\" FROM lc_query_model WHERE query_code = :queryCode",
+            """
+            SELECT query_code as "queryCode",
+                   anchor_entity as "anchorEntity",
+                   sql_text as "sqlText",
+                   count_sql_text as "countSqlText",
+                   COALESCE(query_mode, 'rawSql') as "queryMode",
+                   data_source_code as "dataSourceCode"
+            FROM lc_query_model WHERE query_code = :queryCode
+            """,
             params,
             (rs, rowNum) -> {
                 Map<String, Object> map = new HashMap<>();
@@ -452,6 +486,7 @@ public class QueryEngineService {
                 map.put("sqlText", rs.getString("sqlText"));
                 map.put("countSqlText", rs.getString("countSqlText"));
                 map.put("queryMode", rs.getString("queryMode"));
+                map.put("dataSourceCode", rs.getString("dataSourceCode"));
                 return map;
             }
         );
@@ -494,7 +529,8 @@ public class QueryEngineService {
 
         try {
             Map<String, Object> sqlParams = buildNullParams(sqlText);
-            List<Map<String, Object>> columns = inspectQueryColumns(sqlText, anchorEntity, sqlParams);
+            NamedParameterJdbcTemplate bizJdbc = jdbcDataSourceRegistry.resolveForQuery(null, queryCode);
+            List<Map<String, Object>> columns = inspectQueryColumns(bizJdbc, sqlText, anchorEntity, sqlParams);
             Map<String, Object> entityConfig = loadAnchorEntity(anchorEntity);
             String tableName = entityConfig.get("tableName") == null ? null : String.valueOf(entityConfig.get("tableName"));
             String primaryKey = entityConfig.get("primaryKey") == null ? pageService.inferPrimaryKey(tableName) : String.valueOf(entityConfig.get("primaryKey"));
@@ -633,10 +669,15 @@ public class QueryEngineService {
         return params;
     }
 
-    private List<Map<String, Object>> inspectQueryColumns(String sqlText, String anchorEntity, Map<String, Object> sqlParams) {
+    private List<Map<String, Object>> inspectQueryColumns(
+            NamedParameterJdbcTemplate bizJdbc,
+            String sqlText,
+            String anchorEntity,
+            Map<String, Object> sqlParams
+    ) {
         String inspectSql = "SELECT * FROM (" + sqlText + ") as inspect_query LIMIT 0";
         Map<String, List<Map<String, Object>>> entityFieldsMap = loadEntityFieldsMap();
-        return jdbcTemplate.query(inspectSql, sqlParams, rs -> {
+        return bizJdbc.query(inspectSql, sqlParams, rs -> {
             ResultSetMetaData metaData = rs.getMetaData();
             List<Map<String, Object>> columns = new ArrayList<>();
             for (int i = 1; i <= metaData.getColumnCount(); i++) {
@@ -653,15 +694,16 @@ public class QueryEngineService {
     public List<Map<String, Object>> executeOptionsQuery(String queryCode, String labelField, String valueField) {
         Map<String, Object> modelParams = new HashMap<>();
         modelParams.put("queryCode", queryCode);
-        
+
         Map<String, Object> queryModel = jdbcTemplate.queryForMap(
             "SELECT sql_text FROM lc_query_model WHERE query_code = :queryCode",
             modelParams
         );
         String sqlText = (String) queryModel.get("sql_text");
         Map<String, Object> sqlParams = buildNullParams(sqlText);
+        NamedParameterJdbcTemplate bizJdbc = jdbcDataSourceRegistry.resolveForQuery(null, queryCode);
 
-        List<Map<String, Object>> rawRows = jdbcTemplate.queryForList(sqlText, sqlParams);
+        List<Map<String, Object>> rawRows = bizJdbc.queryForList(sqlText, sqlParams);
         List<Map<String, Object>> options = new ArrayList<>();
         for (Map<String, Object> row : rawRows) {
             Map<String, Object> option = new LinkedHashMap<>();
@@ -694,11 +736,12 @@ public class QueryEngineService {
         );
         String sqlText = (String) queryModel.get("sql_text");
         Map<String, Object> sqlParams = buildNullParams(sqlText);
-        
+        NamedParameterJdbcTemplate bizJdbc = jdbcDataSourceRegistry.resolveForQuery(null, queryCode);
+
         String paramKey = (keywordParam != null && !keywordParam.trim().isEmpty()) ? keywordParam : "keyword";
         sqlParams.put(paramKey, "%" + keyword + "%");
 
-        List<Map<String, Object>> rawRows = jdbcTemplate.queryForList(sqlText, sqlParams);
+        List<Map<String, Object>> rawRows = bizJdbc.queryForList(sqlText, sqlParams);
         List<Map<String, Object>> options = new ArrayList<>();
         for (Map<String, Object> row : rawRows) {
             Map<String, Object> option = new LinkedHashMap<>();

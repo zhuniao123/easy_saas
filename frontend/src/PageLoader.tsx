@@ -414,6 +414,7 @@ export default function PageLoader({
         _sortOrder: nextSortOrder,
       },
       nextActiveFilters,
+      pageCode,
     );
 
     resolveDataSource(spec)

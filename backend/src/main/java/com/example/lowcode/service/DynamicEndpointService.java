@@ -159,12 +159,17 @@ public class DynamicEndpointService {
         }
         String dataSourceCode = body.get("dataSourceCode") == null || String.valueOf(body.get("dataSourceCode")).isBlank()
                 ? null
-                : String.valueOf(body.get("dataSourceCode"));
-        // Slice 5: single platform data source only; non-null codes reserved for multi-ds routing later.
+                : String.valueOf(body.get("dataSourceCode")).trim();
+        // null / default = platform; other codes must exist in catalog (runtime pool is lazy).
         if (dataSourceCode != null && !"default".equalsIgnoreCase(dataSourceCode)) {
-            throw new IllegalArgumentException(
-                    "Cross data-source dynamic endpoints are not supported yet; use platform default or dataSourceCode=default"
+            Integer n = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM lc_data_source WHERE ds_code = :code AND enabled = true",
+                    Map.of("code", dataSourceCode),
+                    Integer.class
             );
+            if (n == null || n == 0) {
+                throw new IllegalArgumentException("Unknown or disabled data source: " + dataSourceCode);
+            }
         }
         int timeoutMs = 10_000;
         if (body.get("timeoutMs") instanceof Number n) {

@@ -23,6 +23,8 @@ public class PageService {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
+    private JdbcDataSourceRegistry jdbcDataSourceRegistry;
+    @Autowired
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
@@ -40,7 +42,13 @@ public class PageService {
         Map<String, Object> params = new HashMap<>();
         params.put("pageCode", pageCode);
         return jdbcTemplate.queryForObject(
-            "SELECT page_code as \"pageCode\", title, route_path as \"routePath\", query_code as \"queryCode\", entity_code as \"entityCode\", config_json::text as \"config\" FROM lc_page_model WHERE page_code = :pageCode",
+            """
+            SELECT page_code as "pageCode", title, route_path as "routePath",
+                   query_code as "queryCode", entity_code as "entityCode",
+                   config_json::text as "config",
+                   data_source_code as "dataSourceCode"
+            FROM lc_page_model WHERE page_code = :pageCode
+            """,
             params,
             (rs, rowNum) -> {
                 Map<String, Object> map = new HashMap<>();
@@ -50,8 +58,33 @@ public class PageService {
                 map.put("queryCode", rs.getString("queryCode"));
                 map.put("entityCode", rs.getString("entityCode"));
                 map.put("config", rs.getString("config"));
+                map.put("dataSourceCode", rs.getString("dataSourceCode"));
                 return map;
             }
+        );
+    }
+
+    public void updatePageDataSource(String pageCode, String dataSourceCode) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("pageCode", pageCode);
+        params.put("ds", dataSourceCode == null || dataSourceCode.isBlank() ? null : dataSourceCode.trim());
+        if (params.get("ds") != null) {
+            // ensure catalog entry exists (or default)
+            String ds = String.valueOf(params.get("ds"));
+            if (!JdbcDataSourceRegistry.DEFAULT_DS.equalsIgnoreCase(ds)) {
+                Integer n = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM lc_data_source WHERE ds_code = :code",
+                        Map.of("code", ds),
+                        Integer.class
+                );
+                if (n == null || n == 0) {
+                    throw new IllegalArgumentException("Unknown data source: " + ds);
+                }
+            }
+        }
+        jdbcTemplate.update(
+                "UPDATE lc_page_model SET data_source_code = :ds WHERE page_code = :pageCode",
+                params
         );
     }
 
@@ -486,7 +519,7 @@ public class PageService {
         }
         sql.append(")").append(vals).append(")");
 
-        jdbcTemplate.update(sql.toString(), params);
+        jdbcDataSourceRegistry.resolveForPage(pageCode).update(sql.toString(), params);
     }
 
     public void updateRow(String pageCode, Object id, Map<String, Object> rowData) {
@@ -531,7 +564,7 @@ public class PageService {
         }
         sql.append(" WHERE \"").append(primaryKey).append("\" = :__id");
 
-        jdbcTemplate.update(sql.toString(), params);
+        jdbcDataSourceRegistry.resolveForPage(pageCode).update(sql.toString(), params);
     }
 
     public void deleteRow(String pageCode, Object id) {
@@ -555,7 +588,7 @@ public class PageService {
         Map<String, Object> params = new HashMap<>();
         params.put("__id", targetId);
 
-        jdbcTemplate.update(sql, params);
+        jdbcDataSourceRegistry.resolveForPage(pageCode).update(sql, params);
     }
 
     public void logClientEvent(String pageCode, String eventType, String elementCode, String message, Object details) {
