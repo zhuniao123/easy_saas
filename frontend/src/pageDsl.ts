@@ -147,9 +147,11 @@ const normalizeColumns = (columns: unknown): ColumnConfig[] =>
               format === 'badge' ||
               format === 'text' ||
               format === 'money' ||
-              format === 'percent'
+              format === 'percent' ||
+              format === 'dict'
                 ? format
                 : undefined,
+            dictCode: column.dictCode ? String(column.dictCode) : undefined,
             tone:
               tone === 'muted' || tone === 'accent' || tone === 'success' || tone === 'danger' || tone === 'default'
                 ? tone
@@ -212,12 +214,21 @@ const normalizeFilters = (filters: unknown): FilterConfig[] =>
             };
           }
 
+          const op = filter.operator ? String(filter.operator).trim() : undefined;
           return {
             field: String(filter.field || ''),
             label: String(filter.label || filter.field || ''),
             sourceField: filter.sourceField ? String(filter.sourceField) : undefined,
             placeholder: filter.placeholder ? String(filter.placeholder) : undefined,
-            type: type === 'select' || type === 'date' || type === 'autocomplete' || type === 'text' ? type : 'text',
+            type:
+              type === 'select' ||
+              type === 'date' ||
+              type === 'autocomplete' ||
+              type === 'text' ||
+              type === 'number'
+                ? type
+                : 'text',
+            operator: op || undefined,
             options: parsedOptions,
           } satisfies FilterConfig;
         })

@@ -293,6 +293,13 @@ public class QueryEngineService {
         }
     }
 
+    /**
+     * Outer-wrap filters. Supports explicit {@code operator}:
+     * eq | ne | ilike | like | in | between | isNull | isNotNull | gt | gte | lt | lte
+     * <p>
+     * When operator omitted, defaults by {@code type}: select/date → eq, text → ilike.
+     * Null operators do not require a value. {@code in}/{@code between} accept List or comma text.
+     */
     private String applyFilters(
             String sqlText,
             List<Map<String, Object>> filters,
@@ -310,14 +317,11 @@ public class QueryEngineService {
             }
 
             Object fieldObj = filter.get("field");
-            Object valueObj = filter.get("value");
-            if (fieldObj == null || valueObj == null) {
+            if (fieldObj == null) {
                 continue;
             }
-
             String field = String.valueOf(fieldObj).trim();
-            String value = String.valueOf(valueObj).trim();
-            if (field.isEmpty() || value.isEmpty()) {
+            if (field.isEmpty()) {
                 continue;
             }
 
@@ -327,22 +331,112 @@ public class QueryEngineService {
             }
 
             String filterType = filter.get("type") == null ? "text" : String.valueOf(filter.get("type")).trim().toLowerCase();
+            String operator = resolveFilterOperator(filter.get("operator"), filterType);
             String safeField = "\"" + resolvedField + "\"";
+            Object valueObj = filter.containsKey("value") ? filter.get("value") : filter.get("values");
+
+            if ("isnull".equals(operator)) {
+                predicates.add(safeField + " IS NULL");
+                continue;
+            }
+            if ("isnotnull".equals(operator)) {
+                predicates.add(safeField + " IS NOT NULL");
+                continue;
+            }
+
+            // between may use valueFrom/valueTo without a single "value"
+            if ("between".equals(operator)) {
+                Object from = filter.get("valueFrom");
+                Object to = filter.get("valueTo");
+                if (from == null || to == null) {
+                    List<Object> items = toListValue(valueObj);
+                    if (from == null && items.size() > 0) {
+                        from = items.get(0);
+                    }
+                    if (to == null && items.size() > 1) {
+                        to = items.get(1);
+                    }
+                }
+                if (from == null || to == null
+                        || String.valueOf(from).isBlank()
+                        || String.valueOf(to).isBlank()) {
+                    continue;
+                }
+                String paramKey = "__filter_" + filterIndex++;
+                String pFrom = paramKey + "_from";
+                String pTo = paramKey + "_to";
+                if ("date".equals(filterType)) {
+                    predicates.add(
+                            "CAST(" + safeField + " AS DATE) BETWEEN CAST(:" + pFrom + " AS DATE) AND CAST(:" + pTo + " AS DATE)"
+                    );
+                } else {
+                    predicates.add(safeField + " BETWEEN :" + pFrom + " AND :" + pTo);
+                }
+                sqlParams.put(pFrom, normalizeScalar(from));
+                sqlParams.put(pTo, normalizeScalar(to));
+                continue;
+            }
+
+            if (valueObj == null) {
+                continue;
+            }
+            if (valueObj instanceof String s && s.trim().isEmpty() && !"in".equals(operator)) {
+                continue;
+            }
+
             String paramKey = "__filter_" + filterIndex++;
 
-            switch (filterType) {
-                case "select":
-                    predicates.add(safeField + " = :" + paramKey);
-                    sqlParams.put(paramKey, value);
-                    break;
-                case "date":
-                    predicates.add("CAST(" + safeField + " AS DATE) = :" + paramKey);
-                    sqlParams.put(paramKey, value);
-                    break;
-                default:
+            switch (operator) {
+                case "eq" -> {
+                    if ("date".equals(filterType)) {
+                        predicates.add("CAST(" + safeField + " AS DATE) = CAST(:" + paramKey + " AS DATE)");
+                    } else {
+                        predicates.add(safeField + " = :" + paramKey);
+                    }
+                    sqlParams.put(paramKey, normalizeScalar(valueObj));
+                }
+                case "ne" -> {
+                    predicates.add(safeField + " <> :" + paramKey);
+                    sqlParams.put(paramKey, normalizeScalar(valueObj));
+                }
+                case "gt" -> {
+                    predicates.add(safeField + " > :" + paramKey);
+                    sqlParams.put(paramKey, normalizeScalar(valueObj));
+                }
+                case "gte" -> {
+                    predicates.add(safeField + " >= :" + paramKey);
+                    sqlParams.put(paramKey, normalizeScalar(valueObj));
+                }
+                case "lt" -> {
+                    predicates.add(safeField + " < :" + paramKey);
+                    sqlParams.put(paramKey, normalizeScalar(valueObj));
+                }
+                case "lte" -> {
+                    predicates.add(safeField + " <= :" + paramKey);
+                    sqlParams.put(paramKey, normalizeScalar(valueObj));
+                }
+                case "like" -> {
+                    predicates.add("CAST(" + safeField + " AS TEXT) LIKE :" + paramKey);
+                    sqlParams.put(paramKey, withPercentWildcards(normalizeScalar(valueObj)));
+                }
+                case "ilike" -> {
                     predicates.add("CAST(" + safeField + " AS TEXT) ILIKE :" + paramKey);
-                    sqlParams.put(paramKey, "%" + value + "%");
-                    break;
+                    sqlParams.put(paramKey, withPercentWildcards(normalizeScalar(valueObj)));
+                }
+                case "in" -> {
+                    List<Object> items = toListValue(valueObj);
+                    if (items.isEmpty()) {
+                        continue;
+                    }
+                    List<String> placeholders = new ArrayList<>();
+                    for (int i = 0; i < items.size(); i++) {
+                        String pk = paramKey + "_" + i;
+                        placeholders.add(":" + pk);
+                        sqlParams.put(pk, items.get(i));
+                    }
+                    predicates.add(safeField + " IN (" + String.join(", ", placeholders) + ")");
+                }
+                default -> throw new IllegalArgumentException("Unsupported filter operator: " + operator);
             }
         }
 
@@ -351,6 +445,80 @@ public class QueryEngineService {
         }
 
         return "SELECT * FROM (" + sqlText + ") as filtered_query WHERE " + String.join(" AND ", predicates);
+    }
+
+    private static String resolveFilterOperator(Object rawOperator, String filterType) {
+        if (rawOperator != null && !String.valueOf(rawOperator).isBlank()) {
+            return String.valueOf(rawOperator).trim().toLowerCase(java.util.Locale.ROOT)
+                    .replace("-", "")
+                    .replace("_", "");
+        }
+        // Legacy type mapping when operator omitted
+        return switch (filterType == null ? "text" : filterType) {
+            case "select", "date", "number", "integer" -> "eq";
+            default -> "ilike";
+        };
+    }
+
+    private static Object normalizeScalar(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String s) {
+            return s.trim();
+        }
+        return value;
+    }
+
+    private static String withPercentWildcards(Object value) {
+        String s = value == null ? "" : String.valueOf(value);
+        if (s.contains("%") || s.contains("_")) {
+            return s;
+        }
+        return "%" + s + "%";
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> toListValue(Object valueObj) {
+        if (valueObj == null) {
+            return List.of();
+        }
+        if (valueObj instanceof List<?> list) {
+            List<Object> out = new ArrayList<>();
+            for (Object item : list) {
+                if (item == null) {
+                    continue;
+                }
+                String s = String.valueOf(item).trim();
+                if (!s.isEmpty()) {
+                    out.add(item instanceof String ? s : item);
+                }
+            }
+            return out;
+        }
+        String raw = String.valueOf(valueObj).trim();
+        if (raw.isEmpty()) {
+            return List.of();
+        }
+        // JSON array string
+        if (raw.startsWith("[") && raw.endsWith("]")) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+                List<Object> parsed = om.readValue(raw, List.class);
+                return toListValue(parsed);
+            } catch (Exception ignore) {
+                /* fall through to comma split */
+            }
+        }
+        String[] parts = raw.split("[,;|]");
+        List<Object> out = new ArrayList<>();
+        for (String p : parts) {
+            String t = p.trim();
+            if (!t.isEmpty()) {
+                out.add(t);
+            }
+        }
+        return out;
     }
 
     private Map<String, List<Map<String, Object>>> loadEntityFieldsMap() {

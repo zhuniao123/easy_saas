@@ -10,7 +10,9 @@ export interface SmartGridColumn {
   type: string;
   width?: number;
   align?: 'left' | 'center' | 'right';
-  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent';
+  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent' | 'dict';
+  dictCode?: string;
+  dictMap?: Record<string, string>;
   tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger';
   toneRules?: Array<{ when?: string; tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger' }>;
 }
@@ -95,7 +97,15 @@ function formatCellValue(
     type: column.type,
     locale,
     row,
+    dictMap: column.dictMap,
   });
+}
+
+function resolvedFilterOperator(filter: FilterConfig): string {
+  const op = (filter.operator || '').toString().trim().toLowerCase();
+  if (op) return op;
+  if (filter.type === 'select' || filter.type === 'date' || filter.type === 'number') return 'eq';
+  return 'ilike';
 }
 
 function asGridContext(pageContext?: Record<string, unknown>): SmartGridPageContext | null {
@@ -168,10 +178,27 @@ export function renderSmartGrid(ctx: ComponentRenderContext) {
 
       {grid.filters.length > 0 && (
         <div className="mt-5 grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
-          {grid.filters.map((filter) => (
+          {grid.filters.map((filter) => {
+            const op = resolvedFilterOperator(filter);
+            const opNorm = op.replace(/[_-]/g, '');
+            const isBetween = opNorm === 'between';
+            const isNullOp = opNorm === 'isnull' || opNorm === 'isnotnull';
+            const dynamicOpts =
+              filter.options &&
+              !Array.isArray(filter.options) &&
+              'source' in filter.options &&
+              (filter.options.source === 'sql' || filter.options.source === 'dict')
+                ? grid.dynamicFilterOptions[filter.field] || []
+                : null;
+            return (
             <label key={filter.field} className="space-y-1 text-xs font-medium text-slate-600">
-              <span>{filter.label}</span>
-              {filter.type === 'select' ? (
+              <span className="flex items-center justify-between gap-2">
+                <span>{filter.label}</span>
+                {filter.operator && (
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">{op}</span>
+                )}
+              </span>
+              {isNullOp ? (
                 <select
                   value={grid.filterValues[filter.field] || ''}
                   onChange={(e) =>
@@ -180,8 +207,19 @@ export function renderSmartGrid(ctx: ComponentRenderContext) {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
                 >
                   <option value="">{grid.t('page.all')}</option>
-                  {filter.options && !Array.isArray(filter.options) && 'source' in filter.options && filter.options.source === 'sql'
-                    ? (grid.dynamicFilterOptions[filter.field] || []).map((option) => (
+                  <option value="1">{opNorm === 'isnull' ? 'IS NULL' : 'IS NOT NULL'}</option>
+                </select>
+              ) : filter.type === 'select' ? (
+                <select
+                  value={grid.filterValues[filter.field] || ''}
+                  onChange={(e) =>
+                    grid.setFilterValues((prev) => ({ ...prev, [filter.field]: e.target.value }))
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
+                >
+                  <option value="">{grid.t('page.all')}</option>
+                  {dynamicOpts
+                    ? dynamicOpts.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -230,19 +268,50 @@ export function renderSmartGrid(ctx: ComponentRenderContext) {
                     </div>
                   )}
                 </div>
+              ) : isBetween ? (
+                <div className="flex gap-2">
+                  <input
+                    type={filter.type === 'date' ? 'date' : filter.type === 'number' ? 'number' : 'text'}
+                    value={grid.filterValues[filter.field] || ''}
+                    onChange={(e) =>
+                      grid.setFilterValues((prev) => ({ ...prev, [filter.field]: e.target.value }))
+                    }
+                    placeholder="from"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
+                  />
+                  <input
+                    type={filter.type === 'date' ? 'date' : filter.type === 'number' ? 'number' : 'text'}
+                    value={grid.filterValues[`${filter.field}__to`] || ''}
+                    onChange={(e) =>
+                      grid.setFilterValues((prev) => ({
+                        ...prev,
+                        [`${filter.field}__to`]: e.target.value,
+                      }))
+                    }
+                    placeholder="to"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
+                  />
+                </div>
               ) : (
                 <input
-                  type={filter.type === 'date' ? 'date' : 'text'}
+                  type={
+                    filter.type === 'date' ? 'date' : filter.type === 'number' ? 'number' : 'text'
+                  }
                   value={grid.filterValues[filter.field] || ''}
                   onChange={(e) =>
                     grid.setFilterValues((prev) => ({ ...prev, [filter.field]: e.target.value }))
                   }
-                  placeholder={filter.placeholder || grid.t('page.filterBy', { label: filter.label })}
+                  placeholder={
+                    opNorm === 'in'
+                      ? 'a,b,c'
+                      : filter.placeholder || grid.t('page.filterBy', { label: filter.label })
+                  }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-400"
                 />
               )}
             </label>
-          ))}
+            );
+          })}
           <div className="flex items-end gap-2">
             <button
               onClick={grid.handleFilterApply}

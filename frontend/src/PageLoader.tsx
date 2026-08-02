@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type ActionConfig, type FilterConfig, type DrillDownRequest, resolveActionHandler } from './actionRegistry';
+import {
+  type ActionConfig,
+  type FilterConfig,
+  type DrillDownRequest,
+  defaultFilterOperator,
+  resolveActionHandler,
+} from './actionRegistry';
 import { createTranslator, resolveLocale } from './i18n';
 import { normalizePageDsl } from './pageDsl';
 import { logEvent } from './logger';
@@ -59,7 +65,9 @@ interface ColumnMeta {
   type: string;
   width?: number;
   align?: 'left' | 'center' | 'right';
-  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent';
+  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent' | 'dict';
+  dictCode?: string;
+  dictMap?: Record<string, string>;
   tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger';
   toneRules?: Array<{ when?: string; tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger' }>;
 }
@@ -87,9 +95,11 @@ const toQueryResult = (table: DataTable): QueryResult => ({
       col.format === 'date' ||
       col.format === 'badge' ||
       col.format === 'money' ||
-      col.format === 'percent'
+      col.format === 'percent' ||
+      col.format === 'dict'
         ? col.format
         : undefined,
+    dictCode: typeof col.dictCode === 'string' ? col.dictCode : undefined,
     tone:
       col.tone === 'default' ||
       col.tone === 'muted' ||
@@ -148,6 +158,8 @@ export default function PageLoader({
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC' | null>(null);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  /** field → (value → label) for format=dict columns */
+  const [columnDictMaps, setColumnDictMaps] = useState<Record<string, Record<string, string>>>({});
 
   const [entityFields, setEntityFields] = useState<ColumnMeta[]>([]);
   const [entityMeta, setEntityMeta] = useState<EntityConfig | null>(null);
@@ -217,19 +229,23 @@ export default function PageLoader({
           const byField = new Map(queryResult.columns.map((c) => [c.field, c]));
           const matched = byField.get(column.field);
           if (!matched) return acc;
+          const dictCode = column.dictCode;
+          const format = column.format || matched.format;
           acc.push({
             ...matched,
             label: column.label || matched.label,
             width: column.width,
             align: column.align,
-            format: column.format || matched.format,
+            format: format === 'dict' ? 'dict' : format || matched.format,
+            dictCode,
+            dictMap: columnDictMaps[column.field] || (dictCode ? columnDictMaps[dictCode] : undefined),
             tone: column.tone || matched.tone,
             toneRules: column.toneRules,
           });
           return acc;
         }, []);
     return filterColumnsByPermission(source, fieldDenies);
-  }, [pageDsl.table.columns, queryResult, fieldDenies]);
+  }, [pageDsl.table.columns, queryResult, fieldDenies, columnDictMaps]);
 
   const pageActions = useMemo(
     () => filterActionsByPermission(pageDsl.table.actions, 'page'),
@@ -384,13 +400,58 @@ export default function PageLoader({
   ) => {
     const normalizedParams = normalizeRequestParams(nextFilterValues);
     const nextActiveFilters = filters
-      .map((filter) => ({
-        field: filter.sourceField || filter.field,
-        label: filter.label,
-        type: filter.type || 'text',
-        value: normalizedParams[filter.field] || '',
-      }))
-      .filter((filter) => String(filter.value).trim().length > 0);
+      .map((filter) => {
+        const operator = defaultFilterOperator(filter.type, filter.operator);
+        const opNorm = operator.toLowerCase().replace(/[_-]/g, '');
+        const field = filter.sourceField || filter.field;
+        if (opNorm === 'isnull' || opNorm === 'isnotnull') {
+          // UI uses select "1" to activate null operators (avoid always-on filters).
+          const enabled = String(normalizedParams[filter.field] || '').trim();
+          if (!enabled) return null;
+          return {
+            field,
+            label: filter.label,
+            type: filter.type || 'text',
+            operator,
+            value: true,
+          };
+        }
+        if (opNorm === 'between') {
+          const from = String(normalizedParams[filter.field] || '').trim();
+          const to = String(normalizedParams[`${filter.field}__to`] || '').trim();
+          if (!from && !to) return null;
+          return {
+            field,
+            label: filter.label,
+            type: filter.type || 'text',
+            operator: 'between',
+            value: [from, to],
+            valueFrom: from || null,
+            valueTo: to || null,
+          };
+        }
+        if (opNorm === 'in') {
+          const raw = String(normalizedParams[filter.field] || '').trim();
+          if (!raw) return null;
+          return {
+            field,
+            label: filter.label,
+            type: filter.type || 'text',
+            operator: 'in',
+            value: raw,
+          };
+        }
+        const value = normalizedParams[filter.field] || '';
+        if (!String(value).trim()) return null;
+        return {
+          field,
+          label: filter.label,
+          type: filter.type || 'text',
+          operator,
+          value,
+        };
+      })
+      .filter((filter): filter is NonNullable<typeof filter> => filter != null);
 
     setLoadingQuery(true);
     setQueryError(null);
@@ -582,6 +643,33 @@ export default function PageLoader({
         setAutocompleteLabels({});
         setAutocompleteSuggestions({});
         setDynamicFilterOptions({});
+        setColumnDictMaps({});
+
+        // Column format=dict → label maps
+        const dictColumns = normalizedPage.table.columns.filter(
+          (c) => c.dictCode || c.format === 'dict',
+        );
+        dictColumns.forEach((col) => {
+          const dictCode = col.dictCode;
+          if (!dictCode) return;
+          fetch(`/api/v1/dicts/${encodeURIComponent(dictCode)}/options`)
+            .then((res) => (res.ok ? res.json() : []))
+            .then((items: Array<{ label?: string; value?: string }>) => {
+              if (cancelled) return;
+              const map: Record<string, string> = {};
+              (items || []).forEach((it) => {
+                if (it.value != null) map[String(it.value)] = String(it.label ?? it.value);
+              });
+              setColumnDictMaps((prev) => ({
+                ...prev,
+                [col.field]: map,
+                [dictCode]: map,
+              }));
+            })
+            .catch(() => {
+              /* optional dict */
+            });
+        });
 
         // Trigger SQL / dict option lists loading
         const dynamicFilters = normalizedPage.table.filters.filter(

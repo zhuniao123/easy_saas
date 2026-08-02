@@ -52,13 +52,29 @@ export interface ActionConfig {
   };
 }
 
+export type FilterOperator =
+  | 'eq'
+  | 'ne'
+  | 'ilike'
+  | 'like'
+  | 'in'
+  | 'between'
+  | 'isNull'
+  | 'isNotNull'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte';
+
 export interface ColumnConfig {
   field: string;
   label?: string;
   width?: number;
   align?: 'left' | 'center' | 'right';
   hidden?: boolean;
-  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent';
+  format?: 'text' | 'number' | 'boolean' | 'datetime' | 'date' | 'badge' | 'money' | 'percent' | 'dict';
+  /** When format=dict (or used with badge), map cell values via dict options API. */
+  dictCode?: string;
   tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger';
   toneRules?: Array<{ when?: string; tone?: 'default' | 'muted' | 'accent' | 'success' | 'danger' }>;
 }
@@ -68,7 +84,12 @@ export interface FilterConfig {
   label: string;
   sourceField?: string;
   placeholder?: string;
-  type?: 'text' | 'select' | 'date' | 'autocomplete';
+  type?: 'text' | 'select' | 'date' | 'autocomplete' | 'number';
+  /**
+   * Explicit operator for QueryEngine outer filter.
+   * Defaults: select/date/number → eq, text → ilike, between → between when set.
+   */
+  operator?: FilterOperator | string;
   options?: 
     | Array<{ label: string; value: string }>
     | {
@@ -80,6 +101,22 @@ export interface FilterConfig {
         keywordParam?: string;
         dictCode?: string;
       };
+}
+
+/** Default operator by filter control type (mirrors backend). */
+export function defaultFilterOperator(type?: string, explicit?: string): string {
+  if (explicit && String(explicit).trim()) {
+    return String(explicit).trim();
+  }
+  switch ((type || 'text').toLowerCase()) {
+    case 'select':
+    case 'date':
+    case 'number':
+    case 'integer':
+      return 'eq';
+    default:
+      return 'ilike';
+  }
 }
 
 import type { Translator } from './i18n';

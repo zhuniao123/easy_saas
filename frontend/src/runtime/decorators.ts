@@ -27,6 +27,8 @@ export interface DecorateOptions {
   row?: Record<string, unknown>;
   locale?: string;
   currency?: string;
+  /** value → label for format=dict */
+  dictMap?: Record<string, string>;
 }
 
 const parseToneRule = (rule: string, value: unknown, row?: Record<string, unknown>): boolean => {
@@ -90,6 +92,16 @@ export const formatDecoratedValue = (value: unknown, options: DecorateOptions = 
 
   const format = options.format || options.type || 'text';
   const locale = options.locale || undefined;
+
+  if (format === 'dict' || (options.dictMap && Object.keys(options.dictMap).length > 0 && format === 'badge')) {
+    const key = String(value);
+    if (options.dictMap && key in options.dictMap) {
+      return options.dictMap[key];
+    }
+    if (format === 'dict') {
+      return key;
+    }
+  }
 
   if (format === 'datetime' || format === 'date') {
     const date = value instanceof Date ? value : new Date(String(value));
