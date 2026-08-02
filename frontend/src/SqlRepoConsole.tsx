@@ -8,6 +8,10 @@ interface SqlAssetSummary {
   sqlLength?: number;
   pageRefCount?: number;
   actionRefCount?: number;
+  execCount?: number;
+  errorCount?: number;
+  avgDurationMs?: number;
+  lastExecutedAt?: string;
   kind?: string;
   tryRunAllowed?: boolean;
   dataSourceCode?: string | null;
@@ -299,6 +303,11 @@ export default function SqlRepoConsole() {
                   <span>{asset.queryMode || 'rawSql'}</span>
                   <span>pages:{asset.pageRefCount ?? 0}</span>
                   <span>actions:{asset.actionRefCount ?? 0}</span>
+                  <span>exec:{asset.execCount ?? 0}</span>
+                  {(asset.errorCount ?? 0) > 0 && (
+                    <span className="text-rose-500">err:{asset.errorCount}</span>
+                  )}
+                  {asset.avgDurationMs != null && <span>avg:{asset.avgDurationMs}ms</span>}
                 </div>
               </button>
             ))}

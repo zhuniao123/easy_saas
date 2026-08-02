@@ -37,10 +37,16 @@ public class ScriptService {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final ScriptRuntimeService scriptRuntimeService;
+    private final ConfigAuditService configAuditService;
 
-    public ScriptService(NamedParameterJdbcTemplate jdbcTemplate, ScriptRuntimeService scriptRuntimeService) {
+    public ScriptService(
+            NamedParameterJdbcTemplate jdbcTemplate,
+            ScriptRuntimeService scriptRuntimeService,
+            ConfigAuditService configAuditService
+    ) {
         this.jdbcTemplate = jdbcTemplate;
         this.scriptRuntimeService = scriptRuntimeService;
+        this.configAuditService = configAuditService;
     }
 
     public List<Map<String, Object>> list(String typeFilter) {
@@ -235,6 +241,7 @@ public class ScriptService {
             }
         }
         scriptRuntimeService.invalidate(scriptCode);
+        configAuditService.record("script", scriptCode, "save", "type=" + type);
         return get(scriptCode, true);
     }
 
@@ -259,6 +266,7 @@ public class ScriptService {
                 Map.of("code", scriptCode)
         );
         scriptRuntimeService.invalidate(scriptCode);
+        configAuditService.record("script", scriptCode, "publish", null);
         return get(scriptCode, true);
     }
 

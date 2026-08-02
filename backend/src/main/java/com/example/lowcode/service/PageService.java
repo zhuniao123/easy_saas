@@ -32,6 +32,10 @@ public class PageService {
     private AuthService authService;
     @Autowired
     private AuthzRuntimeService authzRuntimeService;
+    @Autowired
+    private ConfigAuditService configAuditService;
+    @Autowired
+    private MetadataCacheService metadataCacheService;
 
     private String requireSafeIdentifier(String value, String fieldName) {
         if (value == null || !SAFE_IDENTIFIER.matcher(value).matches()) {
@@ -41,29 +45,31 @@ public class PageService {
     }
 
     public Map<String, Object> getPageConfig(String pageCode) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("pageCode", pageCode);
-        return jdbcTemplate.queryForObject(
-            """
-            SELECT page_code as "pageCode", title, route_path as "routePath",
-                   query_code as "queryCode", entity_code as "entityCode",
-                   config_json::text as "config",
-                   data_source_code as "dataSourceCode"
-            FROM lc_page_model WHERE page_code = :pageCode
-            """,
-            params,
-            (rs, rowNum) -> {
-                Map<String, Object> map = new HashMap<>();
-                map.put("pageCode", rs.getString("pageCode"));
-                map.put("title", rs.getString("title"));
-                map.put("routePath", rs.getString("routePath"));
-                map.put("queryCode", rs.getString("queryCode"));
-                map.put("entityCode", rs.getString("entityCode"));
-                map.put("config", rs.getString("config"));
-                map.put("dataSourceCode", rs.getString("dataSourceCode"));
-                return map;
-            }
-        );
+        return metadataCacheService.getOrLoad("page:" + pageCode, 20_000L, () -> {
+            Map<String, Object> params = new HashMap<>();
+            params.put("pageCode", pageCode);
+            return jdbcTemplate.queryForObject(
+                """
+                SELECT page_code as "pageCode", title, route_path as "routePath",
+                       query_code as "queryCode", entity_code as "entityCode",
+                       config_json::text as "config",
+                       data_source_code as "dataSourceCode"
+                FROM lc_page_model WHERE page_code = :pageCode
+                """,
+                params,
+                (rs, rowNum) -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("pageCode", rs.getString("pageCode"));
+                    map.put("title", rs.getString("title"));
+                    map.put("routePath", rs.getString("routePath"));
+                    map.put("queryCode", rs.getString("queryCode"));
+                    map.put("entityCode", rs.getString("entityCode"));
+                    map.put("config", rs.getString("config"));
+                    map.put("dataSourceCode", rs.getString("dataSourceCode"));
+                    return map;
+                }
+            );
+        });
     }
 
     public void updatePageDataSource(String pageCode, String dataSourceCode) {
@@ -131,6 +137,8 @@ public class PageService {
             "UPDATE lc_page_model SET config_json = :configJson::jsonb WHERE page_code = :pageCode",
             params
         );
+        metadataCacheService.invalidate("page:" + pageCode);
+        configAuditService.record("page", pageCode, "configure", "page config_json updated");
     }
 
     public java.util.List<Map<String, Object>> listPages() {

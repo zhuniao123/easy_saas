@@ -152,6 +152,18 @@ ALTER TABLE lc_action_log ADD COLUMN IF NOT EXISTS ds_code VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_lc_action_log_action_created
     ON lc_action_log (action_code, created_at DESC);
 
+-- 1.9 light config audit (not full version history)
+CREATE TABLE IF NOT EXISTS lc_config_audit (
+    id                 BIGSERIAL PRIMARY KEY,
+    resource_type      VARCHAR(50) NOT NULL,
+    resource_code      VARCHAR(200),
+    op                 VARCHAR(50) NOT NULL,
+    actor              VARCHAR(100),
+    summary            VARCHAR(500),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_lc_config_audit_created ON lc_config_audit (created_at DESC);
+
 CREATE TABLE IF NOT EXISTS lc_client_log (
     id                 BIGSERIAL PRIMARY KEY,
     page_code          VARCHAR(100) NOT NULL,

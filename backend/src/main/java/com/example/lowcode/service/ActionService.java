@@ -45,6 +45,8 @@ public class ActionService {
     private GroovyScriptService groovyScriptService;
     @Autowired
     private AuthzRuntimeService authzRuntimeService;
+    @Autowired
+    private ActionLockService actionLockService;
 
     public void saveAction(String actionCode, Map<String, Object> body) {
         String label = body.get("label") == null ? actionCode : String.valueOf(body.get("label"));
@@ -184,6 +186,11 @@ public class ActionService {
         String errMsg = null;
         List<Integer> rowsAffected = new ArrayList<>();
         try {
+            Object locksRaw = txConfig.get("locks");
+            if (locksRaw == null) {
+                locksRaw = definition.get("locks");
+            }
+            final Object locksFinal = locksRaw;
             rowsAffected = bizJdbc.getJdbcOperations().execute((ConnectionCallback<List<Integer>>) connection -> {
                 boolean previousAutoCommit = connection.getAutoCommit();
                 connection.setAutoCommit(false);
@@ -192,6 +199,7 @@ public class ActionService {
                     timeoutStmt.execute("SET LOCAL statement_timeout = '" + timeoutSeconds + "s'");
                 }
                 try {
+                    actionLockService.applyLocks(connection, locksFinal, boundParams);
                     for (Map<String, Object> statementDef : statements) {
                         String sql = resolveStatementSql(statementDef);
                         String kind = statementDef.get("kind") == null ? "write" : String.valueOf(statementDef.get("kind"));

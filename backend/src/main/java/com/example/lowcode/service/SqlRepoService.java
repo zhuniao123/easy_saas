@@ -37,6 +37,10 @@ public class SqlRepoService {
     private ObjectMapper objectMapper;
     @Autowired
     private ConfigValidationService configValidationService;
+    @Autowired
+    private ConfigAuditService configAuditService;
+    @Autowired
+    private MetadataCacheService metadataCacheService;
 
     public List<Map<String, Object>> listAssets() {
         List<Map<String, Object>> assets = jdbcTemplate.query(
@@ -49,7 +53,11 @@ public class SqlRepoService {
                        LENGTH(sql_text) AS "sqlLength",
                        COALESCE(params_json::text, '[]') AS "paramsJson",
                        data_source_code AS "dataSourceCode",
-                       (SELECT COUNT(*) FROM lc_page_model p WHERE p.query_code = q.query_code) AS "pageRefCount"
+                       (SELECT COUNT(*) FROM lc_page_model p WHERE p.query_code = q.query_code) AS "pageRefCount",
+                       (SELECT COUNT(*) FROM lc_query_log l WHERE l.query_code = q.query_code) AS "execCount",
+                       (SELECT COUNT(*) FROM lc_query_log l WHERE l.query_code = q.query_code AND l.success = false) AS "errorCount",
+                       (SELECT AVG(l.duration_ms)::bigint FROM lc_query_log l WHERE l.query_code = q.query_code AND l.duration_ms IS NOT NULL) AS "avgDurationMs",
+                       (SELECT MAX(l.created_at) FROM lc_query_log l WHERE l.query_code = q.query_code) AS "lastExecutedAt"
                 FROM lc_query_model q
                 ORDER BY query_code
                 """,
@@ -68,6 +76,10 @@ public class SqlRepoService {
                     map.put("dataSourceCode", rs.getString("dataSourceCode"));
                     map.put("pageRefCount", rs.getInt("pageRefCount"));
                     map.put("actionRefCount", countActionRefs(code));
+                    map.put("execCount", rs.getObject("execCount"));
+                    map.put("errorCount", rs.getObject("errorCount"));
+                    map.put("avgDurationMs", rs.getObject("avgDurationMs"));
+                    map.put("lastExecutedAt", rs.getObject("lastExecutedAt"));
                     map.put("kind", inferAssetKind(queryMode, sqlText));
                     map.put("tryRunAllowed", isSelectLike(sqlText));
                     return map;
@@ -265,6 +277,8 @@ public class SqlRepoService {
                     params
             );
         }
+        metadataCacheService.invalidatePrefix("page:");
+        configAuditService.record("query", queryCode, "save", "sql-repo save mode=" + queryMode);
     }
 
     /**

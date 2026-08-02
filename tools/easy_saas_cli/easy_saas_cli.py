@@ -156,6 +156,20 @@ class EasySaasClient:
     def refresh_permissions(self) -> dict:
         return self._req("POST", "/api/v1/auth/refresh-permissions")
 
+    def snapshot(self, kind: str) -> dict:
+        path = {
+            "schema": "/api/v1/snapshots/schema",
+            "dsl": "/api/v1/snapshots/dsl",
+            "sql-repo": "/api/v1/snapshots/sql-repo",
+            "sql_repo": "/api/v1/snapshots/sql-repo",
+        }.get(kind)
+        if not path:
+            raise SystemExit(f"Unknown snapshot kind: {kind} (schema|dsl|sql-repo)")
+        return self._req("GET", path)
+
+    def validate_spec(self, spec: dict) -> dict:
+        return self._req("POST", "/api/v1/snapshots/validate-spec", spec)
+
 
 def load_json_file(path: str) -> Any:
     p = Path(path)
@@ -218,6 +232,10 @@ def cmd_configure_entity(client: EasySaasClient, args: argparse.Namespace) -> No
     print(json.dumps(res, ensure_ascii=False, indent=2))
 
 
+def cmd_snapshot(client: EasySaasClient, args: argparse.Namespace) -> None:
+    print(json.dumps(client.snapshot(args.kind), ensure_ascii=False, indent=2))
+
+
 def cmd_apply(client: EasySaasClient, args: argparse.Namespace) -> None:
     """
     Apply a full page-spec JSON produced by AI.
@@ -237,6 +255,13 @@ def cmd_apply(client: EasySaasClient, args: argparse.Namespace) -> None:
     }
     """
     spec = load_json_file(args.spec)
+    if getattr(args, "dry_run", False):
+        report = client.validate_spec(spec)
+        print(json.dumps({"dryRun": True, "report": report}, ensure_ascii=False, indent=2))
+        if not report.get("ok"):
+            raise SystemExit(1)
+        return
+
     page_code = spec["pageCode"]
     title = spec.get("title") or page_code
     route = spec.get("routePath") or f"/{page_code.replace('_', '-')}"
@@ -349,6 +374,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     a = sub.add_parser("apply", help="Apply full AI page-spec JSON")
     a.add_argument("--spec", required=True, help="Path to page-spec JSON")
+    a.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate PageSpec only (no writes)",
+    )
+
+    sn = sub.add_parser("snapshot", help="Export schema/dsl/sql-repo snapshot for AI context")
+    sn.add_argument(
+        "--kind",
+        required=True,
+        choices=["schema", "dsl", "sql-repo"],
+        help="Snapshot kind",
+    )
 
     return p
 
@@ -369,6 +407,7 @@ def main(argv: list[str] | None = None) -> None:
         "configure-query": cmd_configure_query,
         "configure-entity": cmd_configure_entity,
         "apply": cmd_apply,
+        "snapshot": cmd_snapshot,
     }
     handlers[args.command](client, args)
 

@@ -13,6 +13,8 @@ import java.util.Map;
 public class DictService {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
+    @Autowired
+    private MetadataCacheService metadataCacheService;
 
     public List<Map<String, Object>> listTypes() {
         return jdbcTemplate.query(
@@ -56,12 +58,20 @@ public class DictService {
 
     /** Options shape compatible with filter select: [{label,value}] */
     public List<Map<String, Object>> listOptions(String dictCode) {
-        List<Map<String, Object>> items = listItems(dictCode, true);
-        return items.stream().map(item -> {
-            Map<String, Object> opt = new LinkedHashMap<>();
-            opt.put("label", item.get("label"));
-            opt.put("value", item.get("value"));
-            return opt;
-        }).toList();
+        String key = "dict:options:" + dictCode;
+        return metadataCacheService.getOrLoad(key, 60_000L, () -> {
+            List<Map<String, Object>> items = listItems(dictCode, true);
+            return items.stream().map(item -> {
+                Map<String, Object> opt = new LinkedHashMap<>();
+                opt.put("label", item.get("label"));
+                opt.put("value", item.get("value"));
+                return opt;
+            }).toList();
+        });
+    }
+
+    public void invalidateDict(String dictCode) {
+        metadataCacheService.invalidate("dict:options:" + dictCode);
+        metadataCacheService.invalidatePrefix("dict:");
     }
 }

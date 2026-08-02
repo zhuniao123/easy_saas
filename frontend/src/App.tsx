@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageLoader from './PageLoader';
 import SqlRepoConsole from './SqlRepoConsole';
 import ScriptConsole from './ScriptConsole';
+import OpsConsole from './OpsConsole';
 import RbacAdminConsole from './RbacAdminConsole';
 import DataSourceConsole from './DataSourceConsole';
 import LoginScreen from './LoginScreen';
@@ -17,7 +18,7 @@ interface PageSummary {
   entityCode?: string;
 }
 
-type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo' | 'scripts' | 'rbac' | 'datasources';
+type TabMode = 'config' | 'runtime' | 'manager' | 'sqlrepo' | 'scripts' | 'ops' | 'rbac' | 'datasources';
 
 interface Tab {
   id: string;
@@ -533,6 +534,9 @@ function App() {
     if (mode === 'scripts' && !canConfig() && !canOpenSystemPage('sys-scripts')) {
       return;
     }
+    if (mode === 'ops' && !canConfig() && !canOpenSystemPage('sys-ops')) {
+      return;
+    }
     if (mode === 'rbac' && !canOpenSystemPage('sys-rbac')) {
       return;
     }
@@ -563,13 +567,15 @@ function App() {
             ? 'SQL Repository'
             : mode === 'scripts'
               ? 'Scripts'
-              : mode === 'rbac'
-                ? '权限管理'
-                : mode === 'datasources'
-                  ? '数据源'
-                  : mode === 'config'
-                    ? t('app.configTab', { title })
-                    : t('app.runtimeTab', { title });
+              : mode === 'ops'
+                ? 'Ops'
+                : mode === 'rbac'
+                  ? '权限管理'
+                  : mode === 'datasources'
+                    ? '数据源'
+                    : mode === 'config'
+                      ? t('app.configTab', { title })
+                      : t('app.runtimeTab', { title });
       return [...prev, { id: tabId, title: nextTitle, pageCode, mode }];
     });
     setActiveTabId(tabId);
@@ -577,6 +583,7 @@ function App() {
       mode === 'manager' ||
       mode === 'sqlrepo' ||
       mode === 'scripts' ||
+      mode === 'ops' ||
       mode === 'rbac' ||
       mode === 'datasources'
     ) {
@@ -585,6 +592,7 @@ function App() {
       setIsCollapsed(true);
     }
   };
+
 
   const closeTab = (tabId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -599,6 +607,7 @@ function App() {
           nextActiveTab.mode === 'manager' ||
           nextActiveTab.mode === 'sqlrepo' ||
           nextActiveTab.mode === 'scripts' ||
+          nextActiveTab.mode === 'ops' ||
           nextActiveTab.mode === 'rbac' ||
           nextActiveTab.mode === 'datasources'
         ) {
@@ -697,6 +706,7 @@ function App() {
   const showFactory = canOpenSystemPage('sys-page-manager');
   const showSqlRepo = canOpenSystemPage('sys-sql-repo');
   const showScripts = canConfig() || canOpenSystemPage('sys-scripts');
+  const showOps = canConfig() || canOpenSystemPage('sys-ops');
   const showRbac = canOpenSystemPage('sys-rbac');
   const showDataSources = canConfig() || canOpenSystemPage('sys-data-sources');
 
@@ -884,6 +894,19 @@ function App() {
                 <span className={`text-[10px] font-bold ${isThemeDark ? 'text-fuchsia-100' : 'text-fuchsia-800'}`}>JS</span>
               </button>
               )}
+              {showOps && (
+              <button
+                onClick={() => openTab('sys-ops', 'Ops', 'ops')}
+                className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                  isThemeDark
+                    ? 'border-amber-300/30 bg-amber-300/10 hover:border-amber-300/50'
+                    : 'border-amber-500/30 bg-amber-50 hover:border-amber-500/50'
+                }`}
+                title="Ops logs"
+              >
+                <span className={`text-[10px] font-bold ${isThemeDark ? 'text-amber-100' : 'text-amber-800'}`}>OPS</span>
+              </button>
+              )}
               {showRbac && (
               <button
                 onClick={() => openTab('sys-rbac', '权限管理', 'rbac')}
@@ -1010,6 +1033,18 @@ function App() {
                     }`}
                   >
                     Scripts
+                  </button>
+                  )}
+                  {showOps && (
+                  <button
+                    onClick={() => openTab('sys-ops', 'Ops', 'ops')}
+                    className={`rounded-full border px-2.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] transition ${
+                      isThemeDark
+                        ? 'border-amber-300/30 bg-amber-300/10 text-amber-100 hover:border-amber-300/50'
+                        : 'border-amber-500/30 bg-amber-50 text-amber-800 hover:border-amber-500/50'
+                    }`}
+                  >
+                    Ops
                   </button>
                   )}
                   {showFactory && (
@@ -1223,6 +1258,7 @@ function App() {
                     tab.mode === 'manager' ||
                     tab.mode === 'sqlrepo' ||
                     tab.mode === 'scripts' ||
+                    tab.mode === 'ops' ||
                     tab.mode === 'rbac' ||
                     tab.mode === 'datasources'
                   ) {
@@ -1267,6 +1303,8 @@ function App() {
               <SqlRepoConsole />
             ) : activeTab.mode === 'scripts' ? (
               <ScriptConsole />
+            ) : activeTab.mode === 'ops' ? (
+              <OpsConsole />
             ) : activeTab.mode === 'rbac' ? (
               <RbacAdminConsole />
             ) : activeTab.mode === 'datasources' ? (
