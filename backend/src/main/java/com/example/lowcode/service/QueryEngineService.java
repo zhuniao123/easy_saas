@@ -40,6 +40,8 @@ public class QueryEngineService {
     private ConfigValidationService configValidationService;
     @Autowired
     private QueryLogService queryLogService;
+    @Autowired
+    private AuthzRuntimeService authzRuntimeService;
 
     @Transactional(readOnly = true, timeout = RAW_SQL_TIMEOUT_SECONDS)
     public Map<String, Object> executeSql(String queryCode, Map<String, Object> requestParams) {
@@ -129,6 +131,15 @@ public class QueryEngineService {
         sqlParams.remove("_pageSize");
         sqlParams.remove("_sortField");
         sqlParams.remove("_sortOrder");
+        // Forced scope params (client cannot override); optional row filter when page declares authz fields.
+        authzRuntimeService.applyForcedParams(sqlParams);
+        AuthzRuntimeService.ScopeBinding scopeBinding = authzRuntimeService.resolveScopeBinding(pageCode);
+        sqlText = authzRuntimeService.applyScopeFilter(sqlText, sqlParams, scopeBinding);
+        if (countSqlText != null && !countSqlText.isBlank() && !scopeBinding.isEmpty()
+                && !authzRuntimeService.currentDataScope().isAll()) {
+            // Count SQL may not include scope; fall back to auto-count on filtered SQL.
+            countSqlText = null;
+        }
 
         long start = System.currentTimeMillis();
         boolean success = false;
@@ -236,6 +247,11 @@ public class QueryEngineService {
                 } catch (Exception ignored) { /* isolation */ }
                 throw hookEx instanceof RuntimeException re ? re : new IllegalStateException(hookEx.getMessage(), hookEx);
             }
+        }
+
+        // Field deny strip after hooks so scripts cannot re-expose denied columns.
+        if (result != null) {
+            authzRuntimeService.sanitizeQueryResult(result);
         }
 
         return result;

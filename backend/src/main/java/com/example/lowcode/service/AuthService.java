@@ -173,18 +173,43 @@ public class AuthService {
         return result;
     }
 
+    /**
+     * Field resources the user must not see/write.
+     * Source of truth: {@code lc_permission} rows with {@code perm_type='field'} that the user
+     * does not hold (and no {@code *}). Returns resource_code values (e.g. {@code entity_shop_product.cost_price}).
+     */
     public List<String> getFieldDenies(long userId) {
         List<String> perms = getPermissionList(userId);
-        // Convention: if field:x is NOT granted and role is clerk, deny cost fields that owner has
-        // Simpler: fieldDenies = known sensitive fields not in permission list
-        Set<String> sensitive = Set.of(
-                "field:entity_shop_product.cost_price",
-                "field:entity_product.cost_price"
+        if (perms.contains("*")) {
+            return List.of();
+        }
+        Set<String> granted = new LinkedHashSet<>(perms);
+        List<String> catalog = jdbcTemplate.query(
+                """
+                SELECT perm_code, resource_code
+                FROM lc_permission
+                WHERE perm_type = 'field'
+                ORDER BY perm_code
+                """,
+                Map.of(),
+                (rs, i) -> {
+                    String code = rs.getString("perm_code");
+                    String resource = rs.getString("resource_code");
+                    return code + "\n" + (resource == null ? "" : resource);
+                }
         );
         List<String> denies = new ArrayList<>();
-        for (String s : sensitive) {
-            if (!perms.contains(s) && !perms.contains("*")) {
-                denies.add(s.substring("field:".length()));
+        for (String row : catalog) {
+            int nl = row.indexOf('\n');
+            String permCode = nl >= 0 ? row.substring(0, nl) : row;
+            String resource = nl >= 0 ? row.substring(nl + 1) : "";
+            if (granted.contains(permCode)) {
+                continue;
+            }
+            if (resource != null && !resource.isBlank()) {
+                denies.add(resource.trim());
+            } else if (permCode != null && permCode.startsWith("field:")) {
+                denies.add(permCode.substring("field:".length()));
             }
         }
         return denies;

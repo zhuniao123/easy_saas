@@ -30,6 +30,8 @@ public class PageService {
     private ConfigValidationService configValidationService;
     @Autowired
     private AuthService authService;
+    @Autowired
+    private AuthzRuntimeService authzRuntimeService;
 
     private String requireSafeIdentifier(String value, String fieldName) {
         if (value == null || !SAFE_IDENTIFIER.matcher(value).matches()) {
@@ -493,7 +495,11 @@ public class PageService {
         Map<String, Object> entity = resolveEntity(pageCode);
         String tableName = requireSafeIdentifier((String) entity.get("tableName"), "Table name");
         String primaryKey = requireSafeIdentifier((String) entity.get("primaryKey"), "Primary key");
-        Map<String, Object> sanitizedRowData = sanitizeRowData(rowData, primaryKey, true);
+        // Drop field-denied columns before write (backend is source of truth).
+        Map<String, Object> authorized = authzRuntimeService.sanitizeRow(
+                rowData == null ? Map.of() : new HashMap<>(rowData)
+        );
+        Map<String, Object> sanitizedRowData = sanitizeRowData(authorized, primaryKey, true);
 
         StringBuilder sql = new StringBuilder("INSERT INTO ");
         sql.append("\"").append(tableName).append("\" (");
@@ -529,7 +535,10 @@ public class PageService {
         Map<String, Object> entity = resolveEntity(pageCode);
         String tableName = requireSafeIdentifier((String) entity.get("tableName"), "Table name");
         String primaryKey = requireSafeIdentifier((String) entity.get("primaryKey"), "Primary key");
-        Map<String, Object> sanitizedRowData = sanitizeRowData(rowData, primaryKey, false);
+        Map<String, Object> authorized = authzRuntimeService.sanitizeRow(
+                rowData == null ? Map.of() : new HashMap<>(rowData)
+        );
+        Map<String, Object> sanitizedRowData = sanitizeRowData(authorized, primaryKey, false);
 
         StringBuilder sql = new StringBuilder("UPDATE ");
         sql.append("\"").append(tableName).append("\" SET ");

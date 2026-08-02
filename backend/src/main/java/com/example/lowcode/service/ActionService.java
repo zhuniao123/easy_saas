@@ -43,6 +43,8 @@ public class ActionService {
     private ConfigValidationService configValidationService;
     @Autowired
     private GroovyScriptService groovyScriptService;
+    @Autowired
+    private AuthzRuntimeService authzRuntimeService;
 
     public void saveAction(String actionCode, Map<String, Object> body) {
         String label = body.get("label") == null ? actionCode : String.valueOf(body.get("label"));
@@ -141,6 +143,13 @@ public class ActionService {
         }
 
         Map<String, Object> boundParams = bindParameters(txConfig, row, form, requestParams);
+        // Forced scope params always applied; strip denied fields from row-derived payload keys.
+        authzRuntimeService.applyForcedParams(boundParams);
+        Set<String> denies = authzRuntimeService.currentFieldDenies();
+        if (!denies.isEmpty()) {
+            boundParams.entrySet().removeIf(e ->
+                    e.getKey() != null && authzRuntimeService.isFieldDenied(e.getKey(), denies));
+        }
         final int timeoutSeconds;
         if (txConfig.get("timeoutSeconds") instanceof Number) {
             timeoutSeconds = Math.max(1, Math.min(60, ((Number) txConfig.get("timeoutSeconds")).intValue()));
