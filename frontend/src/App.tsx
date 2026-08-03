@@ -1290,49 +1290,61 @@ function App() {
         </header>
 
         <div className={`min-h-0 flex-1 ${activeTab?.mode === 'manager' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-          {activeTab ? (
-            activeTab.mode === 'manager' ? (
-              <PageManagerConsole
-                pages={pages}
-                onPageCreated={fetchPages}
-                onPageDeleted={handlePageDeleted}
-                openTab={openTab}
-                t={t}
-              />
-            ) : activeTab.mode === 'sqlrepo' ? (
-              <SqlRepoConsole />
-            ) : activeTab.mode === 'scripts' ? (
-              <ScriptConsole />
-            ) : activeTab.mode === 'ops' ? (
-              <OpsConsole />
-            ) : activeTab.mode === 'rbac' ? (
-              <RbacAdminConsole />
-            ) : activeTab.mode === 'datasources' ? (
-              <DataSourceConsole />
-            ) : (
-              <PageLoader
-                key={`${activeTab.id}-${locale}-${theme}`}
-                pageCode={activeTab.pageCode}
-                mode={activeTab.mode === 'config' ? 'config' : 'runtime'}
-                onOpenPage={(targetPageCode, title) => {
-                  const page = pages.find((p) => p.pageCode === targetPageCode);
-                  openTab(
-                    targetPageCode,
-                    title || page?.title || targetPageCode,
-                    'runtime',
-                  );
-                }}
-                onOpenConfig={
-                  activeTab.mode === 'runtime' && canConfig()
-                    ? () => {
-                        const page = pages.find((p) => p.pageCode === activeTab.pageCode);
-                        openTab(activeTab.pageCode, page?.title || activeTab.pageCode, 'config');
-                      }
-                    : undefined
-                }
-              />
-            )
-          ) : (
+          {/* System tools: mount only while active (lightweight). */}
+          {activeTab?.mode === 'manager' && (
+            <PageManagerConsole
+              pages={pages}
+              onPageCreated={fetchPages}
+              onPageDeleted={handlePageDeleted}
+              openTab={openTab}
+              t={t}
+            />
+          )}
+          {activeTab?.mode === 'sqlrepo' && <SqlRepoConsole />}
+          {activeTab?.mode === 'scripts' && <ScriptConsole />}
+          {activeTab?.mode === 'ops' && <OpsConsole />}
+          {activeTab?.mode === 'rbac' && <RbacAdminConsole />}
+          {activeTab?.mode === 'datasources' && <DataSourceConsole />}
+
+          {/*
+            Page tabs: keep every open runtime/config tab mounted and hide inactive ones.
+            Switching tabs must not remount PageLoader (avoids re-fetch + controller re-init).
+          */}
+          {tabs
+            .filter((tab) => tab.mode === 'runtime' || tab.mode === 'config')
+            .map((tab) => {
+              const visible = activeTabId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  className={visible ? 'h-full min-h-0' : 'hidden'}
+                  aria-hidden={!visible}
+                >
+                  <PageLoader
+                    pageCode={tab.pageCode}
+                    mode={tab.mode === 'config' ? 'config' : 'runtime'}
+                    onOpenPage={(targetPageCode, title) => {
+                      const page = pages.find((p) => p.pageCode === targetPageCode);
+                      openTab(
+                        targetPageCode,
+                        title || page?.title || targetPageCode,
+                        'runtime',
+                      );
+                    }}
+                    onOpenConfig={
+                      tab.mode === 'runtime' && canConfig()
+                        ? () => {
+                            const page = pages.find((p) => p.pageCode === tab.pageCode);
+                            openTab(tab.pageCode, page?.title || tab.pageCode, 'config');
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              );
+            })}
+
+          {!activeTab && (
             <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
               <section className={`overflow-hidden rounded-[36px] border p-9 md:p-11 shadow-sm ${
                 isThemeDark
