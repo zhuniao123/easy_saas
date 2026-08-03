@@ -19,6 +19,7 @@ run_sql() {
 
 # Core demos for presentation
 run_sql "$ROOT/demos/beauty_salon/install.sql" || true
+run_sql "$ROOT/demos/beauty_salon/deep_ops.sql" || true
 run_sql "$ROOT/demos/simple_tour/install.sql" || true
 run_sql "$ROOT/demos/dashboard_lite/install.sql" || true
 run_sql "$ROOT/demos/master_detail/install.sql" || true

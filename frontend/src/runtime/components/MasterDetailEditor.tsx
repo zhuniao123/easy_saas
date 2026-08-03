@@ -74,8 +74,10 @@ export default function MasterDetailEditor({
 
   const statusField = spec.header.statusField || 'status';
   const status = String(header[statusField] ?? '');
-  const isSubmitted = status === (spec.submitStatus || 'submitted');
-  const readOnly = isSubmitted;
+  const draftStatus = spec.draftStatus || 'draft';
+  // Only draft (or configured draftStatus) is editable; submitted/approved/void/settled are read-only.
+  const readOnly = status !== draftStatus && status !== '';
+  const isLocked = readOnly;
 
   const loadDocument = useCallback(
     async (headerId: unknown) => {
@@ -352,9 +354,9 @@ export default function MasterDetailEditor({
             <div className="mt-1 text-lg font-semibold text-slate-900">
               {header[headerPk] != null ? `单据 #${String(header[headerPk])}` : '新单据'}
               {dirty && <span className="ml-2 text-xs font-normal text-amber-600">未保存</span>}
-              {isSubmitted && (
-                <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                  已提交（只读）
+              {isLocked && (
+                <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  {status || 'locked'}（只读，改单请用「恢复草稿」Action）
                 </span>
               )}
             </div>

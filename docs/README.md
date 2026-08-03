@@ -6,6 +6,7 @@
 
 1. [根 README：当前代码基线](../README.md)
 2. [1.5 收官与 1.6～2.0 待办](./wiki/v1.5-to-2.0-summary-and-todos.md)
+2b. [Domain 通用性/组件性边界](./wiki/domain-generality.md)
 3. [v1.6 多数据源：已实现/未实现边界](./wiki/v1.6-multi-datasource.md)
 4. [可扩展运行时、Dashboard 与 MasterDetail 实施计划](./superpowers/plans/2026-07-29-extensible-runtime-dashboard-master-detail.md)
 5. [阶段一验收说明](./wiki/stage-one-acceptance.md)
