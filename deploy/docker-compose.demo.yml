@@ -1,0 +1,47 @@
+# Public demo stack (low-memory host friendly: prebuilt jar + dist, no on-server Maven/Node build)
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: lowcode
+      POSTGRES_USER: lowcode
+      POSTGRES_PASSWORD: lowcode
+    volumes:
+      - easy_saas_demo_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lowcode -d lowcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  backend:
+    image: eclipse-temurin:17-jre
+    working_dir: /app
+    volumes:
+      - ../backend/target/lowcode-1.0.0.jar:/app/app.jar:ro
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lowcode?sslmode=disable&stringtype=unspecified
+      SPRING_DATASOURCE_USERNAME: lowcode
+      SPRING_DATASOURCE_PASSWORD: lowcode
+      SERVER_PORT: "8081"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
+    command: ["java", "-jar", "/app/app.jar"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:1.27-alpine
+    volumes:
+      - ../frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx.demo.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  easy_saas_demo_pg:
