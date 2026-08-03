@@ -168,6 +168,18 @@ public class PageService {
                 "固定 Row/Column 栅格 + KPI/图表/明细；不建业务表，替换 query SQL 即可",
                 false,
                 "rawSql"));
+        list.add(templateMeta(
+                "workspace_lite",
+                "Workspace 三栏",
+                "左列表 / 中主表 / 右指标；替换 companion SQL 即可联调业务",
+                false,
+                "rawSql"));
+        list.add(templateMeta(
+                "wizard_lite",
+                "Wizard 向导",
+                "分步 Stepper；完成可挂 Action。适合开卡/建档流程骨架",
+                false,
+                "rawSql"));
         list.add(templateMeta("blank", "空白页", "最小骨架：占位 SQL + 空列配置，自行在配置态完善", false, "rawSql"));
         return list;
     }
@@ -480,9 +492,194 @@ public class PageService {
                         kpiQueryCode,
                         seriesQueryCode);
             }
+            case "workspace_lite" -> {
+                queryMode = "rawSql";
+                entityCode = null;
+                String sideQueryCode = queryCode + "_side";
+                String statQueryCode = queryCode + "_stat";
+                sqlText = """
+                    SELECT * FROM (VALUES
+                      (1, '示例预约 A', '待服务'),
+                      (2, '示例预约 B', '进行中'),
+                      (3, '替换 q_%s SQL 接入真实业务', '—')
+                    ) AS t(id, title, status)
+                    ORDER BY id
+                    """.formatted(pageCode).trim();
+                fieldsJson = "[]";
+                Map<String, String> sideQ = new LinkedHashMap<>();
+                sideQ.put("queryCode", sideQueryCode);
+                sideQ.put("sqlText", """
+                    SELECT * FROM (VALUES
+                      (1, '示例会员甲', '13800000001'),
+                      (2, '示例会员乙', '13800000002')
+                    ) AS t(id, name, phone)
+                    """.trim());
+                sideQ.put("queryMode", "rawSql");
+                extraQueries.add(sideQ);
+                Map<String, String> statQ = new LinkedHashMap<>();
+                statQ.put("queryCode", statQueryCode);
+                statQ.put("sqlText", "SELECT 12::int AS metric_a, 3::int AS metric_b");
+                statQ.put("queryMode", "rawSql");
+                extraQueries.add(statQ);
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "Workspace 三栏：左 simpleGrid、中 smartGrid、右 stat。改 companion SQL 即可。",
+                        "badge": "Workspace",
+                        "emptyState": "No rows."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 20, "pageSizeOptions": [20, 50, 100] },
+                      "workspace": {
+                        "enabled": true,
+                        "gap": 16,
+                        "left": { "span": 3, "title": "侧栏", "components": ["side_list"] },
+                        "center": { "span": 6, "title": "主区", "components": ["main_grid"] },
+                        "right": { "span": 3, "title": "指标", "components": ["kpi_a", "kpi_b", "hint"] }
+                      },
+                      "components": [
+                        {
+                          "componentCode": "side_list",
+                          "type": "simpleGrid",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "properties": { "title": "侧栏列表", "maxRows": 50 }
+                        },
+                        { "componentCode": "main_grid", "type": "smartGrid" },
+                        {
+                          "componentCode": "kpi_a",
+                          "type": "stat",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "bindings": { "value": "metric_a" },
+                          "properties": { "title": "指标 A", "format": "number" }
+                        },
+                        {
+                          "componentCode": "kpi_b",
+                          "type": "stat",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "bindings": { "value": "metric_b" },
+                          "properties": { "title": "指标 B", "format": "number" }
+                        },
+                        {
+                          "componentCode": "hint",
+                          "type": "text",
+                          "properties": {
+                            "title": "提示",
+                            "content": "主 query=%s · 侧栏=%s · 指标=%s"
+                          }
+                        }
+                      ],
+                      "table": {
+                        "columns": [
+                          { "field": "id", "label": "ID", "width": 64 },
+                          { "field": "title", "label": "标题", "width": 220 },
+                          { "field": "status", "label": "状态", "width": 100, "format": "badge" }
+                        ],
+                        "filters": [
+                          { "field": "title", "label": "标题", "type": "text" }
+                        ],
+                        "actions": [
+                          { "code": "refresh_grid", "label": "刷新", "dsl": "grid.refresh", "scope": "page", "variant": "primary" }
+                        ]
+                      },
+                      "features": {
+                        "pagination": true, "create": false, "edit": false, "delete": false,
+                        "export": true, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(
+                        safeTitle,
+                        queryCode,
+                        sideQueryCode,
+                        statQueryCode,
+                        statQueryCode,
+                        queryCode,
+                        sideQueryCode,
+                        statQueryCode);
+            }
+            case "wizard_lite" -> {
+                queryMode = "rawSql";
+                entityCode = null;
+                sqlText = """
+                    SELECT * FROM (VALUES
+                      (1, '示例套餐 A', 100),
+                      (2, '示例套餐 B', 200),
+                      (3, '替换 q_%s 接入卡项/项目', 0)
+                    ) AS t(id, name, price)
+                    ORDER BY id
+                    """.formatted(pageCode).trim();
+                fieldsJson = "[]";
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "Wizard 向导骨架：分步 text + 中间步 smartGrid。完成事件可挂 Action。",
+                        "badge": "Wizard",
+                        "emptyState": "No packages."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 50, "pageSizeOptions": [20, 50, 100] },
+                      "wizard": {
+                        "enabled": true,
+                        "steps": [
+                          {
+                            "code": "step1",
+                            "title": "基本信息",
+                            "description": "填写客户/会员信息（表单组件可后续挂接）。",
+                            "components": ["step_intro"]
+                          },
+                          {
+                            "code": "step2",
+                            "title": "选择项目",
+                            "description": "列表来自页面主 query。",
+                            "components": ["step_grid"]
+                          },
+                          {
+                            "code": "step3",
+                            "title": "确认",
+                            "description": "完成可接 Action / 插件（短信等）。",
+                            "components": ["step_confirm"]
+                          }
+                        ]
+                      },
+                      "components": [
+                        {
+                          "componentCode": "step_intro",
+                          "type": "text",
+                          "properties": {
+                            "title": "步骤 1",
+                            "content": "配置态可改文案；生产可换 form 组件或跳转 masterDetail。"
+                          }
+                        },
+                        { "componentCode": "step_grid", "type": "smartGrid" },
+                        {
+                          "componentCode": "step_confirm",
+                          "type": "text",
+                          "properties": {
+                            "title": "确认",
+                            "content": "点完成触发 wizardFinish。可在 page.wizard.finishActionCode 挂 sqlTransaction。"
+                          }
+                        }
+                      ],
+                      "table": {
+                        "columns": [
+                          { "field": "id", "label": "ID", "width": 64 },
+                          { "field": "name", "label": "名称", "width": 220 },
+                          { "field": "price", "label": "价格", "width": 100, "format": "number", "align": "right" }
+                        ],
+                        "filters": [],
+                        "actions": [
+                          { "code": "refresh_grid", "label": "刷新", "dsl": "grid.refresh", "scope": "page", "variant": "primary" }
+                        ]
+                      },
+                      "features": {
+                        "pagination": false, "create": false, "edit": false, "delete": false,
+                        "export": false, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(safeTitle, queryCode);
+            }
             default -> throw new IllegalArgumentException(
                     "Unknown page template: " + template
-                            + " (use crud_grid | status_board | readonly_sql | dashboard_lite | blank)");
+                            + " (use crud_grid | status_board | readonly_sql | dashboard_lite | workspace_lite | wizard_lite | blank)");
         }
 
         if (createPhysicalTable && createTableSql != null) {
@@ -567,6 +764,8 @@ public class PageService {
             queryCodes.add(queryCode);
             queryCodes.add(queryCode + "_kpi");
             queryCodes.add(queryCode + "_series");
+            queryCodes.add(queryCode + "_side");
+            queryCodes.add(queryCode + "_stat");
             for (String code : queryCodes) {
                 Map<String, Object> qParams = new HashMap<>();
                 qParams.put("queryCode", code);

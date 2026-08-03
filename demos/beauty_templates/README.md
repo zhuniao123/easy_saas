@@ -47,6 +47,12 @@ docker exec -i saas-demo-postgres psql -U lowcode -d lowcode < demos/beauty_temp
 }
 ```
 
+## 真实业务版
+
+装 **`demos/beauty_salon/install.sql`** 获得物理表 + 前台/开单/日历/开卡联调页（`beauty_front_desk` 等）。
+
+工厂一键骨架：**`workspace_lite` / `wizard_lite`**（不绑本店表）。
+
 ## 插件衔接点（未实现）
 
 | 能力 | 配置方向 |

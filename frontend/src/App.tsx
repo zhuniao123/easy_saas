@@ -234,6 +234,8 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
                       { code: 'status_board', name: '状态看板', description: '' },
                       { code: 'readonly_sql', name: '只读 SQL', description: '' },
                       { code: 'dashboard_lite', name: 'Dashboard Lite', description: '' },
+                      { code: 'workspace_lite', name: 'Workspace 三栏', description: '' },
+                      { code: 'wizard_lite', name: 'Wizard 向导', description: '' },
                       { code: 'blank', name: '空白页', description: '' },
                     ]
                 ).map((tpl) => (
@@ -257,6 +259,18 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
                     code: 'dashboard_lite',
                     name: 'Dashboard Lite',
                     description: t('app.templateDashboardHint'),
+                    createsTable: false,
+                  },
+                  {
+                    code: 'workspace_lite',
+                    name: 'Workspace 三栏',
+                    description: t('app.templateWorkspaceHint'),
+                    createsTable: false,
+                  },
+                  {
+                    code: 'wizard_lite',
+                    name: 'Wizard 向导',
+                    description: t('app.templateWizardHint'),
                     createsTable: false,
                   },
                   { code: 'blank', name: '空白页', description: t('app.templateBlankHint'), createsTable: false },

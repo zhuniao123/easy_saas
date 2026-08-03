@@ -24,6 +24,8 @@
   "app.templateStatusHint": "CRUD with status field and filter",
   "app.templateReadonlyHint": "rawSql read-only report / view",
   "app.templateDashboardHint": "Fixed grid KPI/charts/detail — no business table",
+  "app.templateWorkspaceHint": "Three-pane workspace: side list / main grid / KPIs",
+  "app.templateWizardHint": "Multi-step wizard skeleton; finish can call Action",
   "app.templateBlankHint": "Minimal skeleton — configure SQL yourself",
   "app.rawSqlDriven": "Raw SQL first • Config driven • Show-ready",
   "app.creating": "Creating",

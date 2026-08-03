@@ -24,6 +24,8 @@
   "app.templateStatusHint": "CRUD + status 字段与筛选",
   "app.templateReadonlyHint": "rawSql 只读报表/视图",
   "app.templateDashboardHint": "固定栅格 KPI/图表/明细，不建业务表",
+  "app.templateWorkspaceHint": "左列表/中主表/右指标三栏工作台",
+  "app.templateWizardHint": "分步向导骨架，完成可挂 Action",
   "app.templateBlankHint": "最小骨架，自行配置 SQL",
   "app.rawSqlDriven": "Raw SQL first • 配置驱动 • 可展示",
   "app.creating": "创建中",
