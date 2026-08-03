@@ -1,17 +1,13 @@
-# 上手导览 Demo（最简）
+# 上手 Demo：联表 / Script / 动态接口
 
-**目标：5 分钟搞懂「SQL → 页面 → 筛选 → 可写 → 点一下脚本」**，先别管多库 / Groovy / Ops。
+三个侧栏页，点一遍就懂。
 
-## 安装（一次）
-
-```bash
-cd /root/saas-demo   # 或你的仓库路径
-docker exec -i saas-demo-postgres psql -U lowcode -d lowcode < demos/simple_tour/install.sql
-```
-
-后端已跑时，刷新权限（owner）：
+## 安装
 
 ```bash
+docker exec -i saas-demo-postgres psql -U lowcode -d lowcode \
+  < demos/simple_tour/install.sql
+
 TOKEN=$(curl -s -X POST http://127.0.0.1:8081/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"loginName":"owner","password":"owner123"}' \
@@ -20,57 +16,53 @@ curl -s -X POST http://127.0.0.1:8081/api/v1/admin/rbac/refresh-catalog \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-浏览器：**硬刷新**，用 `owner` / `owner123` 登录。
+登录：`owner` / `owner123`，**硬刷新**浏览器。
 
-## 你怎么点
+## 三页对照
 
-| 步骤 | 点哪里 | 你会看到 |
-|------|--------|----------|
-| 1 | 侧栏 **上手导览** | 一张步骤表（本 README 的网页版） |
-| 2 | 侧栏 **我的便签** | 真实表 `tour_note` 的数据 |
-| 3 | 标题筛「学会」→ 应用筛选 | 只剩标题含「学会」的行 |
-| 4 | 状态选「进行中」 | 字典下拉 + `eq` 过滤 |
-| 5 | **新建** 一条便签 | 单表 CRUD（不是写 Java） |
-| 6 | **点某一行** | toast：「你点了：xxx」（JS Controller） |
-| 7 | 看「状态」列 | 显示中文（`format=dict`） |
+| 侧栏 | 你看什么 | 对应能力 |
+|------|----------|----------|
+| **上手导览** | 步骤清单 | 入口 |
+| **我的便签** | 单表 CRUD；**点一行** | **Script 改当前页** + **动态接口** |
+| **联表只读** | 分类名来自 JOIN | **联表查询（只读）** |
 
-## 这背后只有 4 块积木
+### ① 联表查询
 
-```text
-表 tour_note          ← 业务数据（普通 PG 表）
-lc_query_model        ← SQL：数据从哪来（queryCode）
-lc_page_model         ← 页面：列/筛选/能不能写（pageCode）
-lc_script             ← 可选：点行时的 JS（controller.scriptCode）
+- 页：`联表只读`（`/demo/simple-join`）
+- SQL：`q_tour_join` = `tour_note JOIN tour_category`
+- 特点：能筛、能分页；**没有新建/编辑**（联表默认不可写）
+
+### ② Script 改当前页面
+
+- 页：`我的便签`
+- 脚本：`ctrl_tour_notes`（Scripts 控制台可改）
+- 操作：**点任意行** → toast「点了：xxx」
+- 改法：Scripts → `ctrl_tour_notes` → 改 `onEvent` → **Publish** → 刷新页面
+
+### ③ 动态接口
+
+- 端点：`POST /api/v1/dynamic/ep_tour_echo`
+- Groovy：`groovy_tour_echo`（把 priority ×2）
+- 页面上：点便签行时，Controller 里 `ctx.endpoint.call('ep_tour_echo', …)` 自动调用
+- 控制台：Scripts → **端点** Tab → `ep_tour_echo` → Try invoke
+- 命令行：
+
+```bash
+curl -s -X POST http://127.0.0.1:8081/api/v1/dynamic/ep_tour_echo \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"demo","priority":3}'
+# 期望 doubled=6
 ```
 
-**不需要改前端工程、不需要写 Java Domain。**
+## 和 Slice Lab 的关系
 
-## 对应元数据
+仓库里还有更全的 **Slice Lab**（图表 / CTE / Controller Lab）：
 
-| 东西 | code |
-|------|------|
-| 导览页 | `simple_tour_guide` → `/demo/simple-tour` |
-| 便签页 | `simple_tour_notes` → `/demo/simple-notes` |
-| 查询 | `q_tour_notes` |
-| 实体 | `entity_tour_note` |
-| 脚本 | `ctrl_tour_notes`（Scripts 控制台可打开改） |
-| 字典 | `tour.note_status` |
+| 页 | 路由 |
+|----|------|
+| 复杂 SQL（JOIN/CTE/UNION） | `/demo/slice-complex-sql` |
+| JS Controller Lab | `/demo/slice-controller` |
+| 动态 echo | `ep_slice_echo` |
 
-## 学完再碰这些（可选）
-
-| 想了解 | 去哪 |
-|--------|------|
-| 改 SQL | SQL Repo → `q_tour_notes` |
-| 改 JS | Scripts → `ctrl_tour_notes` → Save → Publish |
-| 权限差 | 退出，用 `clerk` / `clerk123` 登录（仍能看导览/便签） |
-| 复杂店务 | Showcase / 小店 demo（别一上来就啃） |
-
-## 卸载
-
-```sql
-DELETE FROM lc_page_model WHERE page_code LIKE 'simple_tour%';
-DELETE FROM lc_query_model WHERE query_code LIKE 'q_tour%';
-DELETE FROM lc_entity_model WHERE entity_code = 'entity_tour_note';
-DELETE FROM lc_script WHERE script_code = 'ctrl_tour_notes';
-DROP TABLE IF EXISTS tour_note;
-```
+上手建议先用本 Demo 三页，再进 Slice Lab。
