@@ -327,21 +327,28 @@ feat: add dashboard layout and dashboard lite demo
 
 ### Slice 8：MasterDetailTemplate
 
+状态：**已完成**（2026-08-03）
+
 工作项：
 
-- 订单头表单与项目明细编辑。
-- 临时行 ID、增改删状态和整单校验。
-- 整单保存、提交、取消 Action。
-- 单数据源事务、乐观锁和错误回滚。
-- 支持 JS 前端编排和 Groovy 前后置校验。
+- [x] 订单头表单与项目明细编辑（`MasterDetailEditor`）。
+- [x] 临时行 ID、增改删 `_rowState` 和整单校验。
+- [x] 整单保存草稿 / 提交（`POST .../master-detail/save`）。
+- [x] 单数据源事务、乐观锁（version）和错误回滚。
+- [x] 配置驱动；Groovy 前后置可挂后续 action/endpoint，本切片走通用服务。
 
-验收：创建 MRFM 订单，选择会员并添加多个项目和员工，保存草稿后整单提交，头明细在同一事务写入。
+验收：创建服务订单，选择会员并添加多个项目和员工，保存草稿后整单提交，头明细在同一事务写入。
+
+落地：
+
+- `MasterDetailService` + `PageController` save API
+- `pageDsl.masterDetail` + `MasterDetailEditor`
+- Demo：`demos/master_detail`（`md_order_workbench`）
 
 建议提交：
 
 ```text
-feat: add transactional master detail template
-feat: add mrmf order and service line demo
+feat: add transactional master detail save and demo
 ```
 
 ## 5. 后置模板策略
@@ -370,6 +377,6 @@ feat: add mrmf order and service line demo
 
 ## 7. 当前执行顺序
 
-- Slice 1–6：**已完成**
-- Slice 7：**已完成**（DashboardTemplate / Dashboard Lite）
-- 下一步：**Slice 8** — MasterDetailTemplate
+- Slice 1–7：**已完成**
+- Slice 8：**已完成**（MasterDetailTemplate）
+- 主线计划切片 1–8 已齐；后续按 roadmap 2.0 平台接驳 / 业务 polish

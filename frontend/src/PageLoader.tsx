@@ -33,6 +33,7 @@ import {
   INDEPENDENT_DATA_COMPONENT_TYPES,
 } from './runtime/components/registerBuiltins';
 import ComponentHost, { type ComponentHostItem } from './runtime/components/ComponentHost';
+import MasterDetailEditor from './runtime/components/MasterDetailEditor';
 import type { SmartGridPageContext } from './runtime/components/SmartGrid';
 import {
   mountPageController,
@@ -1639,11 +1640,25 @@ export default function PageLoader({
 
       {(!showConfigSidebar || showPreviewPanel) && (
       <section className="space-y-4">
-        <ComponentHost
-          items={componentHostItems}
-          layout={pageDsl.layout}
-          onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
-        />
+        {pageDsl.masterDetail?.enabled ? (
+          <MasterDetailEditor
+            pageCode={pageCode}
+            spec={pageDsl.masterDetail}
+            listRows={queryResult?.rows}
+            listLoading={loadingQuery}
+            onRefreshList={() => {
+              if (queryCode) {
+                executeQuery(queryCode, page, pageSize, sortField, sortOrder, filterValues);
+              }
+            }}
+          />
+        ) : (
+          <ComponentHost
+            items={componentHostItems}
+            layout={pageDsl.layout}
+            onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
+          />
+        )}
       </section>
       )}
 

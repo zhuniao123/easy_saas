@@ -1,6 +1,7 @@
 package com.example.lowcode.controller;
 
 import com.example.lowcode.service.AuthService;
+import com.example.lowcode.service.MasterDetailService;
 import com.example.lowcode.service.PageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,8 @@ import java.util.stream.Collectors;
 public class PageController {
     @Autowired
     private PageService pageService;
+    @Autowired
+    private MasterDetailService masterDetailService;
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
@@ -111,6 +114,24 @@ public class PageController {
         Map<String, Object> res = new java.util.HashMap<>();
         res.put("status", "success");
         return res;
+    }
+
+    /**
+     * Slice 8: save header + lines in one transaction.
+     * Body: { header: {...}, lines: [{... , _rowState}], mode: "draft"|"submit" }
+     */
+    @PostMapping("/{pageCode}/master-detail/save")
+    public Map<String, Object> saveMasterDetail(
+            @PathVariable String pageCode,
+            @RequestBody Map<String, Object> body) {
+        try {
+            return masterDetailService.save(pageCode, body);
+        } catch (IllegalStateException ex) {
+            // optimistic lock / not found
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     @PostMapping("/{pageCode}/data")

@@ -97,7 +97,9 @@ public class AuthzInterceptor implements HandlerInterceptor {
             return null; // entity meta: allow if logged in (page already checked when loading)
         }
 
-        if (path.matches("/api/v1/pages/[^/]+/data.*") || path.matches("/api/v1/pages/[^/]+/logs")) {
+        if (path.matches("/api/v1/pages/[^/]+/data.*")
+                || path.matches("/api/v1/pages/[^/]+/logs")
+                || path.matches("/api/v1/pages/[^/]+/master-detail/.*")) {
             String pageCode = path.substring("/api/v1/pages/".length());
             pageCode = pageCode.substring(0, pageCode.indexOf('/'));
             return "page:" + pageCode;

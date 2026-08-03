@@ -4,8 +4,12 @@ import {
   normalizeDashboardLayout,
   type DashboardLayoutSpec,
 } from './runtime/layoutTypes';
+import {
+  normalizeMasterDetail,
+  type MasterDetailSpec,
+} from './runtime/masterDetailTypes';
 
-export type { ComponentSpec, DashboardLayoutSpec };
+export type { ComponentSpec, DashboardLayoutSpec, MasterDetailSpec };
 
 export interface PageDataSource {
   /**
@@ -89,6 +93,8 @@ export interface PageDslModel {
    * Filter bar values still override when the user sets them.
    */
   sharedParams?: Record<string, unknown>;
+  /** Slice 8: header + lines editor (optional). */
+  masterDetail?: MasterDetailSpec;
   /** Optional JS page controller (published script only). */
   controller?: PageControllerConfig;
   features: Required<PageFeatures>;
@@ -394,6 +400,7 @@ export const normalizePageDsl = (
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
       return { ...(raw as Record<string, unknown>) };
     })(),
+    masterDetail: normalizeMasterDetail(config.masterDetail),
     controller: (() => {
       const raw =
         config.controller && typeof config.controller === 'object'
