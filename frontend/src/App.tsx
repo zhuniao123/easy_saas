@@ -1314,6 +1314,14 @@ function App() {
                 key={`${activeTab.id}-${locale}-${theme}`}
                 pageCode={activeTab.pageCode}
                 mode={activeTab.mode === 'config' ? 'config' : 'runtime'}
+                onOpenPage={(targetPageCode, title) => {
+                  const page = pages.find((p) => p.pageCode === targetPageCode);
+                  openTab(
+                    targetPageCode,
+                    title || page?.title || targetPageCode,
+                    'runtime',
+                  );
+                }}
                 onOpenConfig={
                   activeTab.mode === 'runtime' && canConfig()
                     ? () => {

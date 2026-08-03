@@ -131,11 +131,14 @@ export default function PageLoader({
   pageCode,
   mode = 'runtime',
   onOpenConfig,
+  onOpenPage,
 }: {
   pageCode: string;
   mode?: 'config' | 'runtime';
   /** Shell can switch this page into Factory config mode */
   onOpenConfig?: () => void;
+  /** Shell opens another page as a runtime tab */
+  onOpenPage?: (targetPageCode: string, title?: string) => void;
 }) {
   const [config, setConfig] = useState<PageConfig | null>(null);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
@@ -294,8 +297,11 @@ export default function PageLoader({
         scriptCode,
         notify,
         openPage: (next) => {
-          // Soft signal for shell integration; full SPA navigation is host-owned.
-          notify(`openPage: ${next}`);
+          if (onOpenPage) {
+            onOpenPage(next);
+            return;
+          }
+          notify(`openPage: ${next}（壳层未接入跳转）`);
         },
       });
       if (cancelled) {
@@ -313,9 +319,9 @@ export default function PageLoader({
       void controllerRef.current?.dispose();
       controllerRef.current = null;
     };
-    // notify is intentionally not listed — remount only when controller binding or page changes
+    // notify / onOpenPage intentionally not listed — remount only when controller binding or page changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageCode, pageDsl.controller?.scriptCode, pageDsl.controller?.enabled, config?.pageCode]);
+  }, [pageCode, pageDsl.controller?.scriptCode, pageDsl.controller?.enabled, config?.pageCode, onOpenPage]);
 
   const normalizeRequestParams = (params: Record<string, string>) =>
     Object.fromEntries(Object.entries(params).map(([key, value]) => [key, value.trim() === '' ? null : value]));
@@ -599,6 +605,13 @@ export default function PageLoader({
       refresh: () => refreshData(),
       openCreate,
       openDrillDown: setDrillDown,
+      openPage: (target, title) => {
+        if (onOpenPage) {
+          onOpenPage(target, title);
+          return;
+        }
+        notify(`openPage: ${target}（壳层未接入跳转）`);
+      },
       notify,
       t,
     })).catch(() => {

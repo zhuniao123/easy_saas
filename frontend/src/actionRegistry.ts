@@ -22,6 +22,14 @@ export interface OpenQueryConfig {
   bind?: Record<string, SqlBindSpec>;
 }
 
+/** Navigate to another page tab in the SPA shell (not a drill-down drawer). */
+export interface OpenPageConfig {
+  pageCode: string;
+  /** Optional tab title override; shell falls back to page title from catalog. */
+  title?: string;
+  mode?: 'runtime' | 'config';
+}
+
 export interface DrillDownRequest {
   queryCode: string;
   title: string;
@@ -32,7 +40,7 @@ export interface DrillDownRequest {
 export interface ActionConfig {
   code: string;
   label: string;
-  /** builtin | sqlTransaction | openQuery | client */
+  /** builtin | sqlTransaction | openQuery | openPage | client */
   type?: string;
   /** Catalog key; defaults to code when type=sqlTransaction */
   actionCode?: string;
@@ -44,6 +52,7 @@ export interface ActionConfig {
   /** Page-embedded SQL tx (server still loads from DB; never sent as SQL body) */
   sqlTransaction?: SqlTransactionConfig;
   openQuery?: OpenQueryConfig;
+  openPage?: OpenPageConfig;
   when?: {
     field: string;
     equals?: string | number | boolean;
@@ -129,6 +138,8 @@ export interface ActionContext {
   refresh: () => void;
   openCreate: (seed?: Record<string, unknown>) => void;
   openDrillDown?: (request: DrillDownRequest) => void;
+  /** Open another page as a shell tab (runtime). */
+  openPage?: (pageCode: string, title?: string) => void;
   notify: (message: string) => void;
   t: Translator;
 }
@@ -276,6 +287,23 @@ const executeOpenQuery: ActionHandler = async (action, context) => {
   }
 };
 
+const executeOpenPage: ActionHandler = async (action, context) => {
+  const cfg = action.openPage;
+  const pageCode = cfg?.pageCode || (action as { pageCode?: string }).pageCode;
+  if (!pageCode) {
+    context.notify(context.t('action.notRegistered', { label: action.label }));
+    return;
+  }
+  if (!context.openPage) {
+    context.notify('Page navigation is not available in this host');
+    return;
+  }
+  const title = cfg?.title
+    ? interpolateTitle(cfg.title, context.row)
+    : undefined;
+  context.openPage(String(pageCode), title);
+};
+
 const executeSqlTransaction: ActionHandler = async (action, context) => {
   const actionCode = action.actionCode || action.code;
   if (!actionCode) {
@@ -321,6 +349,9 @@ export const resolveActionHandler = (action: ActionConfig): ActionHandler | null
   const type = (action.type || '').toLowerCase();
   if (type === 'openquery' || action.openQuery) {
     return executeOpenQuery;
+  }
+  if (type === 'openpage' || action.openPage) {
+    return executeOpenPage;
   }
   if (type === 'sqltransaction' || action.sqlTransaction) {
     return executeSqlTransaction;

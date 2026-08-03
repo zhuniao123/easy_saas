@@ -105,7 +105,12 @@ VALUES (
       { "field": "where_to_go", "label": "对应", "width": 160 }
     ],
     "filters": [],
-    "actions": []
+    "actions": [
+      {"code":"go_notes","type":"openPage","label":"打开「我的便签」","scope":"page","variant":"primary",
+        "openPage":{"pageCode":"simple_tour_notes","title":"我的便签"}},
+      {"code":"go_join","type":"openPage","label":"打开「联表只读」","scope":"page","variant":"secondary",
+        "openPage":{"pageCode":"simple_tour_join","title":"联表只读"}}
+    ]
   }
 }
 $cfg$::jsonb
@@ -266,7 +271,12 @@ VALUES (
         "options": { "source": "dict", "dictCode": "tour.note_status" }
       }
     ],
-    "actions": []
+    "actions": [
+      {"code":"go_join","type":"openPage","label":"去联表页","scope":"page","variant":"secondary",
+        "openPage":{"pageCode":"simple_tour_join","title":"联表只读"}},
+      {"code":"go_guide","type":"openPage","label":"回导览","scope":"page","variant":"secondary",
+        "openPage":{"pageCode":"simple_tour_guide","title":"上手导览"}}
+    ]
   }
 }
 $cfg$::jsonb
@@ -329,7 +339,12 @@ VALUES (
       { "field": "title", "label": "标题", "type": "text", "operator": "ilike" },
       { "field": "category_name", "label": "分类名", "type": "text", "operator": "ilike" }
     ],
-    "actions": []
+    "actions": [
+      {"code":"go_notes","type":"openPage","label":"去便签页（可写）","scope":"page","variant":"primary",
+        "openPage":{"pageCode":"simple_tour_notes","title":"我的便签"}},
+      {"code":"go_guide","type":"openPage","label":"回导览","scope":"page","variant":"secondary",
+        "openPage":{"pageCode":"simple_tour_guide","title":"上手导览"}}
+    ]
   }
 }
 $cfg$::jsonb

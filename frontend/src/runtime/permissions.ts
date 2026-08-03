@@ -8,7 +8,7 @@
  * - Backend interceptors remain the security source of truth
  */
 import type { ActionConfig } from '../actionRegistry';
-import { can, canAction, canQuery, getProfile } from '../auth';
+import { can, canPage, canAction, canQuery, getProfile } from '../auth';
 
 export { can, canPage, canAction, canQuery } from '../auth';
 
@@ -51,6 +51,11 @@ export function isActionAllowed(action: ActionConfig): boolean {
   if (type === 'openquery' || action.openQuery) {
     const qc = action.openQuery?.queryCode;
     return !qc || canQuery(qc);
+  }
+  if (type === 'openpage' || action.openPage) {
+    const pc = action.openPage?.pageCode;
+    // Shell still enforces page:* when opening; hide button if clearly denied.
+    return !pc || canPage(pc) || can('perm:config');
   }
   // builtin / client: no resource code in RBAC catalog yet
   return true;

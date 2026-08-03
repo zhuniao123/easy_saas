@@ -55,6 +55,35 @@ curl -s -X POST http://127.0.0.1:8081/api/v1/dynamic/ep_tour_echo \
 # 期望 doubled=6
 ```
 
+### ④ 页面间跳转
+
+两种方式：
+
+**A. 按钮（page DSL `openPage`）** — 导览/便签/联表页顶部已有：
+
+```json
+{
+  "code": "go_notes",
+  "type": "openPage",
+  "label": "打开「我的便签」",
+  "scope": "page",
+  "openPage": { "pageCode": "simple_tour_notes", "title": "我的便签" }
+}
+```
+
+**B. Script 里跳转：**
+
+```js
+ctx.navigation.openPage('simple_tour_join')
+```
+
+**区别：**
+
+| 方式 | 效果 |
+|------|------|
+| `openPage` | 新开/切换 **整页 Tab**（另一个 pageCode） |
+| `openQuery` | 右侧 **抽屉** 钻取（还是当前页） |
+
 ## 和 Slice Lab 的关系
 
 仓库里还有更全的 **Slice Lab**（图表 / CTE / Controller Lab）：

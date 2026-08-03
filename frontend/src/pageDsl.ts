@@ -264,6 +264,21 @@ const normalizeActions = (actions: unknown): ActionConfig[] =>
               action.openQuery && typeof action.openQuery === 'object'
                 ? (action.openQuery as ActionConfig['openQuery'])
                 : undefined,
+            openPage:
+              action.openPage && typeof action.openPage === 'object'
+                ? {
+                    pageCode: String(
+                      (action.openPage as Record<string, unknown>).pageCode || '',
+                    ),
+                    title: (action.openPage as Record<string, unknown>).title
+                      ? String((action.openPage as Record<string, unknown>).title)
+                      : undefined,
+                    mode:
+                      (action.openPage as Record<string, unknown>).mode === 'config'
+                        ? 'config'
+                        : 'runtime',
+                  }
+                : undefined,
             when:
               action.when && typeof action.when === 'object'
                 ? {
