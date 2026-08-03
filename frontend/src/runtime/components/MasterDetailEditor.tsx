@@ -115,16 +115,47 @@ export default function MasterDetailEditor({
   );
 
   const startNew = useCallback(() => {
-    setHeader(emptyHeader(spec));
+    const base = emptyHeader(spec);
+    // Prefill from workspace click (sessionStorage)
+    const prefillKey =
+      (spec as { prefillStorageKey?: string }).prefillStorageKey ||
+      `page_prefill_${pageCode}`;
+    try {
+      const raw = sessionStorage.getItem(prefillKey);
+      if (raw) {
+        const pre = JSON.parse(raw) as Record<string, unknown>;
+        Object.assign(base, pre);
+        sessionStorage.removeItem(prefillKey);
+        setMessage(
+          pre.member_name
+            ? `已带入会员：${String(pre.member_name)}，请完善单号后保存`
+            : '已带入预填字段',
+        );
+      }
+    } catch {
+      // ignore
+    }
+    setHeader(base);
     setLines([]);
     setError(null);
-    setMessage(null);
-    setDirty(false);
-  }, [spec]);
+    setDirty(Boolean(base.member_name));
+  }, [spec, pageCode]);
 
   useEffect(() => {
-    // open first draft when list loads empty editor
-  }, []);
+    // Auto-apply prefill when landing from workspace without clicking 新建
+    const prefillKey =
+      (spec as { prefillStorageKey?: string }).prefillStorageKey ||
+      `page_prefill_${pageCode}`;
+    try {
+      if (sessionStorage.getItem(prefillKey)) {
+        startNew();
+      }
+    } catch {
+      // ignore
+    }
+    // only on mount / page change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageCode]);
 
   const patchHeader = (field: string, value: unknown) => {
     if (readOnly) return;

@@ -30,6 +30,8 @@ export interface WizardSpec {
   enabled?: boolean;
   /** Optional actionCode called on finish (sqlTransaction / client). */
   finishActionCode?: string;
+  /** State keys that must be non-empty before finish. */
+  requiredOnFinish?: string[];
   steps: WizardStepSpec[];
 }
 
@@ -105,10 +107,15 @@ export function normalizeWizard(raw: unknown): WizardSpec | undefined {
     });
   }
   if (steps.length === 0) return undefined;
+  const requiredOnFinish = Array.isArray(obj.requiredOnFinish)
+    ? obj.requiredOnFinish.map((x) => String(x)).filter(Boolean)
+    : undefined;
+
   return {
     enabled: true,
     finishActionCode:
       obj.finishActionCode != null ? String(obj.finishActionCode) : undefined,
+    requiredOnFinish,
     steps,
   };
 }

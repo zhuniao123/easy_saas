@@ -35,6 +35,8 @@ export interface MasterDetailSpec {
   submitStatus?: string;
   /** Title shown above editor. */
   title?: string;
+  /** sessionStorage key for prefill from workspace row click. */
+  prefillStorageKey?: string;
 }
 
 export type LineRowState = 'added' | 'modified' | 'deleted' | 'unchanged';
@@ -84,6 +86,8 @@ export function normalizeMasterDetail(raw: unknown): MasterDetailSpec | undefine
     title: obj.title != null ? String(obj.title) : undefined,
     draftStatus: obj.draftStatus != null ? String(obj.draftStatus) : 'draft',
     submitStatus: obj.submitStatus != null ? String(obj.submitStatus) : 'submitted',
+    prefillStorageKey:
+      obj.prefillStorageKey != null ? String(obj.prefillStorageKey) : undefined,
     header: {
       entityCode: String(header.entityCode),
       primaryKey: header.primaryKey != null ? String(header.primaryKey) : 'id',

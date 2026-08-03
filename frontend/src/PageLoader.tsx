@@ -1658,24 +1658,48 @@ export default function PageLoader({
           <WorkspaceShell
             workspace={pageDsl.workspace}
             items={componentHostItems}
-            onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
+            onEvent={(event) => {
+              if (event.type === 'requestOpenPage' && event.payload?.pageCode) {
+                const target = String(event.payload.pageCode);
+                const title =
+                  event.payload.title != null ? String(event.payload.title) : undefined;
+                if (onOpenPage) {
+                  onOpenPage(target, title);
+                } else {
+                  notify(`openPage: ${target}（壳层未接入跳转）`);
+                }
+              }
+              emitControllerEvent(event.type, event.componentCode, event.payload);
+            }}
           />
         ) : pageDsl.wizard?.enabled ? (
           <WizardShell
             wizard={pageDsl.wizard}
             items={componentHostItems}
             onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
-            onFinish={async () => {
+            onFinish={async ({ state }) => {
               const code = pageDsl.wizard?.finishActionCode;
-              if (!code) return;
+              if (!code) {
+                notify('向导完成（未配置 finishActionCode）');
+                return;
+              }
               const res = await fetch(`/api/v1/actions/${encodeURIComponent(code)}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pageCode, params: {}, row: {}, form: {} }),
+                body: JSON.stringify({
+                  pageCode,
+                  params: { ...state },
+                  row: {},
+                  form: { ...state },
+                }),
               });
+              const body = await res.json().catch(() => ({}));
               if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
                 throw new Error(String(body.message || body.error || 'Finish action failed'));
+              }
+              notify(String(body.message || '操作成功'));
+              if (queryCode) {
+                executeQuery(queryCode, page, pageSize, sortField, sortOrder, filterValues);
               }
             }}
           />

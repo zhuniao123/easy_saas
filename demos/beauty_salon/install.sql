@@ -374,7 +374,19 @@ INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code
       "componentCode": "member_list",
       "type": "simpleGrid",
       "dataSource": { "type": "sql", "queryCode": "q_beauty_members_biz" },
-      "properties": { "title": "在册会员", "maxRows": 30 }
+      "properties": {
+        "title": "在册会员 · 点击开单",
+        "maxRows": 30,
+        "openPageOnClick": {
+          "pageCode": "beauty_order_md",
+          "title": "服务开单",
+          "prefillKey": "page_prefill_beauty_order_md",
+          "map": {
+            "member_name": "member_name",
+            "member_id": "id"
+          }
+        }
+      }
     },
     { "componentCode": "appt_grid", "type": "smartGrid" },
     {
@@ -513,6 +525,7 @@ INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code
     "title": "服务订单",
     "draftStatus": "draft",
     "submitStatus": "submitted",
+    "prefillStorageKey": "page_prefill_beauty_order_md",
     "header": {
       "entityCode": "entity_beauty_order",
       "primaryKey": "id",
@@ -610,55 +623,77 @@ INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code
   "version": 1,
   "presentation": {
     "title": "会员开卡向导",
-    "description": "步骤 UI + 真卡项列表。完成事件预留短信插件（SQL 出手机号 + Groovy）。",
+    "description": "选会员 → 选卡项 → 确认。完成执行 act_beauty_open_card 写入 beauty_member_card 并增加会员余额。",
     "badge": "Wizard"
   },
   "features": { "create": false, "edit": false, "delete": false, "pagination": false },
   "wizard": {
     "enabled": true,
+    "finishActionCode": "act_beauty_open_card",
+    "requiredOnFinish": ["member_id", "product_id"],
     "steps": [
       {
         "code": "member",
-        "title": "选择/填写会员",
-        "description": "生产环境可绑定会员选择器；现用说明 + 会员列表参考。",
-        "components": ["step_member_hint", "step_member_list"]
+        "title": "选择会员",
+        "description": "点击一行选中会员（写入向导状态）。",
+        "components": ["step_member_list"]
       },
       {
         "code": "product",
         "title": "选择卡项",
-        "description": "beauty_card_product 真数据。",
+        "description": "点击一行选中卡项产品。",
         "components": ["step_products"]
       },
       {
         "code": "confirm",
         "title": "确认开卡",
-        "description": "完成后可接 Action 写 beauty_member_card + 短信插件。",
-        "components": ["step_confirm"]
+        "description": "可改备注；确认后整单事务写卡并加余额。",
+        "components": ["step_confirm_form"]
       }
     ]
   },
   "components": [
     {
-      "componentCode": "step_member_hint",
-      "type": "text",
-      "properties": {
-        "title": "会员",
-        "content": "从左侧工作台或会员台账选定会员后开卡。插件：开卡成功 → query 手机号 → Groovy 短信模板。"
-      }
-    },
-    {
       "componentCode": "step_member_list",
       "type": "simpleGrid",
       "dataSource": { "type": "sql", "queryCode": "q_beauty_members_biz" },
-      "properties": { "title": "可选会员", "maxRows": 20 }
-    },
-    { "componentCode": "step_products", "type": "smartGrid" },
-    {
-      "componentCode": "step_confirm",
-      "type": "text",
       "properties": {
-        "title": "确认",
-        "content": "点完成触发 wizardFinish。下一步：sqlTransaction 插入 beauty_member_card，outbox 发短信。"
+        "title": "点击选择会员",
+        "maxRows": 50,
+        "selectable": true,
+        "selectionMap": {
+          "member_id": "id",
+          "member_name": "member_name",
+          "phone": "phone"
+        }
+      }
+    },
+    {
+      "componentCode": "step_products",
+      "type": "simpleGrid",
+      "dataSource": { "type": "sql", "queryCode": "q_beauty_card_products" },
+      "properties": {
+        "title": "点击选择卡项",
+        "maxRows": 50,
+        "selectable": true,
+        "selectionMap": {
+          "product_id": "id",
+          "product_name": "product_name",
+          "price": "price",
+          "gift_amount": "gift_amount"
+        }
+      }
+    },
+    {
+      "componentCode": "step_confirm_form",
+      "type": "formFields",
+      "properties": {
+        "title": "开卡确认",
+        "fields": [
+          { "name": "member_name", "label": "会员", "readOnly": true },
+          { "name": "product_name", "label": "卡项", "readOnly": true },
+          { "name": "remark", "label": "备注", "type": "text", "placeholder": "可选" }
+        ]
       }
     }
   ],
@@ -676,6 +711,75 @@ INSERT INTO lc_page_model (page_code, title, route_path, query_code, entity_code
 }$cfg$::jsonb
 );
 
+-- Open card SQL assets + action
+DELETE FROM lc_action WHERE action_code = 'act_beauty_open_card';
+DELETE FROM lc_query_model WHERE query_code IN (
+  'sql_beauty_open_card', 'sql_beauty_open_card_balance', 'sql_beauty_assert_member', 'sql_beauty_assert_product'
+);
+
+INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, query_mode, params_json) VALUES
+(
+  'sql_beauty_assert_member', NULL,
+  'SELECT (COUNT(*) = 1) AS ok FROM beauty_member WHERE id = CAST(:member_id AS INTEGER) AND status = 1',
+  'rawSql', '[]'::jsonb
+),
+(
+  'sql_beauty_assert_product', NULL,
+  'SELECT (COUNT(*) = 1) AS ok FROM beauty_card_product WHERE id = CAST(:product_id AS INTEGER) AND status = 1',
+  'rawSql', '[]'::jsonb
+),
+(
+  'sql_beauty_open_card', NULL,
+  $sql$
+INSERT INTO beauty_member_card (card_no, member_id, product_id, balance, status, expire_at)
+SELECT
+  'C' || to_char(NOW(), 'YYYYMMDDHH24MISS') || lpad((floor(random()*900)+100)::int::text, 3, '0'),
+  CAST(:member_id AS INTEGER),
+  CAST(:product_id AS INTEGER),
+  p.price + p.gift_amount,
+  'active',
+  (CURRENT_DATE + p.valid_days)
+FROM beauty_card_product p
+WHERE p.id = CAST(:product_id AS INTEGER)
+$sql$,
+  'dml', '[]'::jsonb
+),
+(
+  'sql_beauty_open_card_balance', NULL,
+  $sql$
+UPDATE beauty_member m
+SET balance = m.balance + p.price + p.gift_amount,
+    updated_at = NOW()
+FROM beauty_card_product p
+WHERE m.id = CAST(:member_id AS INTEGER)
+  AND p.id = CAST(:product_id AS INTEGER)
+$sql$,
+  'dml', '[]'::jsonb
+);
+
+INSERT INTO lc_action (action_code, action_type, label, config_json, enabled) VALUES
+(
+  'act_beauty_open_card',
+  'sqlTransaction',
+  '开卡入账',
+  $cfg${
+    "type": "sqlTransaction",
+    "refresh": true,
+    "successMessage": "开卡成功，余额已入账",
+    "bind": {
+      "member_id": { "from": "form", "field": "member_id", "required": true },
+      "product_id": { "from": "form", "field": "product_id", "required": true }
+    },
+    "statements": [
+      { "name": "member_ok", "kind": "assert", "sqlAssetCode": "sql_beauty_assert_member" },
+      { "name": "product_ok", "kind": "assert", "sqlAssetCode": "sql_beauty_assert_product" },
+      { "name": "insert_card", "kind": "write", "sqlAssetCode": "sql_beauty_open_card" },
+      { "name": "add_balance", "kind": "write", "sqlAssetCode": "sql_beauty_open_card_balance" }
+    ]
+  }$cfg$::jsonb,
+  true
+);
+
 INSERT INTO lc_script (script_code, script_type, script_content, status, version, page_code, remark)
 VALUES (
   'ctrl_beauty_salon',
@@ -686,7 +790,20 @@ export default {
     ctx.ui.log('info', 'beauty salon ready', { page: ctx.pageCode });
   },
   async onEvent(event, ctx) {
-    if (event.type === 'rowClick' || event.type === 'itemClick' || event.type === 'wizardFinish') {
+    if (event.type === 'requestOpenPage') {
+      ctx.ui.toast('打开: ' + (event.payload?.pageCode || '') +
+        (event.payload?.prefill?.member_name ? ' · ' + event.payload.prefill.member_name : ''));
+      return;
+    }
+    if (event.type === 'rowClick' && event.payload?.selected) {
+      ctx.ui.toast('已选择: ' + (event.payload?.name || ''));
+      return;
+    }
+    if (event.type === 'wizardFinish') {
+      ctx.ui.toast('开卡完成');
+      return;
+    }
+    if (event.type === 'rowClick' || event.type === 'itemClick') {
       const name = event.payload?.title || event.payload?.name
         || event.payload?.row?.member_name || event.payload?.row?.service_name
         || event.payload?.row?.product_name || event.componentCode;
@@ -717,9 +834,15 @@ FROM (VALUES
 ) AS t(q)
 ON CONFLICT (perm_code) DO NOTHING;
 
+INSERT INTO lc_permission (perm_code, perm_type, resource_code, description)
+VALUES ('action:act_beauty_open_card', 'action', 'act_beauty_open_card', 'Beauty open card')
+ON CONFLICT (perm_code) DO NOTHING;
+
 INSERT INTO lc_role_permission (role_code, perm_code)
 SELECT 'owner', perm_code FROM lc_permission
-WHERE perm_code LIKE 'page:beauty_%' OR perm_code LIKE 'query:q_beauty_%'
+WHERE perm_code LIKE 'page:beauty_%'
+   OR perm_code LIKE 'query:q_beauty_%'
+   OR perm_code = 'action:act_beauty_open_card'
 ON CONFLICT DO NOTHING;
 
 COMMIT;

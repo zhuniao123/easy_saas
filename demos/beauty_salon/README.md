@@ -26,13 +26,12 @@ docker exec -i saas-demo-postgres psql -U lowcode -d lowcode < demos/beauty_salo
 
 `beauty_member` · `beauty_staff` · `beauty_service` · `beauty_card_product` · `beauty_member_card` · `beauty_appointment` · `beauty_order` / `beauty_order_line`
 
-## 建议验收路径
+## 建议验收路径（可用闭环）
 
-1. `beauty_front_desk` — 左会员有数据，中预约可筛，右 KPI 非零  
-2. 点 **去开单** → `beauty_order_md` — 打开 `BO-DEMO-1` 或新建 → 加行 → 保存草稿 → 提交  
-3. `beauty_members` 新增会员，回工作台 simpleGrid 可见  
-4. `beauty_calendar_biz` 点预约 toast  
-5. `beauty_card_wizard` 三步完成  
+1. **`beauty_front_desk`** — 左栏 **点击会员** → 自动打开 `beauty_order_md` 并带入会员名 → 填单号 → 加明细 → 保存草稿/提交  
+2. **`beauty_card_wizard`** — 点选会员 → 点选卡项 → 确认开卡 → 查 `beauty_member_card` 与会员 `balance` 增加  
+3. `beauty_members` / `beauty_services` CRUD  
+4. `beauty_calendar_biz` 点预约  
 
 ## 工厂模板
 
@@ -40,4 +39,4 @@ docker exec -i saas-demo-postgres psql -U lowcode -d lowcode < demos/beauty_salo
 
 ## 插件（未做）
 
-开卡/短信/邮件：`sqlTransaction` 写 `beauty_member_card` → Groovy 出 payload → PluginHost。
+开卡后短信：`act_beauty_open_card` 成功 → Groovy/outbox → PluginHost.sendSms（手机号已在 form.phone）。

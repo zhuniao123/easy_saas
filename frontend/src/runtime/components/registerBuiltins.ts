@@ -4,6 +4,7 @@ import { renderSmartGrid } from './SmartGrid';
 import { createChartRenderer } from './charts/createChartRenderer';
 import { renderCalendar } from './CalendarView';
 import { renderSimpleGrid } from './SimpleGrid';
+import { renderFormFields } from './FormFields';
 
 export function registerBuiltinPageComponents(): void {
   registerPageComponent({
@@ -56,6 +57,11 @@ export function registerBuiltinPageComponents(): void {
     displayName: 'Simple Grid',
     render: renderSimpleGrid,
   });
+  registerPageComponent({
+    type: 'formFields',
+    displayName: 'Form Fields',
+    render: renderFormFields,
+  });
 }
 
 /** Component types that load data via DataSource registry (not the main page grid query). */
@@ -68,4 +74,5 @@ export const INDEPENDENT_DATA_COMPONENT_TYPES = new Set([
   'probe',
   'calendar',
   'simplegrid',
+  'formfields',
 ]);
