@@ -1,5 +1,6 @@
 export { default as ComponentHost } from './ComponentHost';
 export type { ComponentHostItem } from './ComponentHost';
+export { default as DashboardLayout } from './DashboardLayout';
 export {
   ComponentLoadingState,
   ComponentErrorState,

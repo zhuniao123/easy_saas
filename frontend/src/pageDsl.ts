@@ -1,7 +1,11 @@
 import type { ActionConfig, ColumnConfig, FilterConfig } from './actionRegistry';
 import type { ComponentSpec } from './runtime/componentTypes';
+import {
+  normalizeDashboardLayout,
+  type DashboardLayoutSpec,
+} from './runtime/layoutTypes';
 
-export type { ComponentSpec };
+export type { ComponentSpec, DashboardLayoutSpec };
 
 export interface PageDataSource {
   /**
@@ -75,6 +79,16 @@ export interface PageDslModel {
    * When omitted, runtime defaults to a single smartGrid bound to dataSource.queryCode.
    */
   components?: ComponentSpec[];
+  /**
+   * Optional fixed dashboard grid (Slice 7): Row → Column → Section → component codes.
+   * When omitted, components stack vertically (backward compatible).
+   */
+  layout?: DashboardLayoutSpec;
+  /**
+   * Page-level shared query params merged into every independent component dataSource.
+   * Filter bar values still override when the user sets them.
+   */
+  sharedParams?: Record<string, unknown>;
   /** Optional JS page controller (published script only). */
   controller?: PageControllerConfig;
   features: Required<PageFeatures>;
@@ -374,6 +388,12 @@ export const normalizePageDsl = (
       actions: tableActions.length > 0 ? tableActions : legacyActions,
     },
     components: normalizeComponents(config.components),
+    layout: normalizeDashboardLayout(config.layout),
+    sharedParams: (() => {
+      const raw = config.sharedParams ?? config.params;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+      return { ...(raw as Record<string, unknown>) };
+    })(),
     controller: (() => {
       const raw =
         config.controller && typeof config.controller === 'object'

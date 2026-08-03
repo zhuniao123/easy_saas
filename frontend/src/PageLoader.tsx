@@ -1165,11 +1165,13 @@ export default function PageLoader({
       }
 
       try {
+        // sharedParams (page-level) < component dataSource.params < active filters
         const table = await resolveDataSource({
           type: ds.type || 'sql',
           queryCode: ds.queryCode,
           cacheKey: ds.cacheKey,
           params: {
+            ...(pageDsl.sharedParams || {}),
             ...(ds.params || {}),
             ...Object.fromEntries(
               Object.entries(filterValues).filter(([, v]) => String(v || '').trim().length > 0),
@@ -1235,7 +1237,7 @@ export default function PageLoader({
     return () => {
       cancelled = true;
     };
-  }, [componentSpecs, filterValues]);
+  }, [componentSpecs, filterValues, pageDsl.sharedParams]);
 
   const smartGridStatus = resolveComponentStatus({
     loading: loadingQuery,
@@ -1639,6 +1641,7 @@ export default function PageLoader({
       <section className="space-y-4">
         <ComponentHost
           items={componentHostItems}
+          layout={pageDsl.layout}
           onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
         />
       </section>

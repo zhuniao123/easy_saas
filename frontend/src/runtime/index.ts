@@ -63,6 +63,7 @@ export type {
 export { resolveComponentStatus } from './componentTypes';
 export {
   ComponentHost,
+  DashboardLayout,
   ComponentLoadingState,
   ComponentErrorState,
   ComponentEmptyState,
@@ -71,6 +72,15 @@ export {
   renderProbeComponent,
 } from './components';
 export type { ComponentHostItem, SmartGridPageContext, SmartGridColumn } from './components';
+export {
+  normalizeDashboardLayout,
+  colSpanClass,
+  partitionLayoutCodes,
+  type DashboardLayoutSpec,
+  type DashboardRowSpec,
+  type DashboardColSpec,
+  type DashboardSectionSpec,
+} from './layoutTypes';
 export {
   mountPageController,
   loadPageControllerModule,

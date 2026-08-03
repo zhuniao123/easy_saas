@@ -301,19 +301,28 @@ Page DSL 示例：
 
 ### Slice 7：DashboardTemplate
 
+状态：**已完成**（2026-08-02）
+
 工作项：
 
-- 实现固定 Row/Column/Section 网格，不做拖拽设计器。
-- 支持页面级共享参数和组件独立数据源。
-- 支持组件独立刷新和 JS 联动。
-- 建立 MRFM Dashboard 示例。
+- [x] 实现固定 Row/Column/Section 网格，不做拖拽设计器。
+- [x] 支持页面级共享参数（`sharedParams`）和组件独立数据源。
+- [x] 支持组件独立刷新（section `refreshable` + handle.refresh）和 JS 联动（既有 controller 事件）。
+- [x] 建立 Dashboard Lite 示例（`demos/dashboard_lite`）。
 
 验收：展示今日预约、今日营收、待结算订单、员工业绩、项目分类和明细表。
+
+落地：
+
+- `frontend/src/runtime/layoutTypes.ts` — layout 规范化
+- `frontend/src/runtime/components/DashboardLayout.tsx` — 12 列网格渲染
+- `ComponentHost` / `PageLoader` / `pageDsl` 接入 `layout` + `sharedParams`
+- Demo：`demos/dashboard_lite`（`dash_lite_home` / `dash_lite_guide`）
 
 建议提交：
 
 ```text
-feat: add dashboard template and mrmf dashboard demo
+feat: add dashboard layout and dashboard lite demo
 ```
 
 ### Slice 8：MasterDetailTemplate
@@ -361,6 +370,6 @@ feat: add mrmf order and service line demo
 
 ## 7. 当前执行顺序
 
-- Slice 1–5：**已完成**
-- Slice 6：**已完成**
-- 下一步：**Slice 7** — DashboardTemplate
+- Slice 1–6：**已完成**
+- Slice 7：**已完成**（DashboardTemplate / Dashboard Lite）
+- 下一步：**Slice 8** — MasterDetailTemplate
