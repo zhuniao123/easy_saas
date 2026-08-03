@@ -233,6 +233,7 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
                       { code: 'crud_grid', name: 'CRUD 表格', description: '' },
                       { code: 'status_board', name: '状态看板', description: '' },
                       { code: 'readonly_sql', name: '只读 SQL', description: '' },
+                      { code: 'dashboard_lite', name: 'Dashboard Lite', description: '' },
                       { code: 'blank', name: '空白页', description: '' },
                     ]
                 ).map((tpl) => (
@@ -245,13 +246,19 @@ function PageManagerConsole({ pages, onPageCreated, onPageDeleted, openTab, t }:
           </div>
 
           {/* Template cards */}
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             {(templates.length
               ? templates
               : [
                   { code: 'crud_grid', name: 'CRUD 表格', description: t('app.templateCrudHint'), createsTable: true },
                   { code: 'status_board', name: '状态看板', description: t('app.templateStatusHint'), createsTable: true },
                   { code: 'readonly_sql', name: '只读 SQL', description: t('app.templateReadonlyHint'), createsTable: false },
+                  {
+                    code: 'dashboard_lite',
+                    name: 'Dashboard Lite',
+                    description: t('app.templateDashboardHint'),
+                    createsTable: false,
+                  },
                   { code: 'blank', name: '空白页', description: t('app.templateBlankHint'), createsTable: false },
                 ]
             ).map((tpl) => {

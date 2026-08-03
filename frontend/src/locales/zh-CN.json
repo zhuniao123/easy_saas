@@ -23,6 +23,7 @@
   "app.templateCrudHint": "建表 + 单表 CRUD 可写模板",
   "app.templateStatusHint": "CRUD + status 字段与筛选",
   "app.templateReadonlyHint": "rawSql 只读报表/视图",
+  "app.templateDashboardHint": "固定栅格 KPI/图表/明细，不建业务表",
   "app.templateBlankHint": "最小骨架，自行配置 SQL",
   "app.rawSqlDriven": "Raw SQL first • 配置驱动 • 可展示",
   "app.creating": "创建中",

@@ -2,7 +2,18 @@
 
 固定 **Row / Column / Section** 网格 + SQL 驱动组件，**不做拖拽设计器**。
 
-## 安装
+## 工厂一键建页
+
+页面工厂模板 **`dashboard_lite`** 已注册：
+
+1. 打开工厂 → 选模板 **Dashboard Lite**
+2. 填 pageCode / 标题 / 路由 → 创建
+3. 运行态即可看到 KPI 行 + 趋势图 + 明细表
+4. 在 SQL 仓库改 `q_<pageCode>` / `_kpi` / `_series` 接入真实数据
+
+不建业务表；删页时会清理主 query 与 companion `_kpi` / `_series`。
+
+## 安装完整门店看板 Demo
 
 ```bash
 psql "$DATABASE_URL" -f demos/dashboard_lite/install.sql

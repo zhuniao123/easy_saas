@@ -162,6 +162,12 @@ public class PageService {
         list.add(templateMeta("crud_grid", "CRUD 表格", "可写单表：id/name/时间戳，完整增删改查", true, "singleTableTemplate"));
         list.add(templateMeta("status_board", "状态看板", "可写单表 + status 字段与筛选，适合待办/工单", true, "singleTableTemplate"));
         list.add(templateMeta("readonly_sql", "只读 SQL 视图", "rawSql 只读页，不建业务表，适合报表/预警", false, "rawSql"));
+        list.add(templateMeta(
+                "dashboard_lite",
+                "Dashboard Lite",
+                "固定 Row/Column 栅格 + KPI/图表/明细；不建业务表，替换 query SQL 即可",
+                false,
+                "rawSql"));
         list.add(templateMeta("blank", "空白页", "最小骨架：占位 SQL + 空列配置，自行在配置态完善", false, "rawSql"));
         return list;
     }
@@ -197,6 +203,8 @@ public class PageService {
         String configJson;
         boolean createPhysicalTable = false;
         String createTableSql = null;
+        // Extra rawSql queries for multi-component templates (e.g. dashboard KPI/chart).
+        List<Map<String, String>> extraQueries = new ArrayList<>();
 
         switch (template) {
             case "status_board" -> {
@@ -343,8 +351,138 @@ public class PageService {
                     }
                     """.formatted(safeTitle, queryCode);
             }
+            case "dashboard_lite" -> {
+                // No physical table. Scaffold layout + sample KPI/chart/detail SQL (rawSql).
+                queryMode = "rawSql";
+                entityCode = null;
+                String kpiQueryCode = queryCode + "_kpi";
+                String seriesQueryCode = queryCode + "_series";
+                sqlText = """
+                    SELECT * FROM (VALUES
+                      (1, '示例行 A', 100),
+                      (2, '示例行 B', 200),
+                      (3, '替换 q_%s 的 SQL 即可接入真实明细', 0)
+                    ) AS t(id, name, amount)
+                    ORDER BY id
+                    """.formatted(pageCode).trim();
+                fieldsJson = "[]";
+                Map<String, String> kpiQ = new LinkedHashMap<>();
+                kpiQ.put("queryCode", kpiQueryCode);
+                kpiQ.put("sqlText", "SELECT 42::int AS metric_a, 1280.5::numeric AS metric_b, 7::int AS metric_c");
+                kpiQ.put("queryMode", "rawSql");
+                extraQueries.add(kpiQ);
+                Map<String, String> seriesQ = new LinkedHashMap<>();
+                seriesQ.put("queryCode", seriesQueryCode);
+                seriesQ.put("sqlText", """
+                    SELECT d::text AS category, (10 + EXTRACT(DAY FROM d)::int % 5)::int AS value
+                    FROM generate_series(CURRENT_DATE - 6, CURRENT_DATE, '1 day'::interval) AS d
+                    ORDER BY d
+                    """.trim());
+                seriesQ.put("queryMode", "rawSql");
+                extraQueries.add(seriesQ);
+                configJson = """
+                    {
+                      "presentation": {
+                        "title": "%s",
+                        "description": "Dashboard Lite：固定 12 列 layout + 独立 dataSource。改 SQL 即可，不写 Java。",
+                        "badge": "Dashboard Lite",
+                        "emptyState": "No detail rows."
+                      },
+                      "dataSource": { "queryCode": "%s", "pageSize": 20, "pageSizeOptions": [20, 50, 100] },
+                      "layout": {
+                        "type": "dashboard",
+                        "gap": 16,
+                        "rows": [
+                          {
+                            "cols": [
+                              { "span": 4, "components": ["kpi_a"] },
+                              { "span": 4, "components": ["kpi_b"] },
+                              { "span": 4, "components": ["kpi_c"] }
+                            ]
+                          },
+                          {
+                            "cols": [
+                              {
+                                "span": 12,
+                                "section": { "title": "趋势", "description": "query %s", "refreshable": true },
+                                "components": ["chart_series"]
+                              }
+                            ]
+                          },
+                          {
+                            "cols": [
+                              {
+                                "span": 12,
+                                "section": { "title": "明细", "description": "主 query %s" },
+                                "components": ["main_grid"]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "components": [
+                        {
+                          "componentCode": "kpi_a",
+                          "type": "stat",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "bindings": { "value": "metric_a" },
+                          "properties": { "title": "指标 A", "format": "number", "subtitle": "改 %s SQL" }
+                        },
+                        {
+                          "componentCode": "kpi_b",
+                          "type": "stat",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "bindings": { "value": "metric_b" },
+                          "properties": { "title": "指标 B", "format": "money" }
+                        },
+                        {
+                          "componentCode": "kpi_c",
+                          "type": "stat",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "bindings": { "value": "metric_c" },
+                          "properties": { "title": "指标 C", "format": "number" }
+                        },
+                        {
+                          "componentCode": "chart_series",
+                          "type": "barChart",
+                          "dataSource": { "type": "sql", "queryCode": "%s" },
+                          "bindings": { "category": "category", "value": "value" },
+                          "properties": { "title": "", "legend": false, "height": 260 }
+                        },
+                        { "componentCode": "main_grid", "type": "smartGrid" }
+                      ],
+                      "table": {
+                        "columns": [
+                          { "field": "id", "label": "ID", "width": 72 },
+                          { "field": "name", "label": "名称", "width": 280 },
+                          { "field": "amount", "label": "金额", "width": 120, "format": "number", "align": "right" }
+                        ],
+                        "filters": [
+                          { "field": "name", "label": "名称", "type": "text" }
+                        ],
+                        "actions": [
+                          { "code": "refresh_grid", "label": "刷新", "dsl": "grid.refresh", "scope": "page", "variant": "primary" }
+                        ]
+                      },
+                      "features": {
+                        "pagination": true, "create": false, "edit": false, "delete": false,
+                        "export": true, "density": "comfortable"
+                      }
+                    }
+                    """.formatted(
+                        safeTitle,
+                        queryCode,
+                        seriesQueryCode,
+                        queryCode,
+                        kpiQueryCode,
+                        kpiQueryCode,
+                        kpiQueryCode,
+                        kpiQueryCode,
+                        seriesQueryCode);
+            }
             default -> throw new IllegalArgumentException(
-                    "Unknown page template: " + template + " (use crud_grid | status_board | readonly_sql | blank)");
+                    "Unknown page template: " + template
+                            + " (use crud_grid | status_board | readonly_sql | dashboard_lite | blank)");
         }
 
         if (createPhysicalTable && createTableSql != null) {
@@ -372,6 +510,18 @@ public class PageService {
             queryParams
         );
 
+        for (Map<String, String> extra : extraQueries) {
+            Map<String, Object> extraParams = new HashMap<>();
+            extraParams.put("queryCode", extra.get("queryCode"));
+            extraParams.put("entityCode", null);
+            extraParams.put("sqlText", extra.get("sqlText"));
+            extraParams.put("queryMode", extra.getOrDefault("queryMode", "rawSql"));
+            jdbcTemplate.update(
+                "INSERT INTO lc_query_model (query_code, anchor_entity, sql_text, query_mode) VALUES (:queryCode, :entityCode, :sqlText, :queryMode) ON CONFLICT (query_code) DO NOTHING",
+                extraParams
+            );
+        }
+
         Map<String, Object> pageParams = new HashMap<>();
         pageParams.put("pageCode", pageCode);
         pageParams.put("title", title);
@@ -385,6 +535,13 @@ public class PageService {
         );
 
         authService.registerFactoryPageResources(pageCode, queryCode);
+        for (Map<String, String> extra : extraQueries) {
+            String extraCode = extra.get("queryCode");
+            if (extraCode != null && !extraCode.isBlank()) {
+                // Register query perm only (no fake page: code).
+                authService.registerFactoryPageResources(null, extraCode);
+            }
+        }
     }
 
     public void deletePage(String pageCode) {
@@ -404,11 +561,20 @@ public class PageService {
         // Delete page
         jdbcTemplate.update("DELETE FROM lc_page_model WHERE page_code = :pageCode", params);
         
-        // Delete query
+        // Delete main query + dashboard companion queries (q_*_kpi / q_*_series)
         if (queryCode != null) {
-            Map<String, Object> qParams = new HashMap<>();
-            qParams.put("queryCode", queryCode);
-            jdbcTemplate.update("DELETE FROM lc_query_model WHERE query_code = :queryCode", qParams);
+            List<String> queryCodes = new ArrayList<>();
+            queryCodes.add(queryCode);
+            queryCodes.add(queryCode + "_kpi");
+            queryCodes.add(queryCode + "_series");
+            for (String code : queryCodes) {
+                Map<String, Object> qParams = new HashMap<>();
+                qParams.put("queryCode", code);
+                jdbcTemplate.update("DELETE FROM lc_query_model WHERE query_code = :queryCode", qParams);
+                if (!code.equals(queryCode)) {
+                    authService.unregisterFactoryPageResources(null, code);
+                }
+            }
         }
         
         // Delete entity
