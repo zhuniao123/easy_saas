@@ -23,7 +23,16 @@ describe('component registry', () => {
   test('registers smartGrid and probe by default', () => {
     // Registry keys are normalized to lowercase.
     expect(registeredPageComponentTypes()).toEqual(
-      expect.arrayContaining(['probe', 'smartgrid', 'stat', 'barchart', 'linechart', 'piechart', 'text']),
+      expect.arrayContaining([
+        'probe',
+        'smartgrid',
+        'stat',
+        'barchart',
+        'linechart',
+        'piechart',
+        'text',
+        'calendar',
+      ]),
     );
     expect(getPageComponent('smartGrid').displayName).toBe('Smart Grid');
     expect(getPageComponent('probe').type).toBe('probe');

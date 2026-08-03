@@ -355,15 +355,33 @@ feat: add transactional master detail save and demo
 
 ### Workspace
 
-先用三栏 Layout Component + JS Controller 实现。只有至少两个业务出现相同状态和事件模式时，再固化为 `workspaceTemplate`。
+状态：**组件/壳已落地**（2026-08-03）
+
+- 页面 DSL：`workspace: { left/center/right, span, components[] }`
+- 运行时：`WorkspaceShell` + 既有组件注册
+- Demo：`demos/beauty_templates` → `beauty_workspace`
+
+业务重复模式稳定后可再固化工厂模板 `workspace_lite`。
 
 ### Wizard
 
-先实现通用 Stepper Component，由 JS 管理步骤与状态，Groovy/Action 做服务端校验。重复模式稳定后再固化模板。
+状态：**组件/壳已落地**（2026-08-03）
+
+- 页面 DSL：`wizard: { steps[], finishActionCode? }`
+- 运行时：`WizardShell`；完成可调 Action 或发 `wizardFinish`
+- Demo：`beauty_wizard`（开卡向导骨架）
 
 ### Calendar
 
-先实现 Calendar Component，SQL 返回 `id/title/start/end/resourceId/status`。拖动和预约通过标准事件调用 Action/Dynamic Endpoint。
+状态：**组件已落地**（2026-08-03）
+
+- 注册组件 `type: calendar`，SQL bindings：`id/title/start/end/resourceId/status`
+- 点击 `itemClick`；拖拽改期后续接 Action/Endpoint
+- Demo：`beauty_calendar`
+
+### 插件（短信 / 邮件 / 开卡）— 未做
+
+数据与编排：`SQL 出参 + Groovy` → `PluginHost` / outbox；前端只保留事件与模板，不在组件内直连 HTTP。
 
 ## 6. 提交与验证纪律
 
@@ -377,6 +395,6 @@ feat: add transactional master detail save and demo
 
 ## 7. 当前执行顺序
 
-- Slice 1–7：**已完成**
-- Slice 8：**已完成**（MasterDetailTemplate）
-- 主线计划切片 1–8 已齐；后续按 roadmap 2.0 平台接驳 / 业务 polish
+- Slice 1–8：**已完成**
+- 后置模板 Workspace / Wizard / Calendar：**壳与组件已落地**（`demos/beauty_templates`）
+- 下一步：美容美发业务配置加深；或 PluginHost（短信/邮件/开卡）

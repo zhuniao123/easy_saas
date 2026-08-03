@@ -1,6 +1,9 @@
 export { default as ComponentHost } from './ComponentHost';
 export type { ComponentHostItem } from './ComponentHost';
 export { default as DashboardLayout } from './DashboardLayout';
+export { default as WorkspaceShell } from './WorkspaceShell';
+export { default as WizardShell } from './WizardShell';
+export { renderCalendar } from './CalendarView';
 export {
   ComponentLoadingState,
   ComponentErrorState,

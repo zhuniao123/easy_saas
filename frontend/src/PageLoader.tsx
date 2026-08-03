@@ -34,6 +34,8 @@ import {
 } from './runtime/components/registerBuiltins';
 import ComponentHost, { type ComponentHostItem } from './runtime/components/ComponentHost';
 import MasterDetailEditor from './runtime/components/MasterDetailEditor';
+import WorkspaceShell from './runtime/components/WorkspaceShell';
+import WizardShell from './runtime/components/WizardShell';
 import type { SmartGridPageContext } from './runtime/components/SmartGrid';
 import {
   mountPageController,
@@ -1649,6 +1651,31 @@ export default function PageLoader({
             onRefreshList={() => {
               if (queryCode) {
                 executeQuery(queryCode, page, pageSize, sortField, sortOrder, filterValues);
+              }
+            }}
+          />
+        ) : pageDsl.workspace?.enabled ? (
+          <WorkspaceShell
+            workspace={pageDsl.workspace}
+            items={componentHostItems}
+            onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
+          />
+        ) : pageDsl.wizard?.enabled ? (
+          <WizardShell
+            wizard={pageDsl.wizard}
+            items={componentHostItems}
+            onEvent={(event) => emitControllerEvent(event.type, event.componentCode, event.payload)}
+            onFinish={async () => {
+              const code = pageDsl.wizard?.finishActionCode;
+              if (!code) return;
+              const res = await fetch(`/api/v1/actions/${encodeURIComponent(code)}/execute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageCode, params: {}, row: {}, form: {} }),
+              });
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(String(body.message || body.error || 'Finish action failed'));
               }
             }}
           />

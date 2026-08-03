@@ -2,6 +2,8 @@ import { registerPageComponent } from '../componentRegistry';
 import { renderProbeComponent } from './ProbeComponent';
 import { renderSmartGrid } from './SmartGrid';
 import { createChartRenderer } from './charts/createChartRenderer';
+import { renderCalendar } from './CalendarView';
+import { renderSimpleGrid } from './SimpleGrid';
 
 export function registerBuiltinPageComponents(): void {
   registerPageComponent({
@@ -41,6 +43,19 @@ export function registerBuiltinPageComponents(): void {
     displayName: 'Text',
     render: createChartRenderer('text'),
   });
+
+  // Post Slice 8: SQL-driven calendar (appointments)
+  registerPageComponent({
+    type: 'calendar',
+    displayName: 'Calendar',
+    render: renderCalendar,
+  });
+  // Side-panel / secondary grids with own queryCode
+  registerPageComponent({
+    type: 'simpleGrid',
+    displayName: 'Simple Grid',
+    render: renderSimpleGrid,
+  });
 }
 
 /** Component types that load data via DataSource registry (not the main page grid query). */
@@ -51,4 +66,6 @@ export const INDEPENDENT_DATA_COMPONENT_TYPES = new Set([
   'piechart',
   'text',
   'probe',
+  'calendar',
+  'simplegrid',
 ]);

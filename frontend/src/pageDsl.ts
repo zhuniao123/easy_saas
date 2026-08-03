@@ -8,8 +8,20 @@ import {
   normalizeMasterDetail,
   type MasterDetailSpec,
 } from './runtime/masterDetailTypes';
+import {
+  normalizeWizard,
+  normalizeWorkspace,
+  type WizardSpec,
+  type WorkspaceSpec,
+} from './runtime/pageShellTypes';
 
-export type { ComponentSpec, DashboardLayoutSpec, MasterDetailSpec };
+export type {
+  ComponentSpec,
+  DashboardLayoutSpec,
+  MasterDetailSpec,
+  WorkspaceSpec,
+  WizardSpec,
+};
 
 export interface PageDataSource {
   /**
@@ -95,6 +107,10 @@ export interface PageDslModel {
   sharedParams?: Record<string, unknown>;
   /** Slice 8: header + lines editor (optional). */
   masterDetail?: MasterDetailSpec;
+  /** Three-column workspace (left / center / right). */
+  workspace?: WorkspaceSpec;
+  /** Multi-step wizard shell. */
+  wizard?: WizardSpec;
   /** Optional JS page controller (published script only). */
   controller?: PageControllerConfig;
   features: Required<PageFeatures>;
@@ -401,6 +417,8 @@ export const normalizePageDsl = (
       return { ...(raw as Record<string, unknown>) };
     })(),
     masterDetail: normalizeMasterDetail(config.masterDetail),
+    workspace: normalizeWorkspace(config.workspace),
+    wizard: normalizeWizard(config.wizard),
     controller: (() => {
       const raw =
         config.controller && typeof config.controller === 'object'
